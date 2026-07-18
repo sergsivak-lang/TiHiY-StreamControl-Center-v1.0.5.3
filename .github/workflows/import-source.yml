@@ -1,0 +1,59 @@
+name: Import TiHiY StreamControl Center source
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/import-source.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Clone verified source repository
+        run: |
+          git clone --depth 1 https://github.com/sergsivak-lang/TiHiY-StreamControl-Center.git /tmp/source
+
+      - name: Replace target contents with application source
+        shell: bash
+        run: |
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          cp -a /tmp/source/. .
+          rm -rf .git
+          cp -a /tmp/source/.github .github 2>/dev/null || true
+
+      - name: Set v1.0.5.3 version
+        shell: bash
+        run: |
+          printf 'v1.0.5.3\n' > VERSION.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('TiHiY.StreamControlCenter.csproj')
+          if p.exists():
+              text = p.read_text(encoding='utf-8')
+              replacements = {
+                  '<Version>1.0.5.2</Version>': '<Version>1.0.5.3</Version>',
+                  '<AssemblyVersion>1.0.5.2</AssemblyVersion>': '<AssemblyVersion>1.0.5.3</AssemblyVersion>',
+                  '<FileVersion>1.0.5.2</FileVersion>': '<FileVersion>1.0.5.3</FileVersion>',
+              }
+              for old, new in replacements.items():
+                  text = text.replace(old, new)
+              p.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit imported source
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Перенести повний WPF-проєкт і встановити v1.0.5.3'
+          git push origin HEAD:main
