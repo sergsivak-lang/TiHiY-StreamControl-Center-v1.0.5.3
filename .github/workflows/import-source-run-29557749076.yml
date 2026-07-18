@@ -3,6 +3,8 @@ name: Import exact Git tree from run 29557749076
 on:
   push:
     branches: [main]
+    paths:
+      - TRANSFER_RUN_29557749076.txt
   workflow_dispatch:
 
 permissions:
@@ -10,7 +12,6 @@ permissions:
 
 jobs:
   import-exact-tree:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[import-29557749076]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout destination branch
@@ -20,37 +21,61 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Fetch exact source commit
+      - name: Import exact source tree with diagnostics
         shell: bash
         run: |
-          set -euo pipefail
-          git remote remove source 2>/dev/null || true
-          git remote add source https://github.com/sergsivak-lang/TiHiY-StreamControl-Center.git
-          git fetch --no-tags source 92cf943e0445a980b0322bdfaa0339faa21bdc2b
-          test "$(git rev-parse FETCH_HEAD)" = "92cf943e0445a980b0322bdfaa0339faa21bdc2b"
+          set +e
+          LOG=/tmp/import-29557749076.log
+          : > "$LOG"
+          exec > >(tee -a "$LOG") 2>&1
 
-      - name: Replace branch tree with source snapshot
-        shell: bash
-        run: |
-          set -euo pipefail
-          git rm -r -f --ignore-unmatch .
-          git checkout FETCH_HEAD -- .
-
-          test -f TiHiY.StreamControlCenter.sln
-          test -f TiHiY.StreamControlCenter.csproj
-          test -f MainWindow.xaml
-          test -f Themes/StalkerReference.xaml
-          test -f Themes/UkraineReference.xaml
-          test "$(cat VERSION.txt)" = "v1.0.5.3-UKRAINE-REFERENCE-THEME"
-
-          git status --short
-
-      - name: Commit exact imported Git tree
-        shell: bash
-        run: |
-          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Import exact tree from run 29557749076 (92cf943)"
-          git push origin HEAD:feature/stalker-theme-and-chat-fixes
+
+          echo "START $(date -u +%FT%TZ)"
+          echo "TARGET_HEAD=$(git rev-parse HEAD)"
+
+          git remote remove source 2>/dev/null || true
+          git remote add source https://github.com/sergsivak-lang/TiHiY-StreamControl-Center.git
+          git fetch --no-tags source refs/heads/feature/stalker-theme-and-chat-fixes
+          FETCH_STATUS=$?
+          echo "FETCH_STATUS=$FETCH_STATUS"
+          FETCHED_SHA=$(git rev-parse FETCH_HEAD 2>/dev/null)
+          echo "FETCHED_SHA=$FETCHED_SHA"
+
+          if [ "$FETCH_STATUS" -eq 0 ] && [ "$FETCHED_SHA" = "92cf943e0445a980b0322bdfaa0339faa21bdc2b" ]; then
+            git rm -r -f --ignore-unmatch .
+            git checkout FETCH_HEAD -- .
+            CHECKOUT_STATUS=$?
+            echo "CHECKOUT_STATUS=$CHECKOUT_STATUS"
+
+            test -f TiHiY.StreamControlCenter.sln
+            S1=$?
+            test -f TiHiY.StreamControlCenter.csproj
+            S2=$?
+            test -f MainWindow.xaml
+            S3=$?
+            test -f Themes/StalkerReference.xaml
+            S4=$?
+            test -f Themes/UkraineReference.xaml
+            S5=$?
+            VERSION_VALUE=$(cat VERSION.txt 2>/dev/null)
+            echo "VERIFY=$S1,$S2,$S3,$S4,$S5 VERSION=$VERSION_VALUE"
+
+            if [ "$CHECKOUT_STATUS" -eq 0 ] && [ "$S1" -eq 0 ] && [ "$S2" -eq 0 ] && [ "$S3" -eq 0 ] && [ "$S4" -eq 0 ] && [ "$S5" -eq 0 ]; then
+              git add -A
+              git commit -m "Import exact tree from run 29557749076 (92cf943)"
+              COMMIT_STATUS=$?
+              git push origin HEAD:feature/stalker-theme-and-chat-fixes
+              PUSH_STATUS=$?
+              echo "COMMIT_STATUS=$COMMIT_STATUS PUSH_STATUS=$PUSH_STATUS"
+              exit "$PUSH_STATUS"
+            fi
+          fi
+
+          echo "IMPORT FAILED" | tee -a "$LOG"
+          cp "$LOG" IMPORT_29557749076_FAILED.log
+          git add IMPORT_29557749076_FAILED.log
+          git commit -m "Діагностика помилки перенесення 29557749076" || true
+          git push origin HEAD:feature/stalker-theme-and-chat-fixes || true
+          exit 1
