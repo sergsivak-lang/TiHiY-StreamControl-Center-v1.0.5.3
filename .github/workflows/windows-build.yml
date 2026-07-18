@@ -1,8 +1,6 @@
 name: Exact Transfer Run 29557749076
 
 on:
-  push:
-    branches: [main]
   pull_request:
     types: [reopened]
     branches: [main]
@@ -14,6 +12,9 @@ permissions:
 jobs:
   transfer-exact-source-tree:
     runs-on: ubuntu-latest
+    env:
+      SOURCE_SHA: 92cf943e0445a980b0322bdfaa0339faa21bdc2b
+      DESTINATION_BRANCH: feature/stalker-theme-and-chat-fixes
     steps:
       - name: Checkout destination branch
         uses: actions/checkout@v4
@@ -22,61 +23,68 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Import exact commit 92cf943
+      - name: Configure Git identity
         shell: bash
         run: |
-          set +e
-          SOURCE_SHA=92cf943e0445a980b0322bdfaa0339faa21bdc2b
-          LOG=/tmp/exact-transfer-29557749076.log
-          : > "$LOG"
-          exec > >(tee -a "$LOG") 2>&1
-
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "Destination before transfer: $(git rev-parse HEAD)"
 
-          echo "START=$(date -u +%FT%TZ)"
-          echo "TARGET_BEFORE=$(git rev-parse HEAD)"
-
-          git remote remove source 2>/dev/null || true
-          git remote add source https://github.com/sergsivak-lang/TiHiY-StreamControl-Center.git
-          git fetch --no-tags source +refs/heads/feature/stalker-theme-and-chat-fixes:refs/remotes/source/stalker
-          FETCH_STATUS=$?
-          echo "FETCH_STATUS=$FETCH_STATUS"
-          echo "SOURCE_BRANCH_TIP=$(git rev-parse refs/remotes/source/stalker 2>/dev/null)"
-
+      - name: Fetch exact source history
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags https://github.com/sergsivak-lang/TiHiY-StreamControl-Center.git \
+            +refs/heads/feature/stalker-theme-and-chat-fixes:refs/remotes/source/stalker
           git cat-file -e "${SOURCE_SHA}^{commit}"
-          OBJECT_STATUS=$?
-          echo "OBJECT_STATUS=$OBJECT_STATUS"
+          echo "Source branch tip: $(git rev-parse refs/remotes/source/stalker)"
+          echo "Exact source commit: $(git rev-parse ${SOURCE_SHA})"
+          echo "Exact source tree: $(git rev-parse ${SOURCE_SHA}^{tree})"
 
-          if [ "$FETCH_STATUS" -eq 0 ] && [ "$OBJECT_STATUS" -eq 0 ]; then
-            SOURCE_TREE=$(git rev-parse "${SOURCE_SHA}^{tree}")
-            echo "SOURCE_TREE=$SOURCE_TREE"
+      - name: Replace destination worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -r -f --ignore-unmatch .
+          git clean -fdx
+          git checkout "${SOURCE_SHA}" -- .
+          git add -A
+          echo "Destination worktree replaced from ${SOURCE_SHA}."
 
-            git rm -r -f --ignore-unmatch .
-            git checkout "$SOURCE_SHA" -- .
-            CHECKOUT_STATUS=$?
-            git add -A
-            IMPORT_TREE=$(git write-tree 2>/dev/null)
-            echo "CHECKOUT_STATUS=$CHECKOUT_STATUS"
-            echo "IMPORT_TREE=$IMPORT_TREE"
+      - name: Verify exact Git tree and required files
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_TREE=$(git rev-parse "${SOURCE_SHA}^{tree}")
+          IMPORT_TREE=$(git write-tree)
+          VERSION_VALUE=$(cat VERSION.txt)
 
-            VERSION_VALUE=$(cat VERSION.txt 2>/dev/null)
-            echo "VERSION=$VERSION_VALUE"
+          echo "SOURCE_TREE=${SOURCE_TREE}"
+          echo "IMPORT_TREE=${IMPORT_TREE}"
+          echo "VERSION=${VERSION_VALUE}"
 
-            if [ "$CHECKOUT_STATUS" -eq 0 ] && [ "$IMPORT_TREE" = "$SOURCE_TREE" ] && [ "$VERSION_VALUE" = "v1.0.5.3-UKRAINE-REFERENCE-THEME" ]; then
-              git commit -m "Import exact tree from run 29557749076 (92cf943)"
-              COMMIT_STATUS=$?
-              git push origin HEAD:feature/stalker-theme-and-chat-fixes
-              PUSH_STATUS=$?
-              echo "COMMIT_STATUS=$COMMIT_STATUS"
-              echo "PUSH_STATUS=$PUSH_STATUS"
-              exit "$PUSH_STATUS"
-            fi
-          fi
+          test "${IMPORT_TREE}" = "${SOURCE_TREE}"
+          test "${VERSION_VALUE}" = "v1.0.5.3-UKRAINE-REFERENCE-THEME"
+          test -f TiHiY.StreamControlCenter.sln
+          test -f TiHiY.StreamControlCenter.csproj
+          test -f MainWindow.xaml
+          test -f Themes/UkraineReference.xaml
+          test -f Themes/StalkerReference.xaml
+          test -f Controls/RichChatTextBlock.cs
 
-          echo "TRANSFER FAILED"
-          cp "$LOG" EXACT_TRANSFER_29557749076_FAILED.log
-          git add EXACT_TRANSFER_29557749076_FAILED.log
-          git commit -m "Діагностика точного перенесення 29557749076" || true
-          git push origin HEAD:feature/stalker-theme-and-chat-fixes || true
-          exit 1
+      - name: Commit exact imported snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git commit -m "Import exact tree from run 29557749076 (92cf943)"
+          echo "Imported commit: $(git rev-parse HEAD)"
+
+      - name: Push destination branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/sergsivak-lang/TiHiY-StreamControl-Center-v1.0.5.3.git"
+          git push origin "HEAD:${DESTINATION_BRANCH}"
