@@ -1,10 +1,8 @@
-name: Windows Build
+name: Validate Stalker Theme
 
 on:
-  push:
-    branches: [main, "feature/**"]
   pull_request:
-    branches: [main]
+    branches: ["ci/stalker-theme-validation-base"]
   workflow_dispatch:
 
 permissions:
@@ -14,33 +12,24 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - name: Checkout
+      - name: Checkout PR merge
         uses: actions/checkout@v4
 
-      - name: Verify WPF source tree
+      - name: Verify Stalker implementation
         shell: pwsh
         run: |
-          $requiredFiles = @(
+          $required = @(
             "TiHiY.StreamControlCenter.sln",
             "TiHiY.StreamControlCenter.csproj",
-            "App.xaml",
-            "App.xaml.cs",
-            "MainWindow.xaml",
-            "GlobalUsings.cs",
-            "Themes/CyberAmber.xaml",
-            "Themes/Compatibility.xaml",
-            "Services/AppServices.cs",
-            "Services/YouTubeService.cs",
-            "Services/ThemeService.cs",
-            "Windows/SettingsWindow.xaml",
+            "Themes/StalkerReference.xaml",
+            "Services/StalkerThemeRuntime.cs",
+            "Services/StalkerCiBootstrap.cs",
+            "Build/Generate-StalkerAssets.ps1",
             "Windows/SettingsWindow.xaml.cs"
           )
-          foreach ($requiredFile in $requiredFiles) {
-            if (-not (Test-Path $requiredFile)) {
-              throw "Required WPF source file is missing: $requiredFile"
-            }
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) { throw "Missing STALKER file: $file" }
           }
-          Write-Host "WPF source tree verified."
 
       - name: Setup .NET 9
         uses: actions/setup-dotnet@v4
@@ -54,36 +43,42 @@ jobs:
         shell: pwsh
         run: |
           dotnet build TiHiY.StreamControlCenter.sln --configuration Release --no-restore *> build.log
-          $exitCode = $LASTEXITCODE
-          if ($exitCode -ne 0) {
-            Get-Content build.log | Select-Object -Last 200 | Set-Content build-errors.txt -Encoding utf8
-            Get-Content build-errors.txt | ForEach-Object { Write-Host $_ }
-            exit $exitCode
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content build.log | Select-Object -Last 300 | Set-Content build-errors.txt -Encoding utf8
+            Get-Content build-errors.txt
+            exit $LASTEXITCODE
           }
           "Build completed successfully." | Set-Content build-errors.txt -Encoding utf8
 
-      - name: Upload build diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-diagnostics
-          path: |
-            build.log
-            build-errors.txt
-          if-no-files-found: warn
+      - name: Verify generated assets
+        shell: pwsh
+        run: |
+          $assets = @(
+            "Assets/Themes/stalker_zone.png",
+            "Assets/Themes/stalker_symbol.png",
+            "Assets/Themes/StalkerExact/rusted-metal.png",
+            "Assets/Themes/StalkerExact/scratches.png",
+            "Assets/Themes/StalkerExact/hazard-corner.png",
+            "Assets/Themes/StalkerExact/stalker-symbol.png",
+            "Assets/Themes/StalkerExact/zone-banner.png",
+            "Assets/Themes/StalkerExact/zone-header.png"
+          )
+          foreach ($asset in $assets) {
+            if (-not (Test-Path $asset)) { throw "Missing generated asset: $asset" }
+            if ((Get-Item $asset).Length -lt 1000) { throw "Generated asset is too small: $asset" }
+          }
 
       - name: Publish self-contained win-x64
         run: dotnet publish TiHiY.StreamControlCenter.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=false --output publish
 
-      - name: Launch EXE and capture main window
+      - name: Launch real EXE in Stalker theme
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path preview | Out-Null
-          $shot = Join-Path $PWD "preview/TiHiY-StreamControl-Center-MainWindow.png"
-          $log = Join-Path $PWD "preview/smoke-test.log"
+          $shot = Join-Path $PWD "preview/TiHiY-Stalker-Theme-Real.png"
+          $log = Join-Path $PWD "preview/stalker-smoke-test.log"
           $exe = (Resolve-Path "publish/TiHiY.StreamControlCenter.exe").Path
           $process = $null
-
           try {
             $startInfo = [Diagnostics.ProcessStartInfo]::new()
             $startInfo.FileName = $exe
@@ -93,36 +88,43 @@ jobs:
             $startInfo.RedirectStandardOutput = $true
             $startInfo.RedirectStandardError = $true
             $startInfo.ArgumentList.Add("--ci-screenshot=$shot")
-
+            $startInfo.ArgumentList.Add("--ci-language=uk-UA")
             $process = [Diagnostics.Process]::new()
             $process.StartInfo = $startInfo
             if (-not $process.Start()) { throw "Process.Start returned false." }
-
             $stdoutTask = $process.StandardOutput.ReadToEndAsync()
             $stderrTask = $process.StandardError.ReadToEndAsync()
-
             if (-not $process.WaitForExit(60000)) {
               $process.Kill($true)
               $process.WaitForExit()
-              throw "Application launch timed out."
+              throw "STALKER application launch timed out."
             }
-
             $stdout = $stdoutTask.GetAwaiter().GetResult()
             $stderr = $stderrTask.GetAwaiter().GetResult()
             "Exit code: $($process.ExitCode)`nSTDOUT:`n$stdout`nSTDERR:`n$stderr" | Set-Content $log -Encoding utf8
-
-            if ($process.ExitCode -ne 0) { throw "Application exited with code $($process.ExitCode)." }
-            if (-not (Test-Path $shot)) { throw "Application did not create the screenshot." }
+            if ($process.ExitCode -ne 0) { throw "STALKER EXE exited with code $($process.ExitCode)." }
+            if (-not (Test-Path $shot)) { throw "STALKER screenshot was not created." }
+            if ((Get-Item $shot).Length -lt 25000) { throw "STALKER screenshot is unexpectedly small." }
           }
           finally {
             if ($process) { $process.Dispose() }
           }
 
-      - name: Upload program and screenshot
+      - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TiHiY-StreamControl-Center-win-x64
+          name: stalker-build-diagnostics
+          path: |
+            build.log
+            build-errors.txt
+          if-no-files-found: warn
+
+      - name: Upload Stalker build and screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TiHiY-Stalker-Theme-Verification
           path: |
             publish/**
             preview/**
