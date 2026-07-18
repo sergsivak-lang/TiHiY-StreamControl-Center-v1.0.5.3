@@ -1,10 +1,14 @@
 <Project>
   <ItemGroup>
-    <!-- Disable the earlier flat/generated STALKER visual runtimes.
-         Their timers would otherwise overwrite the approved exact texture layer. -->
+    <!-- Disable earlier experimental STALKER runtimes. They overwrite the same
+         controls and cause duplicated text, blue-frame leftovers and flicker. -->
     <Compile Remove="Services\StalkerThemeRuntime.cs" />
     <Compile Remove="Services\StalkerThemeFinalizer.cs" />
     <Compile Remove="Services\StalkerSettingsRuntime.cs" />
+
+    <!-- The approved mock-up is a visual reference, not a fixed 1672x941 layout.
+         Keep the real responsive MainWindow grid and apply only the texture layer. -->
+    <Compile Remove="Services\StalkerApprovedLayoutRuntime.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -14,9 +18,6 @@
     <Resource Include="Assets\Themes\StalkerApproved\*.png" />
   </ItemGroup>
 
-  <!-- Existing generated STALKER art runs during PrepareForBuild. This target
-       runs later, immediately before WPF resource preparation, so the exact
-       crops from the approved 1672x941 mockup always win. -->
   <Target Name="ApplyApprovedStalkerExactTextures"
           BeforeTargets="PrepareResources"
           Condition="Exists('$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\center-zone-banner.png')">
