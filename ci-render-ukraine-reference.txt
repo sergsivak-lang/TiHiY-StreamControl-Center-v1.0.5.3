@@ -1,0 +1,2 @@
+Technical marker for GitHub Actions PR run and real application screenshot.
+Source state: d5305b2524daef809e74b6e5d81e1db890527e7d
