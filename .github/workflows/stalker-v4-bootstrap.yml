@@ -5,7 +5,8 @@ on:
     branches:
       - agent/stalker-approved-exact-v4
     paths:
-      - "patch-payload/ready.txt"
+      - "TiHiY-Stalker-Approved-Exact-Patch-v4*.zip"
+      - ".github/workflows/stalker-v4-bootstrap.yml"
   workflow_dispatch:
 
 permissions:
@@ -22,39 +23,41 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Reconstruct verified minimal payload
+      - name: Verify uploaded approved archive
         shell: pwsh
         run: |
-          $parts = Get-ChildItem "patch-payload/part-*.b64" | Sort-Object Name
-          if ($parts.Count -ne 8) { throw "Expected 8 payload parts, found $($parts.Count)." }
-          $base64 = [string]::Concat(($parts | ForEach-Object { Get-Content $_.FullName -Raw }))
-          $bytes = [Convert]::FromBase64String($base64)
-          [IO.File]::WriteAllBytes("stalker-v4-minimal.zip", $bytes)
-          $expected = "be57cc23a34f3038bb64fc0b5e3bb186a340d8df62ad3d223436ccf54a718590"
-          $actual = (Get-FileHash "stalker-v4-minimal.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($actual -ne $expected) { throw "Minimal payload SHA256 mismatch: $actual" }
-          Write-Host "Minimal payload verified: $actual"
+          $archive = Get-ChildItem "TiHiY-Stalker-Approved-Exact-Patch-v4*.zip" | Select-Object -First 1
+          if (-not $archive) { throw "Approved STALKER v4 ZIP was not found." }
+          $expected = "c222def9a4abfe513a507349d9e617c6ae5bf15f4de36bf37e2baec7b1807c4f"
+          $actual = (Get-FileHash $archive.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Approved archive SHA256 mismatch: $actual" }
+          "STALKER_ARCHIVE=$($archive.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Approved archive verified: $actual"
 
       - name: Extract exact source and runtime
         shell: pwsh
         run: |
-          $extract = Join-Path $env:RUNNER_TEMP "stalker-v4-minimal"
+          $extract = Join-Path $env:RUNNER_TEMP "stalker-v4-approved"
           Remove-Item $extract -Recurse -Force -ErrorAction SilentlyContinue
-          Expand-Archive "stalker-v4-minimal.zip" $extract -Force
+          Expand-Archive $env:STALKER_ARCHIVE $extract -Force
+
+          $manifest = Get-ChildItem $extract -Filter "approved-crop-manifest.json" -Recurse | Select-Object -First 1
+          if (-not $manifest) { throw "approved-crop-manifest.json was not found in the ZIP." }
+          $root = $manifest.Directory.FullName
+
           New-Item -ItemType Directory -Force "Assets/Themes/StalkerApproved" | Out-Null
-          Copy-Item "$extract/Assets/Themes/StalkerApproved/approved-full-reference.png" "Assets/Themes/StalkerApproved/approved-full-reference.png" -Force
-          Copy-Item "$extract/Services/StalkerApprovedTextureRuntime.cs" "Services/StalkerApprovedTextureRuntime.cs" -Force
-          Copy-Item "$extract/Services/StalkerApprovedLayoutRuntime.cs" "Services/StalkerApprovedLayoutRuntime.cs" -Force
-          Copy-Item "$extract/StalkerApprovedExact.targets" "StalkerApprovedExact.targets" -Force
-          Copy-Item "$extract/approved-crop-manifest.json" "approved-crop-manifest.json" -Force
-          Copy-Item "$extract/approved-layout-manifest.json" "approved-layout-manifest.json" -Force
-          Copy-Item "$extract/Build/Verify-Approved-Stalker-Crops.ps1" "Build/Verify-Approved-Stalker-Crops.ps1" -Force
-          Copy-Item "$extract/Build/Verify-Approved-Stalker-Crops.py" "Build/Verify-Approved-Stalker-Crops.py" -Force
-          Copy-Item "$extract/Build/Verify-Stalker-Layout-Targets.ps1" "Build/Verify-Stalker-Layout-Targets.ps1" -Force
-          Copy-Item "$extract/Build/Verify-Stalker-Layout-Targets.py" "Build/Verify-Stalker-Layout-Targets.py" -Force
-          Copy-Item "$extract/README-UA.txt" "README-STALKER-V4-UA.txt" -Force
-          Copy-Item "$extract/IMPLEMENTATION-MAP-UA.md" "STALKER-V4-IMPLEMENTATION-MAP-UA.md" -Force
-          Copy-Item "$extract/VALIDATION-REPORT.txt" "STALKER-V4-VALIDATION-REPORT.txt" -Force
+          New-Item -ItemType Directory -Force "Build" | Out-Null
+          New-Item -ItemType Directory -Force "Services" | Out-Null
+
+          Copy-Item "$root/Assets/Themes/StalkerApproved/*" "Assets/Themes/StalkerApproved/" -Recurse -Force
+          Copy-Item "$root/Build/*" "Build/" -Recurse -Force
+          Copy-Item "$root/Services/*" "Services/" -Recurse -Force
+          Copy-Item "$root/StalkerApprovedExact.targets" "StalkerApprovedExact.targets" -Force
+          Copy-Item "$root/approved-crop-manifest.json" "approved-crop-manifest.json" -Force
+          Copy-Item "$root/approved-layout-manifest.json" "approved-layout-manifest.json" -Force
+          if (Test-Path "$root/README-UA.txt") { Copy-Item "$root/README-UA.txt" "README-STALKER-V4-UA.txt" -Force }
+          if (Test-Path "$root/IMPLEMENTATION-MAP-UA.md") { Copy-Item "$root/IMPLEMENTATION-MAP-UA.md" "STALKER-V4-IMPLEMENTATION-MAP-UA.md" -Force }
+          if (Test-Path "$root/VALIDATION-REPORT.txt") { Copy-Item "$root/VALIDATION-REPORT.txt" "STALKER-V4-VALIDATION-REPORT.txt" -Force }
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -63,67 +66,6 @@ jobs:
 
       - name: Install Pillow
         run: python -m pip install --disable-pip-version-check pillow
-
-      - name: Generate all exact approved textures
-        shell: pwsh
-        run: |
-          @'
-          from pathlib import Path
-          import hashlib, json
-          from PIL import Image
-
-          root = Path.cwd()
-          assets = root / 'Assets' / 'Themes' / 'StalkerApproved'
-          manifest = json.loads((root / 'approved-crop-manifest.json').read_text(encoding='utf-8'))
-          source = Image.open(assets / manifest['source']).convert('RGBA')
-          if list(source.size) != manifest['source_size']:
-              raise SystemExit(f'Approved reference size mismatch: {source.size}')
-          if hashlib.sha256((assets / manifest['source']).read_bytes()).hexdigest() != manifest['assets'][manifest['source']]['sha256']:
-              raise SystemExit('Approved reference SHA-256 mismatch')
-
-          def tile(image, size):
-              result = Image.new('RGBA', size)
-              for y in range(0, size[1], image.height):
-                  for x in range(0, size[0], image.width):
-                      result.alpha_composite(image, (x, y))
-              return result
-
-          pending = dict(manifest['assets'])
-          pending.pop(manifest['source'], None)
-          while pending:
-              progressed = False
-              for filename, item in list(pending.items()):
-                  if 'crop_box' in item:
-                      output = source.crop(tuple(item['crop_box']))
-                  elif 'base_crop_box' in item:
-                      dependencies = [op.get('source') for op in item.get('operations', []) if op.get('source')]
-                      if any(not (assets / dep).exists() for dep in dependencies):
-                          continue
-                      base = source.crop(tuple(item['base_crop_box']))
-                      output = base.copy()
-                      for op in item.get('operations', []):
-                          box = tuple(op['box']); x1, y1, x2, y2 = box
-                          if op['op'] == 'tile_fill':
-                              fill = Image.open(assets / op['source']).convert('RGBA')
-                              output.alpha_composite(tile(fill, (x2-x1, y2-y1)), (x1, y1))
-                          elif op['op'] == 'restore_from_base':
-                              output.alpha_composite(base.crop(box), (x1, y1))
-                          else:
-                              raise SystemExit(f'Unknown operation: {op}')
-                  else:
-                      raise SystemExit(f'No generation recipe: {filename}')
-                  path = assets / filename
-                  output.save(path, format='PNG', optimize=False)
-                  actual = hashlib.sha256(path.read_bytes()).hexdigest()
-                  if actual != item['sha256']:
-                      raise SystemExit(f'Generated SHA mismatch for {filename}: {actual}')
-                  del pending[filename]
-                  progressed = True
-              if not progressed:
-                  raise SystemExit(f'Unresolved texture dependencies: {list(pending)}')
-          print(f'Generated and verified {len(manifest["assets"])} approved assets.')
-          '@ | Set-Content generate-approved-assets.py -Encoding utf8
-          python generate-approved-assets.py
 
       - name: Import exact targets into WPF project
         shell: pwsh
@@ -166,9 +108,7 @@ jobs:
       - name: Remove transport files
         shell: pwsh
         run: |
-          Remove-Item patch-payload -Recurse -Force
-          Remove-Item stalker-v4-minimal.zip -Force
-          Remove-Item generate-approved-assets.py -Force
+          Get-ChildItem "TiHiY-Stalker-Approved-Exact-Patch-v4*.zip" | Remove-Item -Force
           Remove-Item .github/workflows/stalker-v4-bootstrap.yml -Force
 
       - name: Commit completed STALKER v4 patch
