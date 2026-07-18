@@ -59,6 +59,17 @@ jobs:
           if (Test-Path "$root/IMPLEMENTATION-MAP-UA.md") { Copy-Item "$root/IMPLEMENTATION-MAP-UA.md" "STALKER-V4-IMPLEMENTATION-MAP-UA.md" -Force }
           if (Test-Path "$root/VALIDATION-REPORT.txt") { Copy-Item "$root/VALIDATION-REPORT.txt" "STALKER-V4-VALIDATION-REPORT.txt" -Force }
 
+      - name: Fix imported WPF Thickness constructor
+        shell: pwsh
+        run: |
+          $runtime = "Services/StalkerApprovedTextureRuntime.cs"
+          $text = Get-Content $runtime -Raw
+          $old = "border.Margin = new Thickness(5, 2);"
+          $new = "border.Margin = new Thickness(5, 2, 5, 2);"
+          if (-not $text.Contains($old)) { throw "Expected invalid Thickness expression was not found." }
+          $text = $text.Replace($old, $new)
+          Set-Content $runtime $text -Encoding utf8
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
