@@ -2,9 +2,6 @@ name: Import TiHiY StreamControl Center source
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/import-source.yml'
 
 permissions:
   contents: write
@@ -26,9 +23,7 @@ jobs:
         shell: bash
         run: |
           find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-          cp -a /tmp/source/. .
-          rm -rf .git
-          cp -a /tmp/source/.github .github 2>/dev/null || true
+          rsync -a --exclude='.git/' /tmp/source/ ./
 
       - name: Set v1.0.5.3 version
         shell: bash
@@ -48,6 +43,17 @@ jobs:
                   text = text.replace(old, new)
               p.write_text(text, encoding='utf-8')
           PY
+
+      - name: Verify imported WPF project
+        shell: bash
+        run: |
+          test -f TiHiY.StreamControlCenter.sln
+          test -f TiHiY.StreamControlCenter.csproj
+          test -f App.xaml
+          test -f MainWindow.xaml
+          test -d Services
+          test -d Themes
+          test -d Windows
 
       - name: Commit imported source
         shell: bash
