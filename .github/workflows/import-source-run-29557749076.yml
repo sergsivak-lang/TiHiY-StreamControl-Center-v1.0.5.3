@@ -1,20 +1,16 @@
-name: Import source run 29557749076 into feature branch
+name: Import exact Git tree from run 29557749076
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
-  pull_request_target:
-    types: [opened, reopened, synchronize]
-    branches: [main]
 
 permissions:
   contents: write
-  pull-requests: read
 
 jobs:
-  import-source-snapshot:
-    if: github.actor != 'github-actions[bot]' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.pull_request.head.ref == 'feature/stalker-theme-and-chat-fixes')
+  import-exact-tree:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[import-29557749076]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout destination branch
@@ -22,21 +18,23 @@ jobs:
         with:
           ref: feature/stalker-theme-and-chat-fixes
           fetch-depth: 0
+          persist-credentials: true
 
-      - name: Replace destination with exact source commit
+      - name: Fetch exact source commit
         shell: bash
         run: |
           set -euo pipefail
-          git clone --no-checkout https://github.com/sergsivak-lang/TiHiY-StreamControl-Center.git source-repository
-          git -C source-repository checkout --detach 92cf943e0445a980b0322bdfaa0339faa21bdc2b
+          git remote remove source 2>/dev/null || true
+          git remote add source https://github.com/sergsivak-lang/TiHiY-StreamControl-Center.git
+          git fetch --no-tags source 92cf943e0445a980b0322bdfaa0339faa21bdc2b
+          test "$(git rev-parse FETCH_HEAD)" = "92cf943e0445a980b0322bdfaa0339faa21bdc2b"
 
-          find . -mindepth 1 -maxdepth 1 \
-            ! -name '.git' \
-            ! -name 'source-repository' \
-            -exec rm -rf {} +
-
-          rsync -a --delete --exclude='.git/' source-repository/ ./
-          rm -rf source-repository
+      - name: Replace branch tree with source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm -r -f --ignore-unmatch .
+          git checkout FETCH_HEAD -- .
 
           test -f TiHiY.StreamControlCenter.sln
           test -f TiHiY.StreamControlCenter.csproj
@@ -45,12 +43,14 @@ jobs:
           test -f Themes/UkraineReference.xaml
           test "$(cat VERSION.txt)" = "v1.0.5.3-UKRAINE-REFERENCE-THEME"
 
-      - name: Commit imported snapshot
+          git status --short
+
+      - name: Commit exact imported Git tree
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Import exact snapshot from run 29557749076 (92cf943)"
+          git commit -m "Import exact tree from run 29557749076 (92cf943)"
           git push origin HEAD:feature/stalker-theme-and-chat-fixes
