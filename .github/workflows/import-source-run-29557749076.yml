@@ -1,0 +1,53 @@
+name: Import source run 29557749076 into feature branch
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  import-source-snapshot:
+    if: github.event.pull_request.head.ref == 'feature/stalker-theme-and-chat-fixes' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout destination branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/stalker-theme-and-chat-fixes
+          fetch-depth: 0
+
+      - name: Replace destination with exact source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --no-checkout https://github.com/sergsivak-lang/TiHiY-StreamControl-Center.git source-repository
+          git -C source-repository checkout --detach 92cf943e0445a980b0322bdfaa0339faa21bdc2b
+
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name '.git' \
+            ! -name 'source-repository' \
+            -exec rm -rf {} +
+
+          rsync -a --delete --exclude='.git/' source-repository/ ./
+          rm -rf source-repository
+
+          test -f TiHiY.StreamControlCenter.sln
+          test -f TiHiY.StreamControlCenter.csproj
+          test -f MainWindow.xaml
+          test -f Themes/StalkerReference.xaml
+          test -f Themes/UkraineReference.xaml
+          test "$(cat VERSION.txt)" = "v1.0.5.3-UKRAINE-REFERENCE-THEME"
+
+      - name: Commit imported snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Import exact snapshot from run 29557749076 (92cf943)"
+          git push origin HEAD:feature/stalker-theme-and-chat-fixes
