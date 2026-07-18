@@ -1,2 +1,2 @@
 Transfer requested for the exact source snapshot from sergsivak-lang/TiHiY-StreamControl-Center commit 92cf943e0445a980b0322bdfaa0339faa21bdc2b into feature/stalker-theme-and-chat-fixes.
-Trigger revision: 5.
+Trigger revision: 6.
