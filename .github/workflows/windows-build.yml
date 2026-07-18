@@ -2,11 +2,13 @@ name: Windows Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, "feature/**"]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -28,13 +30,8 @@ jobs:
             "Themes/CyberAmber.xaml",
             "Themes/Compatibility.xaml",
             "Services/AppServices.cs",
-            "Services/ObsWebSocketService.cs",
             "Services/YouTubeService.cs",
-            "Services/ResponsiveBlockService.cs",
             "Services/ThemeService.cs",
-            "Models/DonationEvent.cs",
-            "Windows/JournalWindow.xaml",
-            "Windows/JournalWindow.xaml.cs",
             "Windows/SettingsWindow.xaml",
             "Windows/SettingsWindow.xaml.cs"
           )
@@ -43,7 +40,7 @@ jobs:
               throw "Required WPF source file is missing: $requiredFile"
             }
           }
-          Write-Host "Complete WPF source tree verified."
+          Write-Host "WPF source tree verified."
 
       - name: Setup .NET 9
         uses: actions/setup-dotnet@v4
@@ -53,7 +50,7 @@ jobs:
       - name: Restore
         run: dotnet restore TiHiY.StreamControlCenter.sln
 
-      - name: Build
+      - name: Release Build
         shell: pwsh
         run: |
           dotnet build TiHiY.StreamControlCenter.sln --configuration Release --no-restore *> build.log
@@ -75,32 +72,22 @@ jobs:
             build-errors.txt
           if-no-files-found: warn
 
-      - name: Publish self-contained Windows build
+      - name: Publish self-contained win-x64
         run: dotnet publish TiHiY.StreamControlCenter.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=false --output publish
 
-      - name: Upload program
-        uses: actions/upload-artifact@v4
-        with:
-          name: TiHiY-StreamControl-Center-v1.0.5.3-win-x64
-          path: publish/**
-
-      - name: Launch and capture main window
+      - name: Launch EXE and capture main window
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path preview | Out-Null
-          $diagnosticLog = Join-Path $PWD "preview/smoke-test.log"
-          "Main window smoke test started at $(Get-Date -Format o)" | Set-Content $diagnosticLog -Encoding utf8
-
+          $shot = Join-Path $PWD "preview/TiHiY-StreamControl-Center-MainWindow.png"
+          $log = Join-Path $PWD "preview/smoke-test.log"
           $exe = (Resolve-Path "publish/TiHiY.StreamControlCenter.exe").Path
-          $workingDirectory = Split-Path $exe
-          $shot = Join-Path $PWD "preview/TiHiY-StreamControl-Center-v1.0.5.3-MainWindow.png"
-          $failure = $null
           $process = $null
 
           try {
             $startInfo = [Diagnostics.ProcessStartInfo]::new()
             $startInfo.FileName = $exe
-            $startInfo.WorkingDirectory = $workingDirectory
+            $startInfo.WorkingDirectory = Split-Path $exe
             $startInfo.UseShellExecute = $false
             $startInfo.CreateNoWindow = $true
             $startInfo.RedirectStandardOutput = $true
@@ -114,53 +101,29 @@ jobs:
             $stdoutTask = $process.StandardOutput.ReadToEndAsync()
             $stderrTask = $process.StandardError.ReadToEndAsync()
 
-            if (-not $process.WaitForExit(45000)) {
+            if (-not $process.WaitForExit(60000)) {
               $process.Kill($true)
               $process.WaitForExit()
-              $failure = "Main window smoke test timed out."
-            } elseif ($process.ExitCode -ne 0) {
-              $failure = "Application exited with code $($process.ExitCode)."
-            } elseif (-not (Test-Path $shot)) {
-              $failure = "Application did not create the main window screenshot."
+              throw "Application launch timed out."
             }
 
             $stdout = $stdoutTask.GetAwaiter().GetResult()
             $stderr = $stderrTask.GetAwaiter().GetResult()
-            if ($stdout) { "---- STDOUT ----`n$stdout" | Add-Content $diagnosticLog }
-            if ($stderr) { "---- STDERR ----`n$stderr" | Add-Content $diagnosticLog }
-          }
-          catch {
-            $failure = $_.Exception.Message
-            $_.Exception.ToString() | Add-Content $diagnosticLog
+            "Exit code: $($process.ExitCode)`nSTDOUT:`n$stdout`nSTDERR:`n$stderr" | Set-Content $log -Encoding utf8
+
+            if ($process.ExitCode -ne 0) { throw "Application exited with code $($process.ExitCode)." }
+            if (-not (Test-Path $shot)) { throw "Application did not create the screenshot." }
           }
           finally {
             if ($process) { $process.Dispose() }
-            $appLogFolder = Join-Path $env:APPDATA "TiHiY/StreamControlCenter/Logs"
-            if (Test-Path $appLogFolder) {
-              Get-ChildItem $appLogFolder -File -ErrorAction SilentlyContinue | Copy-Item -Destination preview -Force
-            }
           }
 
-          if ($failure) { throw $failure }
-          Write-Host "Main window launched and captured successfully."
-
-      - name: Upload main window screenshot
+      - name: Upload program and screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TiHiY-StreamControl-Center-v1.0.5.3-MainWindow-Screenshot
-          path: preview/**
+          name: TiHiY-StreamControl-Center-win-x64
+          path: |
+            publish/**
+            preview/**
           if-no-files-found: warn
-
-      - name: Publish latest real screenshot to repository
-        if: success() && github.ref == 'refs/heads/main'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path ci-output | Out-Null
-          Copy-Item "preview/TiHiY-StreamControl-Center-v1.0.5.3-MainWindow.png" "ci-output/TiHiY-StreamControl-Center-Latest-Real.png" -Force
-          Copy-Item "preview/smoke-test.log" "ci-output/smoke-test-latest.log" -Force
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ci-output
-          git commit -m "CI: зберегти реальний скрін програми [skip ci]"
-          git push
