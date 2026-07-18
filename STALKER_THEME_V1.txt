@@ -1,0 +1,2 @@
+STALKER theme development branch.
+Validation target: CI real EXE screenshot.
