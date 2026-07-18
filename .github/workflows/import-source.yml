@@ -22,8 +22,11 @@ jobs:
       - name: Replace target contents with application source
         shell: bash
         run: |
+          cp .github/workflows/import-source.yml /tmp/import-source.yml
           find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
-          rsync -a --exclude='.git/' /tmp/source/ ./
+          rsync -a --exclude='.git/' --exclude='.github/workflows/' /tmp/source/ ./
+          mkdir -p .github/workflows
+          cp /tmp/import-source.yml .github/workflows/import-source.yml
 
       - name: Set v1.0.5.3 version
         shell: bash
