@@ -29,6 +29,20 @@
     <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\Build\Generate-CentralTexture.ps1&quot; -ProjectDir &quot;$(MSBuildProjectDirectory)&quot;" />
   </Target>
 
+  <Target Name="GenerateStalkerThemeAssets"
+          BeforeTargets="PrepareResources"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec Command="pwsh -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\Build\Generate-StalkerAssets.ps1&quot; -ProjectDir &quot;$(MSBuildProjectDirectory)&quot;" />
+    <ItemGroup>
+      <Resource Remove="Assets\Themes\StalkerExact\*.png" />
+      <Resource Remove="Assets\Themes\stalker_zone.png" />
+      <Resource Remove="Assets\Themes\stalker_symbol.png" />
+      <Resource Include="Assets\Themes\StalkerExact\*.png" />
+      <Resource Include="Assets\Themes\stalker_zone.png" />
+      <Resource Include="Assets\Themes\stalker_symbol.png" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <Resource Include="Assets\AppIcon.png" />
     <Resource Include="Assets\Platforms\*.png" />
