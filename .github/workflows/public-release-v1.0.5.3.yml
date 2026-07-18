@@ -9,6 +9,14 @@ on:
       - 'Services/UpdateService.cs'
       - 'TiHiY.StreamControlCenter.csproj'
       - '.github/workflows/public-release-v1.0.5.3.yml'
+  pull_request:
+    branches:
+      - agent/stalker-approved-exact-v4
+    paths:
+      - 'App.Update.cs'
+      - 'Services/UpdateService.cs'
+      - 'TiHiY.StreamControlCenter.csproj'
+      - '.github/workflows/public-release-v1.0.5.3.yml'
   workflow_dispatch:
 
 permissions:
@@ -85,6 +93,7 @@ jobs:
           "sha256=$hash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Create or update GitHub release
+        if: github.event_name != 'pull_request'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
