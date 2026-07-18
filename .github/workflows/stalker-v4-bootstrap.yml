@@ -5,7 +5,7 @@ on:
     branches:
       - agent/stalker-approved-exact-v4
     paths:
-      - "TiHiY-Stalker-Approved-Exact-Patch-v4*.zip"
+      - "patch-payload/ready.txt"
   workflow_dispatch:
 
 permissions:
@@ -22,105 +22,156 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Locate and verify approved archive
-        id: archive
+      - name: Reconstruct verified minimal payload
         shell: pwsh
         run: |
-          $archive = Get-ChildItem -Path . -File -Filter "TiHiY-Stalker-Approved-Exact-Patch-v4*.zip" |
-            Sort-Object LastWriteTimeUtc -Descending |
-            Select-Object -First 1
-          if (-not $archive) { throw "Approved STALKER v4 archive was not found in repository root." }
+          $parts = Get-ChildItem "patch-payload/part-*.b64" | Sort-Object Name
+          if ($parts.Count -ne 8) { throw "Expected 8 payload parts, found $($parts.Count)." }
+          $base64 = [string]::Concat(($parts | ForEach-Object { Get-Content $_.FullName -Raw }))
+          $bytes = [Convert]::FromBase64String($base64)
+          [IO.File]::WriteAllBytes("stalker-v4-minimal.zip", $bytes)
+          $expected = "be57cc23a34f3038bb64fc0b5e3bb186a340d8df62ad3d223436ccf54a718590"
+          $actual = (Get-FileHash "stalker-v4-minimal.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Minimal payload SHA256 mismatch: $actual" }
+          Write-Host "Minimal payload verified: $actual"
 
-          $expected = "c222def9a4abfe513a507349d9e617c6ae5bf15f4de36bf37e2baec7b1807c4f"
-          $actual = (Get-FileHash -Path $archive.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($actual -ne $expected) {
-            throw "Archive SHA256 mismatch. Expected $expected, got $actual."
-          }
-
-          "archive=$($archive.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          Write-Host "Approved archive verified: $actual"
-
-      - name: Extract exact patch
+      - name: Extract exact source and runtime
         shell: pwsh
         run: |
-          $archive = "${{ steps.archive.outputs.archive }}"
-          $extract = Join-Path $env:RUNNER_TEMP "stalker-approved-v4"
+          $extract = Join-Path $env:RUNNER_TEMP "stalker-v4-minimal"
           Remove-Item $extract -Recurse -Force -ErrorAction SilentlyContinue
-          Expand-Archive -Path $archive -DestinationPath $extract -Force
+          Expand-Archive "stalker-v4-minimal.zip" $extract -Force
+          New-Item -ItemType Directory -Force "Assets/Themes/StalkerApproved" | Out-Null
+          Copy-Item "$extract/Assets/Themes/StalkerApproved/approved-full-reference.png" "Assets/Themes/StalkerApproved/approved-full-reference.png" -Force
+          Copy-Item "$extract/Services/StalkerApprovedTextureRuntime.cs" "Services/StalkerApprovedTextureRuntime.cs" -Force
+          Copy-Item "$extract/Services/StalkerApprovedLayoutRuntime.cs" "Services/StalkerApprovedLayoutRuntime.cs" -Force
+          Copy-Item "$extract/StalkerApprovedExact.targets" "StalkerApprovedExact.targets" -Force
+          Copy-Item "$extract/approved-crop-manifest.json" "approved-crop-manifest.json" -Force
+          Copy-Item "$extract/approved-layout-manifest.json" "approved-layout-manifest.json" -Force
+          Copy-Item "$extract/Build/Verify-Approved-Stalker-Crops.ps1" "Build/Verify-Approved-Stalker-Crops.ps1" -Force
+          Copy-Item "$extract/Build/Verify-Approved-Stalker-Crops.py" "Build/Verify-Approved-Stalker-Crops.py" -Force
+          Copy-Item "$extract/Build/Verify-Stalker-Layout-Targets.ps1" "Build/Verify-Stalker-Layout-Targets.ps1" -Force
+          Copy-Item "$extract/Build/Verify-Stalker-Layout-Targets.py" "Build/Verify-Stalker-Layout-Targets.py" -Force
+          Copy-Item "$extract/README-UA.txt" "README-STALKER-V4-UA.txt" -Force
+          Copy-Item "$extract/IMPLEMENTATION-MAP-UA.md" "STALKER-V4-IMPLEMENTATION-MAP-UA.md" -Force
+          Copy-Item "$extract/VALIDATION-REPORT.txt" "STALKER-V4-VALIDATION-REPORT.txt" -Force
 
-          $root = Get-ChildItem -Path $extract -Directory |
-            Where-Object { Test-Path (Join-Path $_.FullName "StalkerApprovedExact.targets") } |
-            Select-Object -First 1
-          if (-not $root) { throw "STALKER v4 patch root was not found after extraction." }
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-          $required = @(
-            "Assets/Themes/StalkerApproved/approved-full-reference.png",
-            "Assets/Themes/StalkerApproved/header-full-exact.png",
-            "Assets/Themes/StalkerApproved/chat-shell.png",
-            "Assets/Themes/StalkerApproved/donations-shell.png",
-            "Assets/Themes/StalkerApproved/mixer-shell.png",
-            "Assets/Themes/StalkerApproved/notifications-shell.png",
-            "Assets/Themes/StalkerApproved/system-status-shell.png",
-            "Assets/Themes/StalkerApproved/aida-shell.png",
-            "Services/StalkerApprovedTextureRuntime.cs",
-            "Services/StalkerApprovedLayoutRuntime.cs",
-            "StalkerApprovedExact.targets",
-            "approved-crop-manifest.json",
-            "approved-layout-manifest.json"
-          )
-          foreach ($file in $required) {
-            if (-not (Test-Path (Join-Path $root.FullName $file))) {
-              throw "Required v4 patch file is missing: $file"
-            }
-          }
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check pillow
 
-          Copy-Item (Join-Path $root.FullName "Assets") . -Recurse -Force
-          Copy-Item (Join-Path $root.FullName "Build") . -Recurse -Force
-          Copy-Item (Join-Path $root.FullName "Services") . -Recurse -Force
-          Copy-Item (Join-Path $root.FullName "StalkerApprovedExact.targets") . -Force
-          Copy-Item (Join-Path $root.FullName "approved-crop-manifest.json") . -Force
-          Copy-Item (Join-Path $root.FullName "approved-layout-manifest.json") . -Force
-          Copy-Item (Join-Path $root.FullName "README-UA.txt") "README-STALKER-V4-UA.txt" -Force
-          Copy-Item (Join-Path $root.FullName "IMPLEMENTATION-MAP-UA.md") "STALKER-V4-IMPLEMENTATION-MAP-UA.md" -Force
-          Copy-Item (Join-Path $root.FullName "VALIDATION-REPORT.txt") "STALKER-V4-VALIDATION-REPORT.txt" -Force
-
-          $project = "TiHiY.StreamControlCenter.csproj"
-          [xml]$projectXml = Get-Content $project -Raw
-          $alreadyImported = $projectXml.Project.Import | Where-Object { $_.Project -eq "StalkerApprovedExact.targets" }
-          if (-not $alreadyImported) {
-            $import = $projectXml.CreateElement("Import", $projectXml.Project.NamespaceURI)
-            $import.SetAttribute("Project", "StalkerApprovedExact.targets")
-            $import.SetAttribute("Condition", "Exists('StalkerApprovedExact.targets')")
-            [void]$projectXml.Project.AppendChild($import)
-            $settings = [System.Xml.XmlWriterSettings]::new()
-            $settings.Indent = $true
-            $settings.OmitXmlDeclaration = $true
-            $writer = [System.Xml.XmlWriter]::Create((Resolve-Path $project).Path, $settings)
-            try { $projectXml.Save($writer) } finally { $writer.Dispose() }
-          }
-
-          $workflowSource = Join-Path $root.FullName ".github/workflows/stalker-approved-v4.yml"
-          if (Test-Path $workflowSource) {
-            New-Item -ItemType Directory -Force -Path ".github/workflows" | Out-Null
-            $workflow = Get-Content $workflowSource -Raw
-            $workflow = $workflow -replace '(?ms)      - name: Verify runtime grid layout targets\r?\n        shell: pwsh\r?\n        run: \|\r?\n.*?(?=\r?\n      - name: Setup \.NET 9)', @'
-      - name: Verify runtime grid layout targets
+      - name: Generate all exact approved textures
         shell: pwsh
-        run: pwsh -NoProfile -ExecutionPolicy Bypass -File Build/Verify-Stalker-Layout-Targets.ps1 -ProjectDir .
-'@
-            Set-Content ".github/workflows/stalker-approved-v4.yml" $workflow -Encoding utf8
+        run: |
+          @'
+          from pathlib import Path
+          import hashlib, json
+          from PIL import Image
+
+          root = Path.cwd()
+          assets = root / 'Assets' / 'Themes' / 'StalkerApproved'
+          manifest = json.loads((root / 'approved-crop-manifest.json').read_text(encoding='utf-8'))
+          source = Image.open(assets / manifest['source']).convert('RGBA')
+          if list(source.size) != manifest['source_size']:
+              raise SystemExit(f'Approved reference size mismatch: {source.size}')
+          if hashlib.sha256((assets / manifest['source']).read_bytes()).hexdigest() != manifest['assets'][manifest['source']]['sha256']:
+              raise SystemExit('Approved reference SHA-256 mismatch')
+
+          def tile(image, size):
+              result = Image.new('RGBA', size)
+              for y in range(0, size[1], image.height):
+                  for x in range(0, size[0], image.width):
+                      result.alpha_composite(image, (x, y))
+              return result
+
+          pending = dict(manifest['assets'])
+          pending.pop(manifest['source'], None)
+          while pending:
+              progressed = False
+              for filename, item in list(pending.items()):
+                  if 'crop_box' in item:
+                      output = source.crop(tuple(item['crop_box']))
+                  elif 'base_crop_box' in item:
+                      dependencies = [op.get('source') for op in item.get('operations', []) if op.get('source')]
+                      if any(not (assets / dep).exists() for dep in dependencies):
+                          continue
+                      base = source.crop(tuple(item['base_crop_box']))
+                      output = base.copy()
+                      for op in item.get('operations', []):
+                          box = tuple(op['box']); x1, y1, x2, y2 = box
+                          if op['op'] == 'tile_fill':
+                              fill = Image.open(assets / op['source']).convert('RGBA')
+                              output.alpha_composite(tile(fill, (x2-x1, y2-y1)), (x1, y1))
+                          elif op['op'] == 'restore_from_base':
+                              output.alpha_composite(base.crop(box), (x1, y1))
+                          else:
+                              raise SystemExit(f'Unknown operation: {op}')
+                  else:
+                      raise SystemExit(f'No generation recipe: {filename}')
+                  path = assets / filename
+                  output.save(path, format='PNG', optimize=False)
+                  actual = hashlib.sha256(path.read_bytes()).hexdigest()
+                  if actual != item['sha256']:
+                      raise SystemExit(f'Generated SHA mismatch for {filename}: {actual}')
+                  del pending[filename]
+                  progressed = True
+              if not progressed:
+                  raise SystemExit(f'Unresolved texture dependencies: {list(pending)}')
+          print(f'Generated and verified {len(manifest["assets"])} approved assets.')
+          '@ | Set-Content generate-approved-assets.py -Encoding utf8
+          python generate-approved-assets.py
+
+      - name: Import exact targets into WPF project
+        shell: pwsh
+        run: |
+          $project = "TiHiY.StreamControlCenter.csproj"
+          $text = Get-Content $project -Raw
+          if ($text -notmatch 'StalkerApprovedExact\.targets') {
+            $text = $text -replace '</Project>\s*$', '  <Import Project="StalkerApprovedExact.targets" Condition="Exists(''StalkerApprovedExact.targets'')" />`r`n</Project>`r`n'
+            Set-Content $project $text -Encoding utf8
           }
 
-          Remove-Item $archive -Force
-          Remove-Item ".github/workflows/stalker-v4-bootstrap.yml" -Force
-
-      - name: Verify exact crops and real layout
+      - name: Verify exact crops and real grid layout
         shell: pwsh
         run: |
           pwsh -NoProfile -ExecutionPolicy Bypass -File Build/Verify-Approved-Stalker-Crops.ps1 -ProjectDir .
           pwsh -NoProfile -ExecutionPolicy Bypass -File Build/Verify-Stalker-Layout-Targets.ps1 -ProjectDir .
 
-      - name: Commit imported STALKER v4 patch
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore and Release Build
+        run: |
+          dotnet restore TiHiY.StreamControlCenter.sln
+          dotnet build TiHiY.StreamControlCenter.sln --configuration Release --no-restore
+
+      - name: Publish and capture real STALKER window
+        shell: pwsh
+        run: |
+          dotnet publish TiHiY.StreamControlCenter.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=false --output publish
+          New-Item -ItemType Directory -Force preview | Out-Null
+          $shot = Join-Path $PWD "preview/TiHiY-Stalker-Approved-v4.png"
+          $exe = (Resolve-Path "publish/TiHiY.StreamControlCenter.exe").Path
+          $p = Start-Process $exe -ArgumentList "--ci-screenshot=$shot","--ci-apply-stalker-theme","--ci-language=uk-UA" -PassThru
+          if (-not $p.WaitForExit(60000)) { $p.Kill($true); throw "Application launch timed out." }
+          if ($p.ExitCode -ne 0) { throw "Application exited with code $($p.ExitCode)." }
+          if (-not (Test-Path $shot)) { throw "STALKER v4 screenshot was not created." }
+
+      - name: Remove transport files
+        shell: pwsh
+        run: |
+          Remove-Item patch-payload -Recurse -Force
+          Remove-Item stalker-v4-minimal.zip -Force
+          Remove-Item generate-approved-assets.py -Force
+          Remove-Item .github/workflows/stalker-v4-bootstrap.yml -Force
+
+      - name: Commit completed STALKER v4 patch
         shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
@@ -128,3 +179,13 @@ jobs:
           git add -A
           git commit -m "Додати точний патч STALKER v4 з погодженими текстурами"
           git push origin HEAD:agent/stalker-approved-exact-v4
+
+      - name: Upload verified Windows build and screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TiHiY-STALKER-v4-verification
+          path: |
+            publish/**
+            preview/**
+          if-no-files-found: warn
