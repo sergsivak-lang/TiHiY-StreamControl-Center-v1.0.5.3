@@ -1,0 +1,21 @@
+  Generated D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\Assets\AppIcon.ico and D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\Assets\AppIcon.png
+  Using committed approved central texture: D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\Assets\Themes\UkraineExact\central-glory.jpg (15846 bytes)
+  Generated D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\Assets\AppIcon.ico and D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\Assets\AppIcon.png
+  Using committed approved central texture: D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\Assets\Themes\UkraineExact\central-glory.jpg (15846 bytes)
+D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\MainWindow.xaml.cs(139,9): warning CS4014: Because this call is not awaited, execution of the current method continues before the call is completed. Consider applying the 'await' operator to the result of the call. [D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY.StreamControlCenter_fyimi4c2_wpftmp.csproj]
+D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\Services\ChatAppearanceCiCapture.cs(28,49): warning CS8602: Dereference of a possibly null reference. [D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY.StreamControlCenter_fyimi4c2_wpftmp.csproj]
+  STALKER theme assets generated.
+D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\MainWindow.xaml.cs(139,9): warning CS4014: Because this call is not awaited, execution of the current method continues before the call is completed. Consider applying the 'await' operator to the result of the call. [D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY.StreamControlCenter.csproj]
+D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\Services\ChatAppearanceCiCapture.cs(28,49): warning CS8602: Dereference of a possibly null reference. [D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY.StreamControlCenter.csproj]
+  TiHiY.StreamControlCenter -> D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\bin\Release\net9.0-windows\TiHiY.StreamControlCenter.dll
+
+Build succeeded.
+
+D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\MainWindow.xaml.cs(139,9): warning CS4014: Because this call is not awaited, execution of the current method continues before the call is completed. Consider applying the 'await' operator to the result of the call. [D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY.StreamControlCenter_fyimi4c2_wpftmp.csproj]
+D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\Services\ChatAppearanceCiCapture.cs(28,49): warning CS8602: Dereference of a possibly null reference. [D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY.StreamControlCenter_fyimi4c2_wpftmp.csproj]
+D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\MainWindow.xaml.cs(139,9): warning CS4014: Because this call is not awaited, execution of the current method continues before the call is completed. Consider applying the 'await' operator to the result of the call. [D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY.StreamControlCenter.csproj]
+D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\Services\ChatAppearanceCiCapture.cs(28,49): warning CS8602: Dereference of a possibly null reference. [D:\a\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY-StreamControl-Center-v1.0.5.3\TiHiY.StreamControlCenter.csproj]
+    4 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:21.72
