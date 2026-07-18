@@ -1,0 +1,565 @@
+{
+  "source": "approved-full-reference.png",
+  "source_size": [
+    1672,
+    941
+  ],
+  "assets": {
+    "approved-full-reference.png": {
+      "crop_box": [
+        0,
+        0,
+        1672,
+        941
+      ],
+      "size": [
+        1672,
+        941
+      ],
+      "sha256": "5fd4bc7770f7972dfd65ef9dd103c7e52e3395f8ce1591cf902d2f3b8376ba3a"
+    },
+    "header-title-exact.png": {
+      "crop_box": [
+        0,
+        0,
+        700,
+        95
+      ],
+      "size": [
+        700,
+        95
+      ],
+      "sha256": "325f706acf196d48f432899ebb154a0b4178d7fad33d9fa16cf46f8a74850798"
+    },
+    "header-emblem-exact.png": {
+      "crop_box": [
+        0,
+        0,
+        145,
+        145
+      ],
+      "size": [
+        145,
+        145
+      ],
+      "sha256": "3603bbd7f60de7148e2ac2d1b0a246cd6a8ac489b83faa323218c9ec05fa77e6"
+    },
+    "header-skyline-exact.png": {
+      "crop_box": [
+        600,
+        0,
+        1080,
+        145
+      ],
+      "size": [
+        480,
+        145
+      ],
+      "sha256": "e9b21842bdb8760dc5ddce88e5d4062b60f71c0a20c12605337e7b39f46bdb80"
+    },
+    "outer-top.png": {
+      "crop_box": [
+        0,
+        0,
+        1672,
+        18
+      ],
+      "size": [
+        1672,
+        18
+      ],
+      "sha256": "0c184cf96c97427600fe3846a3db7f246dae9d3a7c42d2590647892054626db0"
+    },
+    "outer-bottom.png": {
+      "crop_box": [
+        0,
+        920,
+        1672,
+        941
+      ],
+      "size": [
+        1672,
+        21
+      ],
+      "sha256": "a9837adf6b18b4c7452ee46604aeed78fdf6052090c1120ec390ae11afb12fae"
+    },
+    "outer-left.png": {
+      "crop_box": [
+        0,
+        0,
+        18,
+        941
+      ],
+      "size": [
+        18,
+        941
+      ],
+      "sha256": "9eecd6bfb7a6d8457136586603063613a4ac408eb3800fb5c6c6edd99c45eb78"
+    },
+    "outer-right.png": {
+      "crop_box": [
+        1654,
+        0,
+        1672,
+        941
+      ],
+      "size": [
+        18,
+        941
+      ],
+      "sha256": "60ce7265d61850bfb24eccf7b39c04243f4528d9b23c7995c2e6c5d45f3b6b31"
+    },
+    "panel-edge-top.png": {
+      "crop_box": [
+        980,
+        145,
+        1300,
+        163
+      ],
+      "size": [
+        320,
+        18
+      ],
+      "sha256": "3c40ce325ea1eb7e162cd81608a61bf4fe22b95ade97ae81cef4ab39f70291af"
+    },
+    "panel-edge-bottom.png": {
+      "crop_box": [
+        980,
+        426,
+        1300,
+        443
+      ],
+      "size": [
+        320,
+        17
+      ],
+      "sha256": "26dc26615c2bb528e41caf12cd76b135776d05ef89f262b3e892a9271848c88d"
+    },
+    "panel-edge-left.png": {
+      "crop_box": [
+        834,
+        190,
+        854,
+        400
+      ],
+      "size": [
+        20,
+        210
+      ],
+      "sha256": "947c17f44aa2f5d22de202c97fbecca250adffce2ed80cf2df0e81700f7996c5"
+    },
+    "panel-edge-right.png": {
+      "crop_box": [
+        1648,
+        190,
+        1671,
+        400
+      ],
+      "size": [
+        23,
+        210
+      ],
+      "sha256": "4b018f6dc0eb1eb999bf7c560417244a9cb5a83b16c9c4d861178c50005213cb"
+    },
+    "panel-corner-tl.png": {
+      "crop_box": [
+        832,
+        143,
+        905,
+        207
+      ],
+      "size": [
+        73,
+        64
+      ],
+      "sha256": "273612525db7236b47ac63d5c217806862c0fe49d149c3cb446a83895c06f6ee"
+    },
+    "panel-corner-tr.png": {
+      "crop_box": [
+        1598,
+        143,
+        1672,
+        207
+      ],
+      "size": [
+        74,
+        64
+      ],
+      "sha256": "87572492a7239f2d2f15c78f31798ae4a67af65f8cd13eac395c6362e3b0e892"
+    },
+    "panel-corner-bl.png": {
+      "crop_box": [
+        832,
+        392,
+        905,
+        447
+      ],
+      "size": [
+        73,
+        55
+      ],
+      "sha256": "8791665f01dfeecbdc99ca71cfb599da0399a064b4c284340f2ab17f70819c83"
+    },
+    "panel-corner-br.png": {
+      "crop_box": [
+        1598,
+        392,
+        1672,
+        447
+      ],
+      "size": [
+        74,
+        55
+      ],
+      "sha256": "18a4d25e61bf7cac49aa751bdb32f027330ce4fb84e91fa499495cd894d79b89"
+    },
+    "hazard-left.png": {
+      "crop_box": [
+        4,
+        188,
+        40,
+        420
+      ],
+      "size": [
+        36,
+        232
+      ],
+      "sha256": "b518023d5f494266b993664b009bd6db95215688b419cf101c7899a38c51a125"
+    },
+    "hazard-bottom.png": {
+      "crop_box": [
+        1360,
+        414,
+        1600,
+        442
+      ],
+      "size": [
+        240,
+        28
+      ],
+      "sha256": "721732859fdd568b78158a86bfba9c6c7d77f93e31e9c8d4eb5a10bdf26841ba"
+    },
+    "panel-fill.png": {
+      "crop_box": [
+        1185,
+        332,
+        1530,
+        392
+      ],
+      "size": [
+        345,
+        60
+      ],
+      "sha256": "3ad54eae934118222985e3b20deda209027aba1ccc4f112843cab3a437c90350"
+    },
+    "panel-fill-dark.png": {
+      "crop_box": [
+        1185,
+        210,
+        1530,
+        260
+      ],
+      "size": [
+        345,
+        50
+      ],
+      "sha256": "31b93dfe4e399cbfaf2ffc983135c8a984391be71458045170289f7e2ae6edf1"
+    },
+    "center-zone-banner.png": {
+      "crop_box": [
+        590,
+        660,
+        1035,
+        941
+      ],
+      "size": [
+        445,
+        281
+      ],
+      "sha256": "6d366aa90f82ead0f7410430cbfca5794d70e605e34180e072f51fd3c732206a"
+    },
+    "aida-header-strip.png": {
+      "crop_box": [
+        1030,
+        666,
+        1450,
+        711
+      ],
+      "size": [
+        420,
+        45
+      ],
+      "sha256": "f04d10a7361833a7710ae0b43c7ec60332ac9a95b01ad066b682d5df1374d048"
+    },
+    "header-full-exact.png": {
+      "size": [
+        1672,
+        145
+      ],
+      "sha256": "c7a9959ccda149bc605ce9dadcc008498aa552aea558ffe6f60a64b7daabb36c",
+      "crop_box": [
+        0,
+        0,
+        1672,
+        145
+      ]
+    },
+    "chat-shell.png": {
+      "size": [
+        816,
+        298
+      ],
+      "sha256": "028176bcc713c7f59255db8ab51aa4330262075bbb276ee52a0f5c093d3cfcc0",
+      "base_crop_box": [
+        5,
+        145,
+        821,
+        443
+      ],
+      "operations": [
+        {
+          "op": "tile_fill",
+          "box": [
+            28,
+            52,
+            790,
+            270
+          ],
+          "source": "panel-fill-dark.png"
+        }
+      ]
+    },
+    "donations-shell.png": {
+      "size": [
+        836,
+        298
+      ],
+      "sha256": "a01da01159317bd5bd03aecacbc31ef013e846a00e62bf595a58514a02fcc9ea",
+      "base_crop_box": [
+        831,
+        145,
+        1667,
+        443
+      ],
+      "operations": [
+        {
+          "op": "tile_fill",
+          "box": [
+            30,
+            52,
+            808,
+            267
+          ],
+          "source": "panel-fill-dark.png"
+        }
+      ]
+    },
+    "mixer-shell.png": {
+      "size": [
+        816,
+        208
+      ],
+      "sha256": "a9e98c1af4257cf10c3997c6f13e141268bde432ac63f03b182d9e8d958b70a5",
+      "base_crop_box": [
+        5,
+        449,
+        821,
+        657
+      ],
+      "operations": [
+        {
+          "op": "tile_fill",
+          "box": [
+            28,
+            45,
+            790,
+            170
+          ],
+          "source": "panel-fill-dark.png"
+        }
+      ]
+    },
+    "notifications-shell.png": {
+      "size": [
+        836,
+        208
+      ],
+      "sha256": "d235b62e6237cfcd3b4a7752f9c8fbe51ac393f13c013db52d16bf28db7346d1",
+      "base_crop_box": [
+        831,
+        449,
+        1667,
+        657
+      ],
+      "operations": [
+        {
+          "op": "tile_fill",
+          "box": [
+            30,
+            45,
+            808,
+            170
+          ],
+          "source": "panel-fill-dark.png"
+        }
+      ]
+    },
+    "system-status-shell.png": {
+      "size": [
+        583,
+        263
+      ],
+      "sha256": "93aceed62665e72626e55087ce181edee16c3c34e0cd17519d74b6aade9a186c",
+      "base_crop_box": [
+        5,
+        664,
+        588,
+        927
+      ],
+      "operations": [
+        {
+          "op": "tile_fill",
+          "box": [
+            25,
+            48,
+            557,
+            232
+          ],
+          "source": "panel-fill-dark.png"
+        }
+      ]
+    },
+    "center-zone-panel-exact.png": {
+      "size": [
+        445,
+        267
+      ],
+      "sha256": "c4e60eb94a7e6d403fad545245ef9ba2cbdb61fa1756ff35e79df3e60859fff6",
+      "crop_box": [
+        590,
+        660,
+        1035,
+        927
+      ]
+    },
+    "aida-shell.png": {
+      "size": [
+        637,
+        263
+      ],
+      "sha256": "da201c3825a3db412e0b2599fe9e20541c4e737ad4f9ad9dad6a5f68a5c6ac7c",
+      "base_crop_box": [
+        1030,
+        664,
+        1667,
+        927
+      ],
+      "operations": [
+        {
+          "op": "tile_fill",
+          "box": [
+            20,
+            48,
+            617,
+            225
+          ],
+          "source": "panel-fill-dark.png"
+        },
+        {
+          "op": "restore_from_base",
+          "box": [
+            0,
+            0,
+            637,
+            52
+          ]
+        },
+        {
+          "op": "restore_from_base",
+          "box": [
+            0,
+            218,
+            637,
+            263
+          ]
+        },
+        {
+          "op": "restore_from_base",
+          "box": [
+            32,
+            48,
+            166,
+            218
+          ]
+        },
+        {
+          "op": "restore_from_base",
+          "box": [
+            169,
+            48,
+            302,
+            218
+          ]
+        },
+        {
+          "op": "restore_from_base",
+          "box": [
+            305,
+            48,
+            438,
+            218
+          ]
+        },
+        {
+          "op": "restore_from_base",
+          "box": [
+            441,
+            48,
+            575,
+            218
+          ]
+        },
+        {
+          "op": "tile_fill",
+          "box": [
+            48,
+            115,
+            151,
+            202
+          ],
+          "source": "panel-fill-dark.png"
+        },
+        {
+          "op": "tile_fill",
+          "box": [
+            185,
+            115,
+            287,
+            202
+          ],
+          "source": "panel-fill-dark.png"
+        },
+        {
+          "op": "tile_fill",
+          "box": [
+            321,
+            115,
+            423,
+            202
+          ],
+          "source": "panel-fill-dark.png"
+        },
+        {
+          "op": "tile_fill",
+          "box": [
+            457,
+            108,
+            560,
+            202
+          ],
+          "source": "panel-fill-dark.png"
+        }
+      ]
+    }
+  }
+}

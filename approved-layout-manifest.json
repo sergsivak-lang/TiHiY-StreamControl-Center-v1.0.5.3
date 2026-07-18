@@ -1,0 +1,68 @@
+{
+  "reference": "approved-full-reference.png",
+  "reference_size": [
+    1672,
+    941
+  ],
+  "header_height": 145,
+  "dashboard_origin": [
+    0,
+    145
+  ],
+  "dashboard_size": [
+    1672,
+    796
+  ],
+  "live_blocks": {
+    "ChatBlockPanel": [
+      5,
+      0,
+      816,
+      298
+    ],
+    "DonationsBlockPanel": [
+      831,
+      0,
+      836,
+      298
+    ],
+    "MixerBlockPanel": [
+      5,
+      304,
+      816,
+      208
+    ],
+    "NotificationsBlockPanel": [
+      831,
+      304,
+      836,
+      208
+    ],
+    "SystemStatusBlockPanel": [
+      5,
+      519,
+      583,
+      263
+    ],
+    "SystemMonitorPanel": [
+      1030,
+      519,
+      637,
+      263
+    ],
+    "CenterZonePanel": [
+      590,
+      515,
+      445,
+      267
+    ]
+  },
+  "rule": "Coordinates are measured directly from the approved 1672x941 mockup and applied to the real grid-based final MainWindow.xaml. No nonexistent freeform canvas is used.",
+  "layout_hierarchy": [
+    "DesignSurface",
+    "DashboardBlocksGrid",
+    "TopBlocksGrid",
+    "BottomBlocksGrid",
+    "FooterBlocksGrid"
+  ]
+}
