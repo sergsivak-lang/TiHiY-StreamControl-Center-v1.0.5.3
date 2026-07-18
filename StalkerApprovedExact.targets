@@ -1,0 +1,41 @@
+<Project>
+  <ItemGroup>
+    <!-- Disable the earlier flat/generated STALKER visual runtimes.
+         Their timers would otherwise overwrite the approved exact texture layer. -->
+    <Compile Remove="Services\StalkerThemeRuntime.cs" />
+    <Compile Remove="Services\StalkerThemeFinalizer.cs" />
+    <Compile Remove="Services\StalkerSettingsRuntime.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The main project already contains an Assets/Themes/**/*.png glob.
+         Remove then add to guarantee exactly one WPF Resource item. -->
+    <Resource Remove="Assets\Themes\StalkerApproved\*.png" />
+    <Resource Include="Assets\Themes\StalkerApproved\*.png" />
+  </ItemGroup>
+
+  <!-- Existing generated STALKER art runs during PrepareForBuild. This target
+       runs later, immediately before WPF resource preparation, so the exact
+       crops from the approved 1672x941 mockup always win. -->
+  <Target Name="ApplyApprovedStalkerExactTextures"
+          BeforeTargets="PrepareResources"
+          Condition="Exists('$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\center-zone-banner.png')">
+    <MakeDir Directories="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\header-skyline-exact.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact\zone-header.png" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\header-emblem-exact.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact\stalker-symbol.png" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\center-zone-banner.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact\zone-banner.png" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\panel-fill.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact\rusted-metal.png" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\panel-edge-top.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact\scratches.png" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\panel-corner-tl.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact\hazard-corner.png" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\center-zone-banner.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\stalker_zone.png" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\header-emblem-exact.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\stalker_symbol.png" />
+  </Target>
+</Project>
