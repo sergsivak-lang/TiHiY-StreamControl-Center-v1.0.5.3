@@ -1,0 +1,124 @@
+name: Public release v1.0.5.3
+
+on:
+  push:
+    branches:
+      - agent/public-release-updater-v1.0.5.3
+    paths:
+      - 'App.Update.cs'
+      - 'Services/UpdateService.cs'
+      - 'TiHiY.StreamControlCenter.csproj'
+      - '.github/workflows/public-release-v1.0.5.3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: windows-latest
+    env:
+      VERSION: 1.0.5.3
+      TAG: v1.0.5.3
+      PACKAGE_NAME: TiHiY-StreamControl-Center-v1.0.5.3-win-x64.zip
+
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore TiHiY.StreamControlCenter.sln
+
+      - name: Release build
+        run: dotnet build TiHiY.StreamControlCenter.sln --configuration Release --no-restore
+
+      - name: Publish self-contained Windows x64
+        shell: pwsh
+        run: |
+          dotnet publish TiHiY.StreamControlCenter.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=false `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            --output publish
+          if (-not (Test-Path 'publish/TiHiY.StreamControlCenter.exe')) {
+            throw 'TiHiY.StreamControlCenter.exe was not created.'
+          }
+
+      - name: Create release ZIP, checksum and site manifest
+        id: package
+        shell: pwsh
+        run: |
+          Compress-Archive -Path 'publish/*' -DestinationPath $env:PACKAGE_NAME -Force
+          $hash = (Get-FileHash $env:PACKAGE_NAME -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $env:PACKAGE_NAME" | Set-Content "$env:PACKAGE_NAME.sha256" -Encoding ascii
+
+          $downloadUrl = "https://github.com/${{ github.repository }}/releases/download/$env:TAG/$env:PACKAGE_NAME"
+          New-Item -ItemType Directory -Force -Path 'website-payload/updates' | Out-Null
+          New-Item -ItemType Directory -Force -Path 'website-payload/programs' | Out-Null
+
+          $manifest = [ordered]@{
+            version = $env:VERSION
+            latestVersion = $env:VERSION
+            channel = 'stable'
+            downloadUrl = $downloadUrl
+            packageUrl = $downloadUrl
+            sha256 = $hash
+            releaseNotes = 'Публічний Windows x64 реліз TiHiY StreamControl Center із темою STALKER v4 та автоматичним оновленням через TiHiY Software.'
+            publishedAt = [DateTime]::UtcNow.ToString('O')
+            minimumWindows = '10 x64'
+          }
+          $manifest | ConvertTo-Json -Depth 5 | Set-Content 'website-payload/updates/streamcontrol-center.json' -Encoding utf8
+
+          @"
+          <a class="btn btn-primary" href="$downloadUrl">ЗАВАНТАЖИТИ ДЛЯ WINDOWS</a>
+          <p>Версія $env:VERSION • Windows 10/11 x64 • Portable ZIP</p>
+          "@ | Set-Content 'website-payload/programs/streamcontrol-download-snippet.html' -Encoding utf8
+
+          "sha256=$hash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Create or update GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = @"
+          ## TiHiY StreamControl Center v1.0.5.3
+
+          - Windows 10/11 x64 self-contained build;
+          - approved STALKER v4 theme resources;
+          - automatic update check through TiHiY Software manifest;
+          - SHA-256 verification before installing an update;
+          - user settings, OAuth credentials and local data remain in AppData during updates.
+          "@
+
+          gh release view $env:TAG --repo '${{ github.repository }}' *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:TAG $env:PACKAGE_NAME "$env:PACKAGE_NAME.sha256" 'website-payload/updates/streamcontrol-center.json' --clobber --repo '${{ github.repository }}'
+            gh release edit $env:TAG --title "TiHiY StreamControl Center v$env:VERSION" --notes $notes --latest --repo '${{ github.repository }}'
+          }
+          else {
+            gh release create $env:TAG $env:PACKAGE_NAME "$env:PACKAGE_NAME.sha256" 'website-payload/updates/streamcontrol-center.json' `
+              --target '${{ github.sha }}' `
+              --title "TiHiY StreamControl Center v$env:VERSION" `
+              --notes $notes `
+              --latest `
+              --repo '${{ github.repository }}'
+          }
+
+      - name: Upload release and website payload
+        uses: actions/upload-artifact@v4
+        with:
+          name: TiHiY-StreamControl-Center-v1.0.5.3-public-release
+          path: |
+            TiHiY-StreamControl-Center-v1.0.5.3-win-x64.zip
+            TiHiY-StreamControl-Center-v1.0.5.3-win-x64.zip.sha256
+            website-payload/**
+          if-no-files-found: error
