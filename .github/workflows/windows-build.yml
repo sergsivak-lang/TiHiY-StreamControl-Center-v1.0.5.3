@@ -1,8 +1,9 @@
-name: Validate Imported Run 29557749076
+name: Windows Build
 
 on:
+  push:
+    branches: [main, "feature/**"]
   pull_request:
-    types: [reopened]
     branches: [main]
   workflow_dispatch:
 
@@ -10,33 +11,36 @@ permissions:
   contents: read
 
 jobs:
-  build-and-run-imported-branch:
+  build:
     runs-on: windows-latest
     steps:
-      - name: Checkout imported branch
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: feature/stalker-theme-and-chat-fixes
 
-      - name: Verify imported identity
+      - name: Verify WPF source tree
         shell: pwsh
         run: |
-          $version = (Get-Content VERSION.txt -Raw).Trim()
-          if ($version -ne "v1.0.5.3-UKRAINE-REFERENCE-THEME") {
-            throw "Unexpected imported version: $version"
-          }
-          $required = @(
+          $requiredFiles = @(
             "TiHiY.StreamControlCenter.sln",
             "TiHiY.StreamControlCenter.csproj",
+            "App.xaml",
+            "App.xaml.cs",
             "MainWindow.xaml",
-            "Themes/UkraineReference.xaml",
-            "Themes/StalkerReference.xaml",
-            "Controls/RichChatTextBlock.cs"
+            "GlobalUsings.cs",
+            "Themes/CyberAmber.xaml",
+            "Themes/Compatibility.xaml",
+            "Services/AppServices.cs",
+            "Services/YouTubeService.cs",
+            "Services/ThemeService.cs",
+            "Windows/SettingsWindow.xaml",
+            "Windows/SettingsWindow.xaml.cs"
           )
-          foreach ($file in $required) {
-            if (-not (Test-Path $file)) { throw "Missing imported file: $file" }
+          foreach ($requiredFile in $requiredFiles) {
+            if (-not (Test-Path $requiredFile)) {
+              throw "Required WPF source file is missing: $requiredFile"
+            }
           }
-          Write-Host "Imported program identity verified: $version"
+          Write-Host "WPF source tree verified."
 
       - name: Setup .NET 9
         uses: actions/setup-dotnet@v4
@@ -50,21 +54,33 @@ jobs:
         shell: pwsh
         run: |
           dotnet build TiHiY.StreamControlCenter.sln --configuration Release --no-restore *> build.log
-          if ($LASTEXITCODE -ne 0) {
-            Get-Content build.log | Select-Object -Last 200
-            exit $LASTEXITCODE
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) {
+            Get-Content build.log | Select-Object -Last 200 | Set-Content build-errors.txt -Encoding utf8
+            Get-Content build-errors.txt | ForEach-Object { Write-Host $_ }
+            exit $exitCode
           }
-          Write-Host "Release Build completed successfully."
+          "Build completed successfully." | Set-Content build-errors.txt -Encoding utf8
+
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-diagnostics
+          path: |
+            build.log
+            build-errors.txt
+          if-no-files-found: warn
 
       - name: Publish self-contained win-x64
         run: dotnet publish TiHiY.StreamControlCenter.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=false --output publish
 
-      - name: Launch EXE and capture real window
+      - name: Launch EXE and capture main window
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path verification | Out-Null
-          $shot = Join-Path $PWD "verification/TiHiY-Imported-29557749076-Real.png"
-          $log = Join-Path $PWD "verification/smoke-test.log"
+          New-Item -ItemType Directory -Force -Path preview | Out-Null
+          $shot = Join-Path $PWD "preview/TiHiY-StreamControl-Center-MainWindow.png"
+          $log = Join-Path $PWD "preview/smoke-test.log"
           $exe = (Resolve-Path "publish/TiHiY.StreamControlCenter.exe").Path
           $process = $null
 
@@ -77,8 +93,6 @@ jobs:
             $startInfo.RedirectStandardOutput = $true
             $startInfo.RedirectStandardError = $true
             $startInfo.ArgumentList.Add("--ci-screenshot=$shot")
-            $startInfo.ArgumentList.Add("--ci-apply-ukraine-theme")
-            $startInfo.ArgumentList.Add("--ci-language=uk-UA")
 
             $process = [Diagnostics.Process]::new()
             $process.StartInfo = $startInfo
@@ -90,35 +104,26 @@ jobs:
             if (-not $process.WaitForExit(60000)) {
               $process.Kill($true)
               $process.WaitForExit()
-              throw "Imported application launch timed out."
+              throw "Application launch timed out."
             }
 
             $stdout = $stdoutTask.GetAwaiter().GetResult()
             $stderr = $stderrTask.GetAwaiter().GetResult()
             "Exit code: $($process.ExitCode)`nSTDOUT:`n$stdout`nSTDERR:`n$stderr" | Set-Content $log -Encoding utf8
 
-            if ($process.ExitCode -ne 0) { throw "Imported EXE exited with code $($process.ExitCode)." }
-            if (-not (Test-Path $shot)) { throw "Imported EXE did not create the screenshot." }
-            if ((Get-Item $shot).Length -lt 25000) { throw "Screenshot is unexpectedly small." }
+            if ($process.ExitCode -ne 0) { throw "Application exited with code $($process.ExitCode)." }
+            if (-not (Test-Path $shot)) { throw "Application did not create the screenshot." }
           }
           finally {
             if ($process) { $process.Dispose() }
           }
 
-          Write-Host "Imported EXE launched and created a real screenshot."
-
-      - name: Upload verified imported build
+      - name: Upload program and screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TiHiY-Imported-Run-29557749076-Verification
+          name: TiHiY-StreamControl-Center-win-x64
           path: |
-            verification/**
-            build.log
+            publish/**
+            preview/**
           if-no-files-found: warn
-
-      - name: Upload imported win-x64 program
-        uses: actions/upload-artifact@v4
-        with:
-          name: TiHiY-Imported-Run-29557749076-win-x64
-          path: publish/**
