@@ -1,8 +1,14 @@
 using System.Diagnostics;
+using System.IO;
 using System.IO.Compression;
+using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
 
 namespace TiHiY.StreamControlCenter.Services;
 
@@ -12,14 +18,19 @@ public static class UpdateService
 
     private static readonly HttpClient Http = CreateHttpClient();
 
-    public static async Task CheckAndOfferUpdateAsync(Window owner, AppLogger logger, CancellationToken cancellationToken = default)
+    public static async Task CheckAndOfferUpdateAsync(
+        Window owner,
+        AppLogger logger,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             var separator = ManifestUrl.Contains('?') ? '&' : '?';
-            var manifestJson = await Http.GetStringAsync(
-                $"{ManifestUrl}{separator}t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}",
-                cancellationToken).ConfigureAwait(true);
+            var manifestUri = $"{ManifestUrl}{separator}t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+
+            using var response = await Http.GetAsync(manifestUri, cancellationToken).ConfigureAwait(true);
+            response.EnsureSuccessStatusCode();
+            var manifestJson = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(true);
 
             var manifest = JsonSerializer.Deserialize<UpdateManifest>(manifestJson, new JsonSerializerOptions
             {
@@ -44,13 +55,14 @@ public static class UpdateService
             }
 
             var currentVersion = GetCurrentVersion();
-            if (availableVersion <= currentVersion)
+            if (availableVersion.CompareTo(currentVersion) <= 0)
             {
                 logger.Info($"Оновлення: встановлена актуальна версія {currentVersion}.");
                 return;
             }
 
-            if (!Uri.TryCreate(downloadUrl, UriKind.Absolute, out var packageUri) || packageUri.Scheme != Uri.UriSchemeHttps)
+            if (!Uri.TryCreate(downloadUrl, UriKind.Absolute, out var packageUri) ||
+                packageUri.Scheme != Uri.UriSchemeHttps)
             {
                 logger.Info("Оновлення: у маніфесті відсутнє коректне HTTPS-посилання на пакет.");
                 return;
@@ -69,8 +81,12 @@ public static class UpdateService
             owner.IsEnabled = false;
             try
             {
-                await DownloadVerifyAndLaunchUpdaterAsync(packageUri, sha256, availableVersion, logger, cancellationToken)
-                    .ConfigureAwait(true);
+                await DownloadVerifyAndLaunchUpdaterAsync(
+                    packageUri,
+                    sha256,
+                    availableVersion,
+                    logger,
+                    cancellationToken).ConfigureAwait(true);
             }
             finally
             {
@@ -94,16 +110,25 @@ public static class UpdateService
         AppLogger logger,
         CancellationToken cancellationToken)
     {
-        var updateRoot = Path.Combine(Path.GetTempPath(), "TiHiY", "StreamControlCenter", "Updates", availableVersion.ToString());
-        if (Directory.Exists(updateRoot)) Directory.Delete(updateRoot, recursive: true);
+        var updateRoot = Path.Combine(
+            Path.GetTempPath(),
+            "TiHiY",
+            "StreamControlCenter",
+            "Updates",
+            availableVersion.ToString());
+
+        if (Directory.Exists(updateRoot))
+            Directory.Delete(updateRoot, recursive: true);
         Directory.CreateDirectory(updateRoot);
 
         var packagePath = Path.Combine(updateRoot, "TiHiY-StreamControl-Center-update.zip");
         var extractPath = Path.Combine(updateRoot, "package");
         Directory.CreateDirectory(extractPath);
 
-        using (var response = await Http.GetAsync(packageUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                   .ConfigureAwait(false))
+        using (var response = await Http.GetAsync(
+                   packageUri,
+                   HttpCompletionOption.ResponseHeadersRead,
+                   cancellationToken).ConfigureAwait(false))
         {
             response.EnsureSuccessStatusCode();
             await using var input = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
@@ -116,20 +141,26 @@ public static class UpdateService
             var actualSha256 = await ComputeSha256Async(packagePath, cancellationToken).ConfigureAwait(false);
             var normalizedExpected = NormalizeSha256(expectedSha256);
             if (!actualSha256.Equals(normalizedExpected, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException($"SHA-256 пакета не збігається. Очікується {normalizedExpected}, отримано {actualSha256}.");
+            {
+                throw new InvalidDataException(
+                    $"SHA-256 пакета не збігається. Очікується {normalizedExpected}, отримано {actualSha256}.");
+            }
         }
 
         ZipFile.ExtractToDirectory(packagePath, extractPath, overwriteFiles: true);
 
         var exeName = Path.GetFileName(Environment.ProcessPath);
-        if (string.IsNullOrWhiteSpace(exeName)) exeName = "TiHiY.StreamControlCenter.exe";
+        if (string.IsNullOrWhiteSpace(exeName))
+            exeName = "TiHiY.StreamControlCenter.exe";
 
         var sourcePath = ResolvePackageRoot(extractPath, exeName);
         var sourceExe = Path.Combine(sourcePath, exeName);
         if (!File.Exists(sourceExe))
             throw new InvalidDataException($"У пакеті оновлення не знайдено {exeName}.");
 
-        var targetPath = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var targetPath = AppContext.BaseDirectory.TrimEnd(
+            Path.DirectorySeparatorChar,
+            Path.AltDirectorySeparatorChar);
         var scriptPath = Path.Combine(updateRoot, "apply-update.ps1");
         await File.WriteAllTextAsync(scriptPath, BuildUpdaterScript(), cancellationToken).ConfigureAwait(false);
 
@@ -163,18 +194,27 @@ public static class UpdateService
 
     private static string ResolvePackageRoot(string extractPath, string exeName)
     {
-        if (File.Exists(Path.Combine(extractPath, exeName))) return extractPath;
+        if (File.Exists(Path.Combine(extractPath, exeName)))
+            return extractPath;
 
         var directories = Directory.GetDirectories(extractPath);
         var files = Directory.GetFiles(extractPath);
-        if (directories.Length == 1 && files.Length == 0 && File.Exists(Path.Combine(directories[0], exeName)))
+        if (directories.Length == 1 &&
+            files.Length == 0 &&
+            File.Exists(Path.Combine(directories[0], exeName)))
+        {
             return directories[0];
+        }
 
-        var foundExe = Directory.EnumerateFiles(extractPath, exeName, SearchOption.AllDirectories).FirstOrDefault();
+        var foundExe = Directory
+            .EnumerateFiles(extractPath, exeName, SearchOption.AllDirectories)
+            .FirstOrDefault();
         return foundExe is null ? extractPath : Path.GetDirectoryName(foundExe)!;
     }
 
-    private static async Task<string> ComputeSha256Async(string filePath, CancellationToken cancellationToken)
+    private static async Task<string> ComputeSha256Async(
+        string filePath,
+        CancellationToken cancellationToken)
     {
         await using var stream = File.OpenRead(filePath);
         using var sha = SHA256.Create();
@@ -184,27 +224,46 @@ public static class UpdateService
 
     private static string NormalizeSha256(string value)
     {
-        var firstToken = value.Trim().Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-        return (firstToken ?? string.Empty).Replace("sha256:", string.Empty, StringComparison.OrdinalIgnoreCase).Trim().ToLowerInvariant();
+        var firstToken = value
+            .Trim()
+            .Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault();
+
+        return (firstToken ?? string.Empty)
+            .Replace("sha256:", string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Trim()
+            .ToLowerInvariant();
     }
 
     private static Version GetCurrentVersion()
     {
         var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
-        var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-        if (TryParseVersion(informational, out var parsed)) return parsed;
+        var informational = assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion;
+
+        if (TryParseVersion(informational, out var parsed))
+            return parsed;
+
         return assembly.GetName().Version ?? new Version(0, 0, 0, 0);
     }
 
     private static bool TryParseVersion(string? value, out Version version)
     {
         version = new Version(0, 0, 0, 0);
-        if (string.IsNullOrWhiteSpace(value)) return false;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
 
         var normalized = value.Trim().TrimStart('v', 'V');
         var separatorIndex = normalized.IndexOfAny(new[] { '-', '+' });
-        if (separatorIndex >= 0) normalized = normalized[..separatorIndex];
-        return Version.TryParse(normalized, out version!);
+        if (separatorIndex >= 0)
+            normalized = normalized[..separatorIndex];
+
+        if (!Version.TryParse(normalized, out var parsed) || parsed is null)
+            return false;
+
+        version = parsed;
+        return true;
     }
 
     private static string? FirstNotEmpty(params string?[] values) =>
@@ -214,7 +273,8 @@ public static class UpdateService
     {
         var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd("TiHiY-StreamControl-Center/1.0.5.3");
-        client.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
+        client.DefaultRequestHeaders.CacheControl =
+            new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
         return client;
     }
 
