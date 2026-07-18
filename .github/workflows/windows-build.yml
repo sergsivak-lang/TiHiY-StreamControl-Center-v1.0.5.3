@@ -3,6 +3,9 @@ name: Exact Transfer Run 29557749076
 on:
   push:
     branches: [main]
+  pull_request:
+    types: [reopened]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
