@@ -1,11 +1,9 @@
 name: Stalker Theme Validation
 
 on:
-  push:
+  pull_request_target:
+    types: [reopened]
     branches: [main]
-    paths:
-      - STALKER_VALIDATION_TRIGGER.txt
-      - .github/workflows/stalker-theme-validation.yml
   workflow_dispatch:
 
 permissions:
@@ -18,7 +16,7 @@ jobs:
       - name: Checkout Stalker feature branch
         uses: actions/checkout@v4
         with:
-          ref: feature/stalker-theme-v1
+          ref: ${{ github.event.pull_request.head.sha || 'feature/stalker-theme-v1' }}
 
       - name: Verify implementation files
         shell: pwsh
