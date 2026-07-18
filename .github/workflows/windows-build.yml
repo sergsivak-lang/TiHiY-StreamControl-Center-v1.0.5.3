@@ -1,172 +1,15 @@
-name: Windows Build
+name: Exact Transfer Run 29557749076
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Verify WPF source tree
-        shell: pwsh
-        run: |
-          $requiredFiles = @(
-            "TiHiY.StreamControlCenter.sln",
-            "TiHiY.StreamControlCenter.csproj",
-            "App.xaml",
-            "App.xaml.cs",
-            "MainWindow.xaml",
-            "GlobalUsings.cs",
-            "Themes/CyberAmber.xaml",
-            "Themes/Compatibility.xaml",
-            "Services/AppServices.cs",
-            "Services/ObsWebSocketService.cs",
-            "Services/YouTubeService.cs",
-            "Services/ResponsiveBlockService.cs",
-            "Services/ThemeService.cs",
-            "Models/DonationEvent.cs",
-            "Windows/JournalWindow.xaml",
-            "Windows/JournalWindow.xaml.cs",
-            "Windows/SettingsWindow.xaml",
-            "Windows/SettingsWindow.xaml.cs"
-          )
-          foreach ($requiredFile in $requiredFiles) {
-            if (-not (Test-Path $requiredFile)) {
-              throw "Required WPF source file is missing: $requiredFile"
-            }
-          }
-          Write-Host "Complete WPF source tree verified."
-
-      - name: Setup .NET 9
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 9.0.x
-
-      - name: Restore
-        run: dotnet restore TiHiY.StreamControlCenter.sln
-
-      - name: Build
-        shell: pwsh
-        run: |
-          dotnet build TiHiY.StreamControlCenter.sln --configuration Release --no-restore *> build.log
-          $exitCode = $LASTEXITCODE
-          if ($exitCode -ne 0) {
-            Get-Content build.log | Select-Object -Last 200 | Set-Content build-errors.txt -Encoding utf8
-            Get-Content build-errors.txt | ForEach-Object { Write-Host $_ }
-            exit $exitCode
-          }
-          "Build completed successfully." | Set-Content build-errors.txt -Encoding utf8
-
-      - name: Upload build diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-diagnostics
-          path: |
-            build.log
-            build-errors.txt
-          if-no-files-found: warn
-
-      - name: Publish self-contained Windows build
-        run: dotnet publish TiHiY.StreamControlCenter.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=false --output publish
-
-      - name: Upload program
-        uses: actions/upload-artifact@v4
-        with:
-          name: TiHiY-StreamControl-Center-v1.0.5.3-win-x64
-          path: publish/**
-
-      - name: Launch and capture main window
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path preview | Out-Null
-          $diagnosticLog = Join-Path $PWD "preview/smoke-test.log"
-          "Main window smoke test started at $(Get-Date -Format o)" | Set-Content $diagnosticLog -Encoding utf8
-
-          $exe = (Resolve-Path "publish/TiHiY.StreamControlCenter.exe").Path
-          $workingDirectory = Split-Path $exe
-          $shot = Join-Path $PWD "preview/TiHiY-StreamControl-Center-v1.0.5.3-MainWindow.png"
-          $failure = $null
-          $process = $null
-
-          try {
-            $startInfo = [Diagnostics.ProcessStartInfo]::new()
-            $startInfo.FileName = $exe
-            $startInfo.WorkingDirectory = $workingDirectory
-            $startInfo.UseShellExecute = $false
-            $startInfo.CreateNoWindow = $true
-            $startInfo.RedirectStandardOutput = $true
-            $startInfo.RedirectStandardError = $true
-            $startInfo.ArgumentList.Add("--ci-screenshot=$shot")
-
-            $process = [Diagnostics.Process]::new()
-            $process.StartInfo = $startInfo
-            if (-not $process.Start()) { throw "Process.Start returned false." }
-
-            $stdoutTask = $process.StandardOutput.ReadToEndAsync()
-            $stderrTask = $process.StandardError.ReadToEndAsync()
-
-            if (-not $process.WaitForExit(45000)) {
-              $process.Kill($true)
-              $process.WaitForExit()
-              $failure = "Main window smoke test timed out."
-            } elseif ($process.ExitCode -ne 0) {
-              $failure = "Application exited with code $($process.ExitCode)."
-            } elseif (-not (Test-Path $shot)) {
-              $failure = "Application did not create the main window screenshot."
-            }
-
-            $stdout = $stdoutTask.GetAwaiter().GetResult()
-            $stderr = $stderrTask.GetAwaiter().GetResult()
-            if ($stdout) { "---- STDOUT ----`n$stdout" | Add-Content $diagnosticLog }
-            if ($stderr) { "---- STDERR ----`n$stderr" | Add-Content $diagnosticLog }
-          }
-          catch {
-            $failure = $_.Exception.Message
-            $_.Exception.ToString() | Add-Content $diagnosticLog
-          }
-          finally {
-            if ($process) { $process.Dispose() }
-            $appLogFolder = Join-Path $env:APPDATA "TiHiY/StreamControlCenter/Logs"
-            if (Test-Path $appLogFolder) {
-              Get-ChildItem $appLogFolder -File -ErrorAction SilentlyContinue | Copy-Item -Destination preview -Force
-            }
-          }
-
-          if ($failure) { throw $failure }
-          Write-Host "Main window launched and captured successfully."
-
-      - name: Upload main window screenshot
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: TiHiY-StreamControl-Center-v1.0.5.3-MainWindow-Screenshot
-          path: preview/**
-          if-no-files-found: warn
-
-      - name: Publish latest real screenshot to repository
-        if: success() && github.ref == 'refs/heads/main'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path ci-output | Out-Null
-          Copy-Item "preview/TiHiY-StreamControl-Center-v1.0.5.3-MainWindow.png" "ci-output/TiHiY-StreamControl-Center-Latest-Real.png" -Force
-          Copy-Item "preview/smoke-test.log" "ci-output/smoke-test-latest.log" -Force
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ci-output
-          git commit -m "CI: зберегти реальний скрін програми [skip ci]"
-          git push
-
-  import-run-29557749076:
-    if: contains(github.event.head_commit.message, '[transfer-run-29557749076]')
+  transfer-exact-source-tree:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout destination branch
@@ -176,37 +19,61 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Fetch and import exact source commit
+      - name: Import exact commit 92cf943
         shell: bash
         run: |
-          set -euo pipefail
+          set +e
           SOURCE_SHA=92cf943e0445a980b0322bdfaa0339faa21bdc2b
+          LOG=/tmp/exact-transfer-29557749076.log
+          : > "$LOG"
+          exec > >(tee -a "$LOG") 2>&1
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          echo "START=$(date -u +%FT%TZ)"
+          echo "TARGET_BEFORE=$(git rev-parse HEAD)"
+
           git remote remove source 2>/dev/null || true
           git remote add source https://github.com/sergsivak-lang/TiHiY-StreamControl-Center.git
-          git fetch --no-tags source refs/heads/feature/stalker-theme-and-chat-fixes
+          git fetch --no-tags source +refs/heads/feature/stalker-theme-and-chat-fixes:refs/remotes/source/stalker
+          FETCH_STATUS=$?
+          echo "FETCH_STATUS=$FETCH_STATUS"
+          echo "SOURCE_BRANCH_TIP=$(git rev-parse refs/remotes/source/stalker 2>/dev/null)"
+
           git cat-file -e "${SOURCE_SHA}^{commit}"
+          OBJECT_STATUS=$?
+          echo "OBJECT_STATUS=$OBJECT_STATUS"
 
-          SOURCE_TREE=$(git rev-parse "${SOURCE_SHA}^{tree}")
-          echo "SOURCE_SHA=$SOURCE_SHA"
-          echo "SOURCE_TREE=$SOURCE_TREE"
+          if [ "$FETCH_STATUS" -eq 0 ] && [ "$OBJECT_STATUS" -eq 0 ]; then
+            SOURCE_TREE=$(git rev-parse "${SOURCE_SHA}^{tree}")
+            echo "SOURCE_TREE=$SOURCE_TREE"
 
-          git rm -r -f --ignore-unmatch .
-          git checkout "$SOURCE_SHA" -- .
-          git add -A
+            git rm -r -f --ignore-unmatch .
+            git checkout "$SOURCE_SHA" -- .
+            CHECKOUT_STATUS=$?
+            git add -A
+            IMPORT_TREE=$(git write-tree 2>/dev/null)
+            echo "CHECKOUT_STATUS=$CHECKOUT_STATUS"
+            echo "IMPORT_TREE=$IMPORT_TREE"
 
-          IMPORT_TREE=$(git write-tree)
-          echo "IMPORT_TREE=$IMPORT_TREE"
-          test "$IMPORT_TREE" = "$SOURCE_TREE"
+            VERSION_VALUE=$(cat VERSION.txt 2>/dev/null)
+            echo "VERSION=$VERSION_VALUE"
 
-          test -f TiHiY.StreamControlCenter.sln
-          test -f TiHiY.StreamControlCenter.csproj
-          test -f MainWindow.xaml
-          test -f Themes/StalkerReference.xaml
-          test -f Themes/UkraineReference.xaml
-          test "$(cat VERSION.txt)" = "v1.0.5.3-UKRAINE-REFERENCE-THEME"
+            if [ "$CHECKOUT_STATUS" -eq 0 ] && [ "$IMPORT_TREE" = "$SOURCE_TREE" ] && [ "$VERSION_VALUE" = "v1.0.5.3-UKRAINE-REFERENCE-THEME" ]; then
+              git commit -m "Import exact tree from run 29557749076 (92cf943)"
+              COMMIT_STATUS=$?
+              git push origin HEAD:feature/stalker-theme-and-chat-fixes
+              PUSH_STATUS=$?
+              echo "COMMIT_STATUS=$COMMIT_STATUS"
+              echo "PUSH_STATUS=$PUSH_STATUS"
+              exit "$PUSH_STATUS"
+            fi
+          fi
 
-          git commit -m "Import exact tree from run 29557749076 (92cf943)"
-          git push origin HEAD:feature/stalker-theme-and-chat-fixes
+          echo "TRANSFER FAILED"
+          cp "$LOG" EXACT_TRANSFER_29557749076_FAILED.log
+          git add EXACT_TRANSFER_29557749076_FAILED.log
+          git commit -m "Діагностика точного перенесення 29557749076" || true
+          git push origin HEAD:feature/stalker-theme-and-chat-fixes || true
+          exit 1
