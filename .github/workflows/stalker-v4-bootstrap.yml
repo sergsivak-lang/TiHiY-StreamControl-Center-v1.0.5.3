@@ -1,0 +1,130 @@
+name: Import approved STALKER v4 patch
+
+on:
+  push:
+    branches:
+      - agent/stalker-approved-exact-v4
+    paths:
+      - "TiHiY-Stalker-Approved-Exact-Patch-v4*.zip"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-approved-v4:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout prepared STALKER branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/stalker-approved-exact-v4
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Locate and verify approved archive
+        id: archive
+        shell: pwsh
+        run: |
+          $archive = Get-ChildItem -Path . -File -Filter "TiHiY-Stalker-Approved-Exact-Patch-v4*.zip" |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First 1
+          if (-not $archive) { throw "Approved STALKER v4 archive was not found in repository root." }
+
+          $expected = "c222def9a4abfe513a507349d9e617c6ae5bf15f4de36bf37e2baec7b1807c4f"
+          $actual = (Get-FileHash -Path $archive.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) {
+            throw "Archive SHA256 mismatch. Expected $expected, got $actual."
+          }
+
+          "archive=$($archive.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Host "Approved archive verified: $actual"
+
+      - name: Extract exact patch
+        shell: pwsh
+        run: |
+          $archive = "${{ steps.archive.outputs.archive }}"
+          $extract = Join-Path $env:RUNNER_TEMP "stalker-approved-v4"
+          Remove-Item $extract -Recurse -Force -ErrorAction SilentlyContinue
+          Expand-Archive -Path $archive -DestinationPath $extract -Force
+
+          $root = Get-ChildItem -Path $extract -Directory |
+            Where-Object { Test-Path (Join-Path $_.FullName "StalkerApprovedExact.targets") } |
+            Select-Object -First 1
+          if (-not $root) { throw "STALKER v4 patch root was not found after extraction." }
+
+          $required = @(
+            "Assets/Themes/StalkerApproved/approved-full-reference.png",
+            "Assets/Themes/StalkerApproved/header-full-exact.png",
+            "Assets/Themes/StalkerApproved/chat-shell.png",
+            "Assets/Themes/StalkerApproved/donations-shell.png",
+            "Assets/Themes/StalkerApproved/mixer-shell.png",
+            "Assets/Themes/StalkerApproved/notifications-shell.png",
+            "Assets/Themes/StalkerApproved/system-status-shell.png",
+            "Assets/Themes/StalkerApproved/aida-shell.png",
+            "Services/StalkerApprovedTextureRuntime.cs",
+            "Services/StalkerApprovedLayoutRuntime.cs",
+            "StalkerApprovedExact.targets",
+            "approved-crop-manifest.json",
+            "approved-layout-manifest.json"
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path (Join-Path $root.FullName $file))) {
+              throw "Required v4 patch file is missing: $file"
+            }
+          }
+
+          Copy-Item (Join-Path $root.FullName "Assets") . -Recurse -Force
+          Copy-Item (Join-Path $root.FullName "Build") . -Recurse -Force
+          Copy-Item (Join-Path $root.FullName "Services") . -Recurse -Force
+          Copy-Item (Join-Path $root.FullName "StalkerApprovedExact.targets") . -Force
+          Copy-Item (Join-Path $root.FullName "approved-crop-manifest.json") . -Force
+          Copy-Item (Join-Path $root.FullName "approved-layout-manifest.json") . -Force
+          Copy-Item (Join-Path $root.FullName "README-UA.txt") "README-STALKER-V4-UA.txt" -Force
+          Copy-Item (Join-Path $root.FullName "IMPLEMENTATION-MAP-UA.md") "STALKER-V4-IMPLEMENTATION-MAP-UA.md" -Force
+          Copy-Item (Join-Path $root.FullName "VALIDATION-REPORT.txt") "STALKER-V4-VALIDATION-REPORT.txt" -Force
+
+          $project = "TiHiY.StreamControlCenter.csproj"
+          [xml]$projectXml = Get-Content $project -Raw
+          $alreadyImported = $projectXml.Project.Import | Where-Object { $_.Project -eq "StalkerApprovedExact.targets" }
+          if (-not $alreadyImported) {
+            $import = $projectXml.CreateElement("Import", $projectXml.Project.NamespaceURI)
+            $import.SetAttribute("Project", "StalkerApprovedExact.targets")
+            $import.SetAttribute("Condition", "Exists('StalkerApprovedExact.targets')")
+            [void]$projectXml.Project.AppendChild($import)
+            $settings = [System.Xml.XmlWriterSettings]::new()
+            $settings.Indent = $true
+            $settings.OmitXmlDeclaration = $true
+            $writer = [System.Xml.XmlWriter]::Create((Resolve-Path $project).Path, $settings)
+            try { $projectXml.Save($writer) } finally { $writer.Dispose() }
+          }
+
+          $workflowSource = Join-Path $root.FullName ".github/workflows/stalker-approved-v4.yml"
+          if (Test-Path $workflowSource) {
+            New-Item -ItemType Directory -Force -Path ".github/workflows" | Out-Null
+            $workflow = Get-Content $workflowSource -Raw
+            $workflow = $workflow -replace '(?ms)      - name: Verify runtime grid layout targets\r?\n        shell: pwsh\r?\n        run: \|\r?\n.*?(?=\r?\n      - name: Setup \.NET 9)', @'
+      - name: Verify runtime grid layout targets
+        shell: pwsh
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File Build/Verify-Stalker-Layout-Targets.ps1 -ProjectDir .
+'@
+            Set-Content ".github/workflows/stalker-approved-v4.yml" $workflow -Encoding utf8
+          }
+
+          Remove-Item $archive -Force
+          Remove-Item ".github/workflows/stalker-v4-bootstrap.yml" -Force
+
+      - name: Verify exact crops and real layout
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -ExecutionPolicy Bypass -File Build/Verify-Approved-Stalker-Crops.ps1 -ProjectDir .
+          pwsh -NoProfile -ExecutionPolicy Bypass -File Build/Verify-Stalker-Layout-Targets.ps1 -ProjectDir .
+
+      - name: Commit imported STALKER v4 patch
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Додати точний патч STALKER v4 з погодженими текстурами"
+          git push origin HEAD:agent/stalker-approved-exact-v4
