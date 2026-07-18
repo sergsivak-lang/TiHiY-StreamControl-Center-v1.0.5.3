@@ -43,7 +43,26 @@ jobs:
         run: dotnet restore TiHiY.StreamControlCenter.sln
 
       - name: Release build
-        run: dotnet build TiHiY.StreamControlCenter.sln --configuration Release --no-restore
+        shell: pwsh
+        run: |
+          dotnet build TiHiY.StreamControlCenter.sln --configuration Release --no-restore *> build.log
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) {
+            Get-Content build.log | Select-Object -Last 400 | Set-Content build-errors.txt -Encoding utf8
+            Get-Content build-errors.txt | ForEach-Object { Write-Host $_ }
+            exit $exitCode
+          }
+          'Build completed successfully.' | Set-Content build-errors.txt -Encoding utf8
+
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TiHiY-v1.0.5.3-build-diagnostics
+          path: |
+            build.log
+            build-errors.txt
+          if-no-files-found: warn
 
       - name: Publish self-contained Windows x64
         shell: pwsh
