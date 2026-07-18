@@ -34,13 +34,13 @@ internal static class StalkerApprovedExactBootstrap
 
 internal static class StalkerApprovedAssets
 {
-    internal const string Root = "/TiHiY.StreamControlCenter;component/Assets/Themes/StalkerApproved/";
+    internal const string Root = "pack://application:,,,/Assets/Themes/StalkerApproved/";
 
     internal static BitmapImage Load(string file)
     {
         var image = new BitmapImage();
         image.BeginInit();
-        image.UriSource = new Uri(Root + file, UriKind.Relative);
+        image.UriSource = new Uri(Root + file, UriKind.Absolute);
         image.CacheOption = BitmapCacheOption.OnLoad;
         image.EndInit();
         image.Freeze();
@@ -691,4 +691,5 @@ public static class StalkerApprovedExactSettingsRuntime
         private sealed record TextState(Brush? Foreground, FontFamily FontFamily, FontWeight FontWeight);
     }
 }
+
 
