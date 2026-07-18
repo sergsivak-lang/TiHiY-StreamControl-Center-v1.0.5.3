@@ -25,6 +25,7 @@ jobs:
         shell: bash
         run: |
           set +e
+          SOURCE_SHA=92cf943e0445a980b0322bdfaa0339faa21bdc2b
           LOG=/tmp/import-29557749076.log
           : > "$LOG"
           exec > >(tee -a "$LOG") 2>&1
@@ -40,12 +41,15 @@ jobs:
           git fetch --no-tags source refs/heads/feature/stalker-theme-and-chat-fixes
           FETCH_STATUS=$?
           echo "FETCH_STATUS=$FETCH_STATUS"
-          FETCHED_SHA=$(git rev-parse FETCH_HEAD 2>/dev/null)
-          echo "FETCHED_SHA=$FETCHED_SHA"
+          echo "BRANCH_TIP=$(git rev-parse FETCH_HEAD 2>/dev/null)"
 
-          if [ "$FETCH_STATUS" -eq 0 ] && [ "$FETCHED_SHA" = "92cf943e0445a980b0322bdfaa0339faa21bdc2b" ]; then
+          git cat-file -e "${SOURCE_SHA}^{commit}" 2>/dev/null
+          SOURCE_STATUS=$?
+          echo "SOURCE_OBJECT_STATUS=$SOURCE_STATUS"
+
+          if [ "$FETCH_STATUS" -eq 0 ] && [ "$SOURCE_STATUS" -eq 0 ]; then
             git rm -r -f --ignore-unmatch .
-            git checkout FETCH_HEAD -- .
+            git checkout "$SOURCE_SHA" -- .
             CHECKOUT_STATUS=$?
             echo "CHECKOUT_STATUS=$CHECKOUT_STATUS"
 
@@ -62,7 +66,7 @@ jobs:
             VERSION_VALUE=$(cat VERSION.txt 2>/dev/null)
             echo "VERIFY=$S1,$S2,$S3,$S4,$S5 VERSION=$VERSION_VALUE"
 
-            if [ "$CHECKOUT_STATUS" -eq 0 ] && [ "$S1" -eq 0 ] && [ "$S2" -eq 0 ] && [ "$S3" -eq 0 ] && [ "$S4" -eq 0 ] && [ "$S5" -eq 0 ]; then
+            if [ "$CHECKOUT_STATUS" -eq 0 ] && [ "$S1" -eq 0 ] && [ "$S2" -eq 0 ] && [ "$S3" -eq 0 ] && [ "$S4" -eq 0 ] && [ "$S5" -eq 0 ] && [ "$VERSION_VALUE" = "v1.0.5.3-UKRAINE-REFERENCE-THEME" ]; then
               git add -A
               git commit -m "Import exact tree from run 29557749076 (92cf943)"
               COMMIT_STATUS=$?
