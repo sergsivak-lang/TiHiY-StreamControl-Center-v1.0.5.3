@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  transfer-exact-source-tree:
+  transfer-exact-source-program:
     runs-on: ubuntu-latest
     env:
       SOURCE_SHA: 92cf943e0445a980b0322bdfaa0339faa21bdc2b
@@ -42,29 +42,56 @@ jobs:
           echo "Exact source commit: $(git rev-parse ${SOURCE_SHA})"
           echo "Exact source tree: $(git rev-parse ${SOURCE_SHA}^{tree})"
 
-      - name: Replace destination worktree
+      - name: Preserve destination workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/destination-workflows
+          mkdir -p /tmp/destination-workflows
+          cp -a .github/workflows/. /tmp/destination-workflows/
+          find /tmp/destination-workflows -maxdepth 1 -type f -printf '%f\n' | sort
+
+      - name: Replace program files from exact source commit
         shell: bash
         run: |
           set -euo pipefail
           git rm -r -f --ignore-unmatch .
           git clean -fdx
           git checkout "${SOURCE_SHA}" -- .
-          git add -A
-          echo "Destination worktree replaced from ${SOURCE_SHA}."
 
-      - name: Verify exact Git tree and required files
+          rm -rf .github/workflows
+          mkdir -p .github/workflows
+          cp -a /tmp/destination-workflows/. .github/workflows/
+
+          git add -A
+          echo "Program files replaced from ${SOURCE_SHA}; destination workflows preserved."
+
+      - name: Verify every non-workflow Git object
         shell: bash
         run: |
           set -euo pipefail
-          SOURCE_TREE=$(git rev-parse "${SOURCE_SHA}^{tree}")
-          IMPORT_TREE=$(git write-tree)
+
+          git ls-tree -r "${SOURCE_SHA}" | awk -F '\t' '
+            $2 !~ /^\.github\/workflows\// {
+              split($1, a, " "); print a[1], a[3], $2
+            }' | LC_ALL=C sort > /tmp/source-program.manifest
+
+          git ls-files -s | awk -F '\t' '
+            $2 !~ /^\.github\/workflows\// {
+              split($1, a, " "); print a[1], a[2], $2
+            }' | LC_ALL=C sort > /tmp/imported-program.manifest
+
+          diff -u /tmp/source-program.manifest /tmp/imported-program.manifest
+
+          SOURCE_COUNT=$(wc -l < /tmp/source-program.manifest)
+          IMPORT_COUNT=$(wc -l < /tmp/imported-program.manifest)
           VERSION_VALUE=$(cat VERSION.txt)
 
-          echo "SOURCE_TREE=${SOURCE_TREE}"
-          echo "IMPORT_TREE=${IMPORT_TREE}"
+          echo "Verified non-workflow objects: ${SOURCE_COUNT}"
+          echo "Imported non-workflow objects: ${IMPORT_COUNT}"
           echo "VERSION=${VERSION_VALUE}"
 
-          test "${IMPORT_TREE}" = "${SOURCE_TREE}"
+          test "${SOURCE_COUNT}" = "${IMPORT_COUNT}"
           test "${VERSION_VALUE}" = "v1.0.5.3-UKRAINE-REFERENCE-THEME"
           test -f TiHiY.StreamControlCenter.sln
           test -f TiHiY.StreamControlCenter.csproj
@@ -73,18 +100,15 @@ jobs:
           test -f Themes/StalkerReference.xaml
           test -f Controls/RichChatTextBlock.cs
 
-      - name: Commit exact imported snapshot
+      - name: Commit verified program snapshot
         shell: bash
         run: |
           set -euo pipefail
-          git commit -m "Import exact tree from run 29557749076 (92cf943)"
+          git commit -m "Import verified program from run 29557749076 (92cf943)"
           echo "Imported commit: $(git rev-parse HEAD)"
 
       - name: Push destination branch
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/sergsivak-lang/TiHiY-StreamControl-Center-v1.0.5.3.git"
           git push origin "HEAD:${DESTINATION_BRANCH}"
