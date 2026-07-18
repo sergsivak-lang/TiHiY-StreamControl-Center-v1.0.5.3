@@ -1,4 +1,4 @@
-name: Exact Transfer Run 29557749076
+name: Validate Imported Run 29557749076
 
 on:
   pull_request:
@@ -7,108 +7,118 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  transfer-exact-source-program:
-    runs-on: ubuntu-latest
-    env:
-      SOURCE_SHA: 92cf943e0445a980b0322bdfaa0339faa21bdc2b
-      DESTINATION_BRANCH: feature/stalker-theme-and-chat-fixes
+  build-and-run-imported-branch:
+    runs-on: windows-latest
     steps:
-      - name: Checkout destination branch
+      - name: Checkout imported branch
         uses: actions/checkout@v4
         with:
           ref: feature/stalker-theme-and-chat-fixes
-          fetch-depth: 0
-          persist-credentials: true
 
-      - name: Configure Git identity
-        shell: bash
+      - name: Verify imported identity
+        shell: pwsh
         run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          echo "Destination before transfer: $(git rev-parse HEAD)"
+          $version = (Get-Content VERSION.txt -Raw).Trim()
+          if ($version -ne "v1.0.5.3-UKRAINE-REFERENCE-THEME") {
+            throw "Unexpected imported version: $version"
+          }
+          $required = @(
+            "TiHiY.StreamControlCenter.sln",
+            "TiHiY.StreamControlCenter.csproj",
+            "MainWindow.xaml",
+            "Themes/UkraineReference.xaml",
+            "Themes/StalkerReference.xaml",
+            "Controls/RichChatTextBlock.cs"
+          )
+          foreach ($file in $required) {
+            if (-not (Test-Path $file)) { throw "Missing imported file: $file" }
+          }
+          Write-Host "Imported program identity verified: $version"
 
-      - name: Fetch exact source history
-        shell: bash
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore TiHiY.StreamControlCenter.sln
+
+      - name: Release Build
+        shell: pwsh
         run: |
-          set -euo pipefail
-          git fetch --no-tags https://github.com/sergsivak-lang/TiHiY-StreamControl-Center.git \
-            +refs/heads/feature/stalker-theme-and-chat-fixes:refs/remotes/source/stalker
-          git cat-file -e "${SOURCE_SHA}^{commit}"
-          echo "Source branch tip: $(git rev-parse refs/remotes/source/stalker)"
-          echo "Exact source commit: $(git rev-parse ${SOURCE_SHA})"
-          echo "Exact source tree: $(git rev-parse ${SOURCE_SHA}^{tree})"
+          dotnet build TiHiY.StreamControlCenter.sln --configuration Release --no-restore *> build.log
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content build.log | Select-Object -Last 200
+            exit $LASTEXITCODE
+          }
+          Write-Host "Release Build completed successfully."
 
-      - name: Preserve destination workflows
-        shell: bash
+      - name: Publish self-contained win-x64
+        run: dotnet publish TiHiY.StreamControlCenter.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=false --output publish
+
+      - name: Launch EXE and capture real window
+        shell: pwsh
         run: |
-          set -euo pipefail
-          rm -rf /tmp/destination-workflows
-          mkdir -p /tmp/destination-workflows
-          cp -a .github/workflows/. /tmp/destination-workflows/
-          find /tmp/destination-workflows -maxdepth 1 -type f -printf '%f\n' | sort
+          New-Item -ItemType Directory -Force -Path verification | Out-Null
+          $shot = Join-Path $PWD "verification/TiHiY-Imported-29557749076-Real.png"
+          $log = Join-Path $PWD "verification/smoke-test.log"
+          $exe = (Resolve-Path "publish/TiHiY.StreamControlCenter.exe").Path
+          $process = $null
 
-      - name: Replace program files from exact source commit
-        shell: bash
-        run: |
-          set -euo pipefail
-          git rm -r -f --ignore-unmatch .
-          git clean -fdx
-          git checkout "${SOURCE_SHA}" -- .
+          try {
+            $startInfo = [Diagnostics.ProcessStartInfo]::new()
+            $startInfo.FileName = $exe
+            $startInfo.WorkingDirectory = Split-Path $exe
+            $startInfo.UseShellExecute = $false
+            $startInfo.CreateNoWindow = $true
+            $startInfo.RedirectStandardOutput = $true
+            $startInfo.RedirectStandardError = $true
+            $startInfo.ArgumentList.Add("--ci-screenshot=$shot")
+            $startInfo.ArgumentList.Add("--ci-apply-ukraine-theme")
+            $startInfo.ArgumentList.Add("--ci-language=uk-UA")
 
-          rm -rf .github/workflows
-          mkdir -p .github/workflows
-          cp -a /tmp/destination-workflows/. .github/workflows/
+            $process = [Diagnostics.Process]::new()
+            $process.StartInfo = $startInfo
+            if (-not $process.Start()) { throw "Process.Start returned false." }
 
-          git add -A
-          echo "Program files replaced from ${SOURCE_SHA}; destination workflows preserved."
+            $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+            $stderrTask = $process.StandardError.ReadToEndAsync()
 
-      - name: Verify every non-workflow Git object
-        shell: bash
-        run: |
-          set -euo pipefail
+            if (-not $process.WaitForExit(60000)) {
+              $process.Kill($true)
+              $process.WaitForExit()
+              throw "Imported application launch timed out."
+            }
 
-          git ls-tree -r "${SOURCE_SHA}" | awk -F '\t' '
-            $2 !~ /^\.github\/workflows\// {
-              split($1, a, " "); print a[1], a[3], $2
-            }' | LC_ALL=C sort > /tmp/source-program.manifest
+            $stdout = $stdoutTask.GetAwaiter().GetResult()
+            $stderr = $stderrTask.GetAwaiter().GetResult()
+            "Exit code: $($process.ExitCode)`nSTDOUT:`n$stdout`nSTDERR:`n$stderr" | Set-Content $log -Encoding utf8
 
-          git ls-files -s | awk -F '\t' '
-            $2 !~ /^\.github\/workflows\// {
-              split($1, a, " "); print a[1], a[2], $2
-            }' | LC_ALL=C sort > /tmp/imported-program.manifest
+            if ($process.ExitCode -ne 0) { throw "Imported EXE exited with code $($process.ExitCode)." }
+            if (-not (Test-Path $shot)) { throw "Imported EXE did not create the screenshot." }
+            if ((Get-Item $shot).Length -lt 25000) { throw "Screenshot is unexpectedly small." }
+          }
+          finally {
+            if ($process) { $process.Dispose() }
+          }
 
-          diff -u /tmp/source-program.manifest /tmp/imported-program.manifest
+          Write-Host "Imported EXE launched and created a real screenshot."
 
-          SOURCE_COUNT=$(wc -l < /tmp/source-program.manifest)
-          IMPORT_COUNT=$(wc -l < /tmp/imported-program.manifest)
-          VERSION_VALUE=$(cat VERSION.txt)
+      - name: Upload verified imported build
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TiHiY-Imported-Run-29557749076-Verification
+          path: |
+            verification/**
+            build.log
+          if-no-files-found: warn
 
-          echo "Verified non-workflow objects: ${SOURCE_COUNT}"
-          echo "Imported non-workflow objects: ${IMPORT_COUNT}"
-          echo "VERSION=${VERSION_VALUE}"
-
-          test "${SOURCE_COUNT}" = "${IMPORT_COUNT}"
-          test "${VERSION_VALUE}" = "v1.0.5.3-UKRAINE-REFERENCE-THEME"
-          test -f TiHiY.StreamControlCenter.sln
-          test -f TiHiY.StreamControlCenter.csproj
-          test -f MainWindow.xaml
-          test -f Themes/UkraineReference.xaml
-          test -f Themes/StalkerReference.xaml
-          test -f Controls/RichChatTextBlock.cs
-
-      - name: Commit verified program snapshot
-        shell: bash
-        run: |
-          set -euo pipefail
-          git commit -m "Import verified program from run 29557749076 (92cf943)"
-          echo "Imported commit: $(git rev-parse HEAD)"
-
-      - name: Push destination branch
-        shell: bash
-        run: |
-          set -euo pipefail
-          git push origin "HEAD:${DESTINATION_BRANCH}"
+      - name: Upload imported win-x64 program
+        uses: actions/upload-artifact@v4
+        with:
+          name: TiHiY-Imported-Run-29557749076-win-x64
+          path: publish/**
