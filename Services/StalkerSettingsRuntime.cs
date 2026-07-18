@@ -226,7 +226,6 @@ public static class StalkerSettingsRuntime
         {
             foreach (var control in FindDescendants<Control>(_window))
             {
-                if (control is TextBlock or Image) continue;
                 if (control is ListBoxItem && ContainsPlatformImage(control)) continue;
                 if (control is not Button && control is not TextBox && control is not ComboBox && control is not ListBoxItem && control is not PasswordBox)
                     continue;
@@ -311,7 +310,8 @@ public static class StalkerSettingsRuntime
         }
 
         private static bool IsHeader(TextBlock text) =>
-            text.FontWeight >= FontWeights.SemiBold && text.FontSize >= 12
+            text.FontWeight.ToOpenTypeWeight() >= FontWeights.SemiBold.ToOpenTypeWeight()
+            && text.FontSize >= 12
             && (text.Text.Contains("ТЕМА", StringComparison.OrdinalIgnoreCase)
                 || text.Text.Contains("ІНТЕРФЕЙС", StringComparison.OrdinalIgnoreCase)
                 || text.Text.Contains("API", StringComparison.OrdinalIgnoreCase)
