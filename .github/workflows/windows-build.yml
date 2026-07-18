@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -151,3 +151,16 @@ jobs:
           name: TiHiY-StreamControl-Center-v1.0.5.3-MainWindow-Screenshot
           path: preview/**
           if-no-files-found: warn
+
+      - name: Publish latest real screenshot to repository
+        if: success() && github.ref == 'refs/heads/main'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path ci-output | Out-Null
+          Copy-Item "preview/TiHiY-StreamControl-Center-v1.0.5.3-MainWindow.png" "ci-output/TiHiY-StreamControl-Center-Latest-Real.png" -Force
+          Copy-Item "preview/smoke-test.log" "ci-output/smoke-test-latest.log" -Force
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ci-output
+          git commit -m "CI: зберегти реальний скрін програми [skip ci]"
+          git push
