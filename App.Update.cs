@@ -1,3 +1,7 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows;
 using TiHiY.StreamControlCenter.Services;
 
 namespace TiHiY.StreamControlCenter;
@@ -13,7 +17,9 @@ public partial class App
 
     private async void OnFirstApplicationActivated(object? sender, EventArgs e)
     {
-        if (_updateCheckStarted) return;
+        if (_updateCheckStarted)
+            return;
+
         _updateCheckStarted = true;
         Activated -= OnFirstApplicationActivated;
 
