@@ -1,0 +1,630 @@
+# Theme and Chat Architecture Inspection
+
+Generated: 2026-07-18T19:58:06.9142838+00:00
+
+## Pattern: Twitch
+- Localization\Strings.en-US.xaml:14: <sys:String x:Key="Main.Multichat">MULTICHAT • TWITCH + YOUTUBE</sys:String>
+- Localization\Strings.en-US.xaml:20: <sys:String x:Key="Main.Twitch">TWITCH</sys:String>
+- Localization\Strings.uk-UA.xaml:14: <sys:String x:Key="Main.Multichat">МУЛЬТИЧАТ • TWITCH + YOUTUBE</sys:String>
+- Localization\Strings.uk-UA.xaml:20: <sys:String x:Key="Main.Twitch">TWITCH</sys:String>
+- Models\AppSettings.cs:14: public string TwitchChannelName { get; set; } = "tihiy_ded";
+- Models\AppSettings.cs:15: public string TwitchClientId { get; set; } = string.Empty;
+- Models\AppSettings.cs:16: public bool TwitchAutoConnect { get; set; } = true;
+- Models\AppSettings.cs:17: public string TwitchUserLogin { get; set; } = string.Empty;
+- Models\AppSettings.cs:18: public string TwitchBroadcasterId { get; set; } = string.Empty;
+- Models\AppSettings.cs:19: public string TwitchUserId { get; set; } = string.Empty;
+- Models\AppSettings.cs:20: public string TwitchLastStreamId { get; set; } = string.Empty;
+- Models\AppSettings.cs:21: public string TwitchCurrentStreamId { get; set; } = string.Empty;
+- Models\AppSettings.cs:34: public bool DiscordNotifyTwitch { get; set; } = true;
+- Models\AppSettings.cs:42: public bool DiscordNotifyTwitchMonetization { get; set; } = true;
+- Models\AppSettings.cs:74: public int TwitchViewers { get; set; }
+- Models\AppSettings.cs:77: public bool TwitchLive { get; set; }
+- Models\AppSettings.cs:79: public string TwitchStreamTitle { get; set; } = string.Empty;
+- Models\AppSettings.cs:135: public string ChatBotDefaultTarget { get; set; } = "Twitch + YouTube";
+- Models\BotCommand.cs:7: private string _target = "Twitch + YouTube";
+- Models\ChatMessage.cs:18: public string PlatformIconPath => Platform.Equals("TWITCH", StringComparison.OrdinalIgnoreCase)
+- Models\ChatMessage.cs:19: ? "/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png"
+- Models\ChatMessage.cs:27: public string PlatformColor => Platform.Equals("TWITCH", StringComparison.OrdinalIgnoreCase)
+- Models\DonationEvent.cs:22: : Source.Contains("TWITCH", StringComparison.OrdinalIgnoreCase) || Source.Contains("BITS", StringComparison.OrdinalIgnoreCase)
+- Models\DonationEvent.cs:23: ? "/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png"
+- Models\ScheduledNotice.cs:7: private string _target = "Twitch + YouTube";
+- Services\AppServices.cs:24: public TwitchService Twitch { get; }
+- Services\AppServices.cs:46: Twitch = new TwitchService(Settings, SettingsService, Credentials, Logger);
+- Services\AppServices.cs:50: Notifications = new StreamNotificationBotService(Settings, SettingsService, Credentials, Twitch, YouTube, Discord, Logger);
+- Services\AppServices.cs:63: twitchViewers = Settings.Value.TwitchViewers,
+- Services\AppServices.cs:66: twitchLive = Settings.Value.TwitchLive,
+- Services\AppServices.cs:74: Twitch.MessageReceived += Channel_MessageReceived;
+- Services\AppServices.cs:76: Twitch.DonationReceived += Channel_DonationReceived;
+- Services\AppServices.cs:82: Twitch.StatusChanged += Channel_StatusChanged;
+- Services\AppServices.cs:84: Twitch.StatsChanged += Channel_StatsChanged;
+- Services\AppServices.cs:98: if (Settings.Value.TwitchAutoConnect && Twitch.IsAuthorized)
+- Services\AppServices.cs:99: _ = SafeConnectAsync(() => Twitch.ConnectAsync(), "Twitch автопідключення");
+- Services\AppServices.cs:150: var target = Twitch.IsChatConnected && YouTube.IsConnected ? "Twitch + YouTube"
+- Services\AppServices.cs:151: : Twitch.IsChatConnected ? "Twitch"
+- Services\AppServices.cs:172: var wantsTwitch = target.Contains("Twitch", StringComparison.OrdinalIgnoreCase);
+- Services\AppServices.cs:174: var multiTarget = wantsTwitch && wantsYouTube;
+- Services\AppServices.cs:176: if (wantsTwitch && Twitch.IsChatConnected)
+- Services\AppServices.cs:178: try { await Twitch.SendMessageAsync(text); sent++; }
+- Services\AppServices.cs:179: catch (Exception ex) { errors.Add("Twitch: " + ex.Message); }
+- Services\AppServices.cs:181: else if (wantsTwitch && !multiTarget)
+- Services\AppServices.cs:183: errors.Add("Twitch: чат не підключено.");
+- Services\AppServices.cs:206: if (message.Platform.Equals("TWITCH", StringComparison.OrdinalIgnoreCase))
+- Services\AppServices.cs:208: if (permanent) await Twitch.BanUserAsync(message.AuthorId, $"Модерація TiHiY StreamControl Center: {message.User}");
+- Services\AppServices.cs:209: else await Twitch.TimeoutUserAsync(message.AuthorId, timeoutSeconds, $"Модерація TiHiY StreamControl Center: {message.User}");
+- Services\AppServices.cs:218: throw new InvalidOperationException("Модерація доступна лише для Twitch і YouTube.");
+- Services\AppServices.cs:224: if (message.Platform.Equals("TWITCH", StringComparison.OrdinalIgnoreCase))
+- Services\AppServices.cs:225: await Twitch.DeleteMessageAsync(message.ExternalId);
+- Services\AppServices.cs:229: throw new InvalidOperationException("Видалення доступне лише для Twitch і YouTube.");
+- Services\AppServices.cs:343: try { await Twitch.DisposeAsync().ConfigureAwait(false); } catch { }
+- Services\ButtonIconService.cs:27: new(["TWITCH"], "\uE7FC"),
+- Services\ButtonIconService.cs:53: "SendTwitchButton",
+- Services\ChatAppearanceRuntime.cs:117: var twitch = FindNamed<Button>("SendTwitchButton");
+- Services\ChatAppearanceRuntime.cs:120: if (twitch is null || youtube is null || both is null) return;
+- Services\ChatAppearanceRuntime.cs:123: !ReferenceEquals(x, twitch) &&
+- Services\ChatAppearanceRuntime.cs:161: Grid.SetColumn(twitch, 1);
+- Services\ChatAppearanceRuntime.cs:171: twitch.Content = BuildPlatformButtonContent("TWITCH", "TWITCH");
+- Services\ChatAppearanceRuntime.cs:188: : uri.Contains("twitch.png", StringComparison.OrdinalIgnoreCase) ? "TWITCH" : null;
+- Services\ChatSendRuntime.cs:29: "SendTwitchButton" => "Twitch",
+- Services\ChatSendRuntime.cs:31: "SendBothButton" => "Twitch + YouTube",
+- Services\ChatSendRuntime.cs:32: _ when Equals(button.Content, "➤") => "Twitch + YouTube",
+- Services\ChatSendRuntime.cs:47: await SendAsync(window, "Twitch + YouTube", null);
+- Services\ChatService.cs:73: command.Target.Contains("Twitch + YouTube", StringComparison.OrdinalIgnoreCase))) return;
+- Services\DiscordNotificationService.cs:65: if (info.Platform.Equals("Twitch", StringComparison.OrdinalIgnoreCase) && !_settings.Value.DiscordNotifyTwitch) return;
+- Services\DiscordNotificationService.cs:68: var platformIcon = info.Platform.Equals("Twitch", StringComparison.OrdinalIgnoreCase) ? "🟣" : "🔴";
+- Services\DiscordNotificationService.cs:88: info.Platform.Equals("Twitch", StringComparison.OrdinalIgnoreCase) ? 0x9146FF : 0xFF0000,
+- Services\DiscordNotificationService.cs:97: if (info.Platform.Equals("Twitch", StringComparison.OrdinalIgnoreCase))
+- Services\DiscordNotificationService.cs:98: _settings.Value.TwitchLastStreamId = info.BroadcastId;
+- Services\DiscordNotificationService.cs:107: if (!force && donation.Source.Contains("TWITCH", StringComparison.OrdinalIgnoreCase) && !settings.DiscordNotifyTwitchMonetization) return;
+- Services\DiscordNotificationService.cs:117: var color = donation.Source.Contains("TWITCH", StringComparison.OrdinalIgnoreCase)
+- Services\DiscordNotificationService.cs:122: var eventUrl = donation.Source.Contains("TWITCH", StringComparison.OrdinalIgnoreCase)
+- Services\DiscordNotificationService.cs:123: ? "https://www.twitch.tv/tihiy_ded"
+- Services\DonatelloService.cs:275: var user = FirstNonEmpty(ReadString(item, "clientName"), ReadString(item, "discordName"), ReadString(item, "twitchName"), "Підписник");
+- Services\MainChatAndMeterFinalizer.cs:174: if (upper == "TWITCH")
+- Services\MainChatAndMeterFinalizer.cs:175: return Logo("/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png");
+- Services\MainWindowMainPolish.cs:87: var twitch = FindNamed<TextBlock>(_window, "TwitchViewerText");
+- Services\MainWindowMainPolish.cs:90: if (twitch is null || youtube is null || likes is null) return;
+- Services\MainWindowMainPolish.cs:91: if (twitch.Tag as string == "ApprovedSeparateCounters") return;
+- Services\MainWindowMainPolish.cs:93: var originalTwitchBorder = FindAncestor<Border>(twitch);
+- Services\MainWindowMainPolish.cs:94: var panel = originalTwitchBorder?.Parent as StackPanel;
+- Services\MainWindowMainPolish.cs:97: Detach(twitch);
+- Services\MainWindowMainPolish.cs:105: "/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png",
+- Services\MainWindowMainPolish.cs:106: twitch,
+- Services\MainWindowMainPolish.cs:115: twitch.Tag = "ApprovedSeparateCounters";
+- Services\MainWindowMainPolish.cs:296: "МУЛЬТИЧАТ • TWITCH + YOUTUBE", "ДОНАТИ", "ШВИДКИЙ МІКШЕР • AUDIO MIXER OBS",
+- Services\MainWindowVisualTuner.cs:357: x.Text is "МУЛЬТИЧАТ • TWITCH + YOUTUBE" or "ДОНАТИ" or
+- Services\MainWindowVisualTuner.cs:364: var twitch = FindNamed<TextBlock>("TwitchViewerText");
+- Services\MainWindowVisualTuner.cs:367: if (twitch is null || youtube is null || likes is null) return;
+- Services\MainWindowVisualTuner.cs:368: if (twitch.Tag as string == "SeparatedCounters") return;
+- Services\MainWindowVisualTuner.cs:370: var rightPanel = FindAncestor<StackPanel>(FindAncestor<Border>(twitch)!)?.Parent as StackPanel;
+- Services\MainWindowVisualTuner.cs:373: Detach(twitch);
+- Services\MainWindowVisualTuner.cs:378: rightPanel.Children.Add(CreateCounter("/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png", twitch, "#8F4FE2", "#2D1742"));
+- Services\MainWindowVisualTuner.cs:381: twitch.Tag = "SeparatedCounters";
+- Services\MainWindowVisualTuner.cs:433: var twitch = FindNamed<Button>("SendTwitchButton");
+- Services\MainWindowVisualTuner.cs:437: if (twitch?.Parent is not Grid grid || youtube is null || both is null || input is null) return;
+- Services\MainWindowVisualTuner.cs:449: Grid.SetColumn(twitch, 1);
+- Services\MediaAndOverlayCiCapture.cs:60: "TWITCH",
+- Services\OverlayServer.cs:216: function svg(platform){const p=(platform||'').toUpperCase();if(p==='YOUTUBE')return '<svg viewBox="0 0 32 22" aria-label="YouTube"><rect width="32" height="22" rx="6" fill="#ff0033"/><path d="M13 6.5L22 11l-9 4.5z" fill="#fff"/></svg>';if(p==='DONATELLO')return '<svg viewBox="0 0 24 24"><path d="M12 21S3 15.6 3 8.8C3 5.2 7.5 3.7 12 7.5 16.5 3.7 21 5.2 21 8.8 21 15.6 12 21 12 21z" fill="#ffd329"/></svg>';return '<svg viewBox="0 0 28 28" aria-label="Twitch"><path d="M4 3h21v15l-6 6h-5l-3 3v-3H4z" fill="#9147ff"/><path d="M9 7h3v8H9zm7 0h3v8h-3z" fill="#fff"/></svg>'}
+- Services\OverlayServer.cs:219: async function update(){try{const data=await(await fetch('/api/chat',{cache:'no-store'})).json();const root=document.getElementById('chat');const latest=data.slice(-maxMessages);const active=new Set();for(const m of latest){const key=String(m.id||((m.platform||'')+'|'+(m.user||'')+'|'+(m.text||'')));active.add(key);let box=nodes.get(key);if(!box){box=makeMessage(m);nodes.set(key,box)}root.append(box)}for(const [key,box] of [...nodes])if(!active.has(key)){box.remove();nodes.delete(key)}const st=await(await fetch('/api/stream-stats',{cache:'no-store'})).json();const tw=document.getElementById('tw');tw.replaceChildren(icon('TWITCH',true),document.createTextNode(' '+(st.twitchViewers||0)));const yt=document.getElementById('yt');yt.replaceChildren(icon('YOUTUBE',true),document.createTextNode(' '+(st.youtubeViewers||0)));document.getElementById('likes').textContent='♥ '+(st.youtubeLikes||0)}catch(e){}}
+- Services\PlatformVectorIcon.cs:51: case "TWITCH":
+- Services\RuntimeUiCorrections.cs:195: FindNamed<TextBlock>(_window, "SystemTwitchText"),
+- Services\RuntimeUiCorrections.cs:215: EnsurePlatformStatusIcon("TWITCH", "/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png");
+- Services\RuntimeUiCorrections.cs:607: if (platform.Equals("TWITCH", StringComparison.OrdinalIgnoreCase))
+- Services\RuntimeUiCorrections.cs:608: return new Image { Source = LoadImage("/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png"), Stretch = Stretch.Uniform, Margin = new Thickness(2) };
+- Services\SettingsExtensionsRuntime.cs:61: ExtendTwitch();
+- Services\SettingsExtensionsRuntime.cs:120: private void ExtendTwitch()
+- Services\SettingsExtensionsRuntime.cs:123: var tab = FindTab(tabs, "Twitch");
+- Services\SettingsExtensionsRuntime.cs:141: panel.Children.Add(ActionButton("TWITCH STUDIO / STREAM MANAGER", "TWITCH", (_, _) =>
+- Services\SettingsExtensionsRuntime.cs:142: OpenUrl("https://dashboard.twitch.tv/u/tihiy_ded/stream-manager")));
+- Services\SettingsExtensionsRuntime.cs:185: _botTarget = Combo("Twitch + YouTube", "Twitch", "YouTube");
+- Services\SettingsExtensionsRuntime.cs:243: _services.Chat.AddIncoming("TWITCH", "TiHiY Bot", "Тест чат-бота: налаштування працюють.", "Bot")));
+- Services\SettingsExtensionsRuntime.cs:315: s.ChatBotDefaultTarget = _botTarget?.SelectedItem?.ToString() ?? "Twitch + YouTube";
+- Services\SettingsExtensionsRuntime.cs:333: ? $"● Активний • Twitch: {(_services.Twitch.IsChatConnected ? "ON" : "OFF")} • YouTube: {(_services.YouTube.HasLiveChat ? "ON" : "OFF")}"
+- Services\SettingsService.cs:57: result.BotCommands.Add(new BotCommand { Name = "!song", Reply = "Зараз грає: {song}", Target = "Twitch + YouTube", CooldownSeconds = 10 });
+- Services\SettingsService.cs:62: Target = "Twitch + YouTube",
+- Services\SettingsWindowReferenceFinalizer.cs:256: if (FindNamed<TextBlock>("TwitchConnectionText") is not { } twitch ||
+- Services\SettingsWindowReferenceFinalizer.cs:258: FindAncestor<Grid>(twitch) is not { } grid)
+- Services\SettingsWindowReferenceFinalizer.cs:266: Grid.SetRow(twitch, 0);
+- Services\SettingsWindowReferenceFinalizer.cs:268: twitch.Margin = new Thickness(0, 0, 0, 3);
+- Services\StalkerApprovedTextureRuntime.cs:154: "МУЛЬТИЧАТ • TWITCH + YOUTUBE",
+- Services\StalkerSettingsRuntime.cs:319: || text.Text.Contains("TWITCH", StringComparison.OrdinalIgnoreCase)
+- Services\StalkerThemeFinalizer.cs:191: if (text.Text.Contains("TWITCH", StringComparison.OrdinalIgnoreCase)
+- Services\StalkerThemeRuntime.cs:46: "МУЛЬТИЧАТ • TWITCH + YOUTUBE", "ДОНАТИ",
+- Services\StreamNotificationBotService.cs:7: /// It reuses the real Twitch/YouTube OAuth connections from StreamControl Center,
+- Services\StreamNotificationBotService.cs:15: private readonly TwitchService _twitch;
+- Services\StreamNotificationBotService.cs:32: TwitchService twitch,
+- Services\StreamNotificationBotService.cs:40: _twitch = twitch;
+- Services\StreamNotificationBotService.cs:63: if (_settings.Value.DiscordNotifyTwitch && !_twitch.IsAuthorized)
+- Services\StreamNotificationBotService.cs:64: WriteLog("Twitch ще не авторизовано. Відкрийте модуль «Канали». ");
+- Services\StreamNotificationBotService.cs:119: if (settings.DiscordNotifyTwitch && _twitch.IsChatConnected && settings.TwitchLive)
+- Services\StreamNotificationBotService.cs:124: Platform = "Twitch",
+- Services\StreamNotificationBotService.cs:126: BroadcastId = settings.TwitchCurrentStreamId,
+- Services\StreamNotificationBotService.cs:127: Title = settings.TwitchStreamTitle,
+- Services\StreamNotificationBotService.cs:128: Url = $"https://www.twitch.tv/{settings.TwitchChannelName.Trim().TrimStart('#')}",
+- Services\StreamNotificationBotService.cs:129: Viewers = settings.TwitchViewers
+- Services\StreamNotificationBotService.cs:157: if (settings.DiscordNotifyTwitch && !_twitch.IsChatConnected) missing.Add("Twitch не підключено");
+- Services\StreamNotificationBotService.cs:165: private async void Twitch_LiveStateChanged(object? sender, StreamLiveInfo info) =>
+- Services\StreamNotificationBotService.cs:188: if (info.Platform.Equals("Twitch", StringComparison.OrdinalIgnoreCase) && !_settings.Value.DiscordNotifyTwitch) return;
+- Services\StreamNotificationBotService.cs:191: var alreadySent = info.Platform.Equals("Twitch", StringComparison.OrdinalIgnoreCase)
+- Services\StreamNotificationBotService.cs:192: ? !string.IsNullOrWhiteSpace(info.BroadcastId) && string.Equals(_settings.Value.TwitchLastStreamId, info.BroadcastId, StringComparison.Ordinal)
+- Services\StreamNotificationBotService.cs:219: _twitch.LiveStateChanged += Twitch_LiveStateChanged;
+- Services\StreamNotificationBotService.cs:227: _twitch.LiveStateChanged -= Twitch_LiveStateChanged;
+- Services\ThemePreviewRenderer.cs:76: DrawText(drawing, i switch { 0 => "OBS", 1 => "MULTI", 2 => "TWITCH", _ => "YOUTUBE" }, 8.5, FontWeights.Bold, text, new Point(rect.X + 20, rect.Y + 6));
+- Services\ThemePreviewRenderer.cs:99: DrawPanelFrame(drawing, theme, rect, "MULTICHAT • TWITCH + YOUTUBE");
+- Services\TwitchService.cs:11: public sealed class TwitchService : IAsyncDisposable
+- Services\TwitchService.cs:13: private const string RedirectUri = "http://localhost:17846/twitch/";
+- Services\TwitchService.cs:36: public TwitchService(AppSettingsAccessor settings, SettingsService settingsService, CredentialService credentials, AppLogger logger)
+- Services\TwitchService.cs:48: throw new InvalidOperationException("Вкажіть Twitch Client ID і Client Secret.");
+- Services\TwitchService.cs:49: _settings.Value.TwitchClientId = clientId.Trim();
+- Services\TwitchService.cs:50: _credentials.SaveSecret("TWITCH_CLIENT_SECRET", clientSecret.Trim());
+- Services\TwitchService.cs:53: var url = $"https://id.twitch.tv/oauth2/authorize?client_id={Uri.EscapeDataString(clientId.Trim())}&redirect_uri={Uri.EscapeDataString(RedirectUri)}&response_type=code&scope={scope}&state={state}";
+- Services\TwitchService.cs:56: if (result.TryGetValue("error", out var error)) throw new InvalidOperationException($"Twitch OAuth: {error}");
+- Services\TwitchService.cs:57: if (!result.TryGetValue("state", out var returnedState) || returnedState != state) throw new InvalidOperationException("Twitch OAuth: невірний state.");
+- Services\TwitchService.cs:58: if (!result.TryGetValue("code", out var code) || string.IsNullOrWhiteSpace(code)) throw new InvalidOperationException("Twitch OAuth не повернув код.");
+- Services\TwitchService.cs:68: if (!_token.IsUsable) throw new InvalidOperationException("Twitch не авторизовано.");
+- Services\TwitchService.cs:71: if (string.IsNullOrWhiteSpace(_settings.Value.TwitchUserLogin)) throw new InvalidOperationException("Не вдалося визначити Twitch-користувача токена.");
+- Services\TwitchService.cs:74: await _irc.ConnectAsync(new Uri("wss://irc-ws.chat.twitch.tv:443"), _cts.Token);
+- Services\TwitchService.cs:76: await SendIrcAsync($"NICK {_settings.Value.TwitchUserLogin.ToLowerInvariant()}", _cts.Token);
+- Services\TwitchService.cs:77: await SendIrcAsync("CAP REQ :twitch.tv/tags twitch.tv/commands twitch.tv/membership", _cts.Token);
+- Services\TwitchService.cs:78: await SendIrcAsync($"JOIN #{_settings.Value.TwitchChannelName.Trim().TrimStart('#').ToLowerInvariant()}", _cts.Token);
+- Services\TwitchService.cs:86: if (!IsChatConnected) throw new InvalidOperationException("Twitch чат не підключено.");
+- Services\TwitchService.cs:89: await SendIrcAsync($"PRIVMSG #{_settings.Value.TwitchChannelName.Trim().TrimStart('#').ToLowerInvariant()} :{safe}", token);
+- Services\TwitchService.cs:102: var path = $"moderation/chat?broadcaster_id={Uri.EscapeDataString(_settings.Value.TwitchBroadcasterId)}&moderator_id={Uri.EscapeDataString(_settings.Value.TwitchUserId)}&message_id={Uri.EscapeDataString(messageId)}";
+- Services\TwitchService.cs:117: var path = $"moderation/bans?broadcaster_id={Uri.EscapeDataString(_settings.Value.TwitchBroadcasterId)}&moderator_id={Uri.EscapeDataString(_settings.Value.TwitchUserId)}";
+- Services\TwitchService.cs:123: if (string.IsNullOrWhiteSpace(_settings.Value.TwitchBroadcasterId) || string.IsNullOrWhiteSpace(_settings.Value.TwitchUserId))
+- Services\TwitchService.cs:124: throw new InvalidOperationException("Twitch не передав broadcaster/moderator ID. Перепідключіть канал.");
+- Services\TwitchService.cs:135: _credentials.DeleteSecret("TWITCH_TOKEN");
+- Services\TwitchService.cs:136: _credentials.DeleteSecret("TWITCH_CLIENT_SECRET");
+- Services\TwitchService.cs:138: _settings.Value.TwitchUserId = string.Empty;
+- Services\TwitchService.cs:139: _settings.Value.TwitchBroadcasterId = string.Empty;
+- Services\TwitchService.cs:140: _settings.Value.TwitchUserLogin = string.Empty;
+- Services\TwitchService.cs:149: _settings.Value.TwitchUserId = meItem?["id"]?.GetValue<string>() ?? string.Empty;
+- Services\TwitchService.cs:150: _settings.Value.TwitchUserLogin = meItem?["login"]?.GetValue<string>() ?? string.Empty;
+- Services\TwitchService.cs:151: var channel = _settings.Value.TwitchChannelName.Trim().TrimStart('#');
+- Services\TwitchService.cs:153: _settings.Value.TwitchBroadcasterId = broadcaster["data"]?.AsArray().FirstOrDefault()?["id"]?.GetValue<string>() ?? string.Empty;
+- Services\TwitchService.cs:164: var channel = _settings.Value.TwitchChannelName.Trim().TrimStart('#');
+- Services\TwitchService.cs:176: _settings.Value.TwitchLive = live;
+- Services\TwitchService.cs:177: _settings.Value.TwitchViewers = viewers;
+- Services\TwitchService.cs:178: _settings.Value.TwitchStreamTitle = title;
+- Services\TwitchService.cs:179: _settings.Value.TwitchCurrentStreamId = id;
+- Services\TwitchService.cs:182: Platform = "Twitch",
+- Services\TwitchService.cs:186: Url = $"https://www.twitch.tv/{channel}",
+- Services\TwitchService.cs:198: catch (Exception ex) { _logger.Error("Twitch статистика", ex); }
+- Services\TwitchService.cs:237: _logger.Error("Twitch IRC", ex);
+- Services\TwitchService.cs:260: var user = tags.TryGetValue("display-name", out var display) && !string.IsNullOrWhiteSpace(display) ? display : "Twitch";
+- Services\TwitchService.cs:263: return new ChatMessage { Platform = "TWITCH", User = user, Text = text, Role = role, ExternalId = tags.TryGetValue("id", out var id) ? id : string.Empty, AuthorId = tags.TryGetValue("user-id", out var userId) ? userId : string.Empty, Time = DateTime.Now };
+- Services\TwitchService.cs:278: var user = tags.TryGetValue("display-name", out var display) && !string.IsNullOrWhiteSpace(display) ? display : "Twitch";
+- Services\TwitchService.cs:285: ExternalId = tags.TryGetValue("id", out var bitsId) ? "twitch:" + bitsId : string.Empty,
+- Services\TwitchService.cs:286: Source = "TWITCH BITS", Kind = "DONATION", User = user, Amount = bits, Currency = "BITS",
+- Services\TwitchService.cs:296: ExternalId = tags.TryGetValue("id", out var subId) ? "twitch:" + subId : string.Empty,
+- Services\TwitchService.cs:297: Source = "TWITCH SUB", Kind = "SUBSCRIPTION", User = user, Amount = 1, Currency = "SUB", Message = message, Accent = "#A970FF"
+- Services\TwitchService.cs:307: if (_irc is null || _irc.State != WebSocketState.Open) throw new InvalidOperationException("Twitch IRC не підключено.");
+- Services\TwitchService.cs:316: using var request = new HttpRequestMessage(method, "https://api.twitch.tv/helix/" + path);
+- Services\TwitchService.cs:318: request.Headers.Add("Client-Id", _settings.Value.TwitchClientId);
+- Services\TwitchService.cs:322: if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"Twitch API {(int)response.StatusCode}: {body}");
+- Services\TwitchService.cs:343: var secret = _credentials.LoadSecret("TWITCH_CLIENT_SECRET");
+- Services\TwitchService.cs:344: if (string.IsNullOrWhiteSpace(secret) || string.IsNullOrWhiteSpace(_settings.Value.TwitchClientId)) return;
+- Services\TwitchService.cs:349: ["client_id"] = _settings.Value.TwitchClientId,
+- Services\TwitchService.cs:358: using var response = await _http.PostAsync("https://id.twitch.tv/oauth2/token", new FormUrlEncodedContent(form), token);
+- Services\TwitchService.cs:360: if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"Twitch token {(int)response.StatusCode}: {body}");
+- Services\TwitchService.cs:375: var raw = _credentials.LoadSecret("TWITCH_TOKEN");
+- Services\TwitchService.cs:381: private void SaveToken() => _credentials.SaveSecret("TWITCH_TOKEN", JsonSerializer.Serialize(_token));
+- Services\TwitchService.cs:413: _logger.Info($"Twitch: {value}");
+- Services\UiTextLocalizer.cs:37: new("ВІДКРИТИ КАНАЛИ ТА TWITCH", "ВІДКРИТИ КАНАЛИ ТА TWITCH", "OPEN CHANNELS AND TWITCH"),
+- Services\UiTextLocalizer.cs:42: new("МУЛЬТИЧАТ • TWITCH + YOUTUBE", "МУЛЬТИЧАТ • TWITCH + YOUTUBE", "MULTICHAT • TWITCH + YOUTUBE"),
+- Windows\ChannelConnectionsWindow.xaml:12: <StackPanel Orientation="Horizontal"><Image Source="/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png" Style="{StaticResource PlatformIconImage}" Width="25" Height="25"/><TextBlock Text="  TWITCH" FontSize="20" FontWeight="Bold" Foreground="#A970FF" VerticalAlignment="Center"/></StackPanel>
+- Windows\ChannelConnectionsWindow.xaml:13: <StackPanel Grid.Row="1"><TextBlock Text="Канал" Foreground="{DynamicResource Muted}"/><TextBox x:Name="TwitchChannelBox" Margin="0,5,0,0"/></StackPanel>
+- Windows\ChannelConnectionsWindow.xaml:14: <StackPanel Grid.Row="2"><TextBlock Text="Client ID" Foreground="{DynamicResource Muted}"/><TextBox x:Name="TwitchClientIdBox" Margin="0,5,0,0"/></StackPanel>
+- Windows\ChannelConnectionsWindow.xaml:15: <StackPanel Grid.Row="3"><TextBlock Text="Client Secret" Foreground="{DynamicResource Muted}"/><PasswordBox x:Name="TwitchClientSecretBox" Margin="0,5,0,0"/></StackPanel>
+- Windows\ChannelConnectionsWindow.xaml:16: <CheckBox Grid.Row="4" x:Name="TwitchAutoConnectCheck" Content="Автопідключення при запуску" Margin="0,8"/>
+- Windows\ChannelConnectionsWindow.xaml:18: <Button Content="АВТОРИЗУВАТИ" Click="AuthorizeTwitch_Click" Tag="/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png" ContentTemplate="{StaticResource BrandButtonContentTemplate}" Background="#4B2A73" HorizontalAlignment="Stretch"/>
+- Windows\ChannelConnectionsWindow.xaml:19: <Button Content="ПІДКЛЮЧИТИ" Click="ConnectTwitch_Click" Tag="/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png" ContentTemplate="{StaticResource BrandButtonContentTemplate}" HorizontalAlignment="Stretch"/>
+- Windows\ChannelConnectionsWindow.xaml:20: <Button Content="ВІДКЛЮЧИТИ" Click="DisconnectTwitch_Click" Tag="/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png" ContentTemplate="{StaticResource BrandButtonContentTemplate}" HorizontalAlignment="Stretch"/>
+- Windows\ChannelConnectionsWindow.xaml:21: <Button Content="ЗАБУТИ" Click="ForgetTwitch_Click" Tag="/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png" ContentTemplate="{StaticResource BrandButtonContentTemplate}" Background="#6E1B24" BorderBrush="#D54150" HorizontalAlignment="Stretch"/>
+- Windows\ChannelConnectionsWindow.xaml:23: <StackPanel Grid.Row="6" Margin="0,12,0,0"><TextBlock x:Name="TwitchStatusText" Text="Не підключено" FontWeight="Bold" TextWrapping="Wrap"/><TextBlock Text="Redirect URI у Twitch Developer Console:" Foreground="{DynamicResource Muted}" Margin="0,12,0,3"/><TextBox Text="http://localhost:17846/twitch/" IsReadOnly="True"/><TextBlock Text="Потрібні права чату. Авторизація відкриється у браузері." Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/></StackPanel>
+- Windows\ChannelConnectionsWindow.xaml:48: <StackPanel Grid.Row="4"><CheckBox x:Name="DiscordEnabledCheck" Content="Увімкнути оповіщення про старт"/><WrapPanel><CheckBox x:Name="DiscordTwitchCheck"><StackPanel Orientation="Horizontal"><Image Source="/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center"/><TextBlock Text="  Twitch" VerticalAlignment="Center"/></StackPanel></CheckBox><CheckBox x:Name="DiscordYouTubeCheck"><StackPanel Orientation="Horizontal"><Image Source="/TiHiY.StreamControlCenter;component/Assets/Platforms/youtube.png" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center"/><TextBlock Text="  YouTube" VerticalAlignment="Center"/></StackPanel></CheckBox></WrapPanel></StackPanel>
+- Windows\ChannelConnectionsWindow.xaml.cs:15: _services.Twitch.StatusChanged += Twitch_StatusChanged;
+- Windows\ChannelConnectionsWindow.xaml.cs:19: _services.Twitch.StatusChanged -= Twitch_StatusChanged;
+- Windows\ChannelConnectionsWindow.xaml.cs:28: TwitchChannelBox.Text = s.TwitchChannelName;
+- Windows\ChannelConnectionsWindow.xaml.cs:29: TwitchClientIdBox.Text = s.TwitchClientId;
+- Windows\ChannelConnectionsWindow.xaml.cs:30: TwitchClientSecretBox.Password = _services.Credentials.LoadSecret("TWITCH_CLIENT_SECRET");
+- Windows\ChannelConnectionsWindow.xaml.cs:31: TwitchAutoConnectCheck.IsChecked = s.TwitchAutoConnect;
+- Windows\ChannelConnectionsWindow.xaml.cs:40: DiscordTwitchCheck.IsChecked = s.DiscordNotifyTwitch;
+- Windows\ChannelConnectionsWindow.xaml.cs:48: s.TwitchChannelName = TwitchChannelBox.Text.Trim().TrimStart('#');
+- Windows\ChannelConnectionsWindow.xaml.cs:49: s.TwitchClientId = TwitchClientIdBox.Text.Trim();
+- Windows\ChannelConnectionsWindow.xaml.cs:50: s.TwitchAutoConnect = TwitchAutoConnectCheck.IsChecked == true;
+- Windows\ChannelConnectionsWindow.xaml.cs:57: s.DiscordNotifyTwitch = DiscordTwitchCheck.IsChecked == true;
+- Windows\ChannelConnectionsWindow.xaml.cs:63: private async void AuthorizeTwitch_Click(object sender, RoutedEventArgs e)
+- Windows\ChannelConnectionsWindow.xaml.cs:65: try { SaveGeneral(); await _services.Twitch.AuthorizeAsync(TwitchClientIdBox.Text, TwitchClientSecretBox.Password); FooterStatusText.Text = "Twitch авторизовано і підключено."; }
+- Windows\ChannelConnectionsWindow.xaml.cs:66: catch (Exception ex) { ShowError("Twitch OAuth", ex); }
+- Windows\ChannelConnectionsWindow.xaml.cs:68: private async void ConnectTwitch_Click(object sender, RoutedEventArgs e)
+- Windows\ChannelConnectionsWindow.xaml.cs:70: try { SaveGeneral(); await _services.Twitch.ConnectAsync(); }
+- Windows\ChannelConnectionsWindow.xaml.cs:71: catch (Exception ex) { ShowError("Twitch", ex); }
+- Windows\ChannelConnectionsWindow.xaml.cs:73: private async void DisconnectTwitch_Click(object sender, RoutedEventArgs e) => await _services.Twitch.DisconnectAsync();
+- Windows\ChannelConnectionsWindow.xaml.cs:74: private async void ForgetTwitch_Click(object sender, RoutedEventArgs e)
+- Windows\ChannelConnectionsWindow.xaml.cs:76: await _services.Twitch.DisconnectAsync(); _services.Twitch.ForgetAuthorization(); TwitchClientSecretBox.Password = string.Empty;
+- Windows\ChannelConnectionsWindow.xaml.cs:127: private void Twitch_StatusChanged(object? sender, EventArgs e) => Dispatcher.BeginInvoke(new Action(RefreshStatuses));
+- Windows\ChannelConnectionsWindow.xaml.cs:131: TwitchStatusText.Text = $"Статус: {_services.Twitch.Status}\nКанал: {_services.Settings.Value.TwitchChannelName}";
+- Windows\ChannelConnectionsWindow.xaml.cs:132: TwitchStatusText.Foreground = (Brush)FindResource(_services.Twitch.IsChatConnected ? "Green" : "Yellow");
+- Windows\ChatAppearanceSettingsWindow.xaml:46: <Border Style="{StaticResource PanelBorder}" Margin="0,10,0,0"><StackPanel><TextBlock Text="Попередній перегляд" Foreground="{DynamicResource Cyan}" FontWeight="Bold"/><Border x:Name="MainPreviewBorder" Background="#071525" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="5" Padding="12" Margin="0,8,0,0"><StackPanel><TextBlock x:Name="MainPreviewMessage" Text="20:38  Twitch  User123: Класний стрім! Дякую за контент!"/><TextBox x:Name="InputPreviewBox" Text="Введіть повідомлення…" Margin="0,10,0,0" IsReadOnly="True"/></StackPanel></Border></StackPanel></Border>
+- Windows\ChatBotWindow.xaml:7: <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="CHAT CORE" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource Cyan}"/><TextBlock Text="  •  TWITCH + YOUTUBE + BOT" VerticalAlignment="Center" Foreground="{DynamicResource Muted}"/></StackPanel>
+- Windows\ChatBotWindow.xaml:46: <Button Click="SendTwitch_Click" Background="#563A8A"><StackPanel Orientation="Horizontal"><Image Source="/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png" Width="18" Height="18" Stretch="Uniform" VerticalAlignment="Center"/><TextBlock Text="  TWITCH" VerticalAlignment="Center"/></StackPanel></Button>
+- Windows\ChatBotWindow.xaml:57: <TextBlock Text="Повідомлення надсилаються у реально підключені Twitch і YouTube чати. Авторизація виконується у модулі «Канали та Discord», токени не зберігаються у відкритому файлі." TextWrapping="Wrap" Foreground="{DynamicResource Muted}"/>
+- Windows\ChatBotWindow.xaml:91: <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="170"/></Grid.ColumnDefinitions><TextBox x:Name="NoticeNameBox" ToolTip="Назва"/><ComboBox x:Name="NoticeTargetCombo" Grid.Column="1" SelectedIndex="2" Margin="6,0,0,0"><ComboBoxItem Content="Twitch"/><ComboBoxItem Content="YouTube"/><ComboBoxItem Content="Twitch + YouTube"/></ComboBox></Grid>
+- Windows\ChatBotWindow.xaml:114: <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="170"/></Grid.ColumnDefinitions><TextBox x:Name="CommandNameBox" Text="!команда"/><ComboBox x:Name="CommandTargetCombo" Grid.Column="1" SelectedIndex="2" Margin="6,0,0,0"><ComboBoxItem Content="Twitch"/><ComboBoxItem Content="YouTube"/><ComboBoxItem Content="Twitch + YouTube"/></ComboBox></Grid>
+- Windows\ChatBotWindow.xaml.cs:45: private void SendTwitch_Click(object sender, RoutedEventArgs e) => SendManual("Twitch");
+- Windows\ChatBotWindow.xaml.cs:47: private void SendBoth_Click(object sender, RoutedEventArgs e) => SendManual("Twitch + YouTube");
+- Windows\ChatBotWindow.xaml.cs:56: private void AddMention_Click(object sender, RoutedEventArgs e) => _services.Chat.AddIncoming("TWITCH", "TestViewer", "TiHiY-DED, перевірка виділення звернення!", "Viewer");
+- Windows\ChatBotWindow.xaml.cs:58: private void AddModerator_Click(object sender, RoutedEventArgs e) => _services.Chat.AddIncoming("TWITCH", "ModeratorUA", "Повідомлення модератора", "Moderator");
+- Windows\ChatBotWindow.xaml.cs:143: MessageBox.Show(this, ex.GetBaseException().Message + "\n\nДля Twitch після оновлення повторіть OAuth-авторизацію, щоб надати права модерації.", "Модерація чату", MessageBoxButton.OK, MessageBoxImage.Warning);
+- Windows\ChatBotWindow.xaml.cs:271: _services.Chat.AddIncoming("TWITCH", "TestViewer", commandName, "Viewer");
+- Windows\DonatelloWindow.xaml:61: <CheckBox x:Name="SendToPlatformChatsCheck" Content="Надсилати в Twitch/YouTube чат" Margin="14,3,3,3"/>
+- Windows\LocalChatOverlayWindow.xaml:38: <Image x:Name="TwitchOverlayIcon" Source="/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png" Width="18" Height="18" Stretch="Uniform"/>
+- Windows\LocalChatOverlayWindow.xaml:40: <TextBlock x:Name="TwitchOverlayViewersText" Text="0" Foreground="{DynamicResource Text}" FontWeight="Bold" VerticalAlignment="Center"/>
+- Windows\LocalChatOverlayWindow.xaml:41: <Ellipse x:Name="TwitchOverlayLiveDot" Width="7" Height="7" Fill="#75838B" Margin="9,0,4,0"/>
+- Windows\LocalChatOverlayWindow.xaml:42: <TextBlock x:Name="TwitchOverlayStatusText" Text="OFF" Foreground="{DynamicResource Muted}" FontWeight="Bold" VerticalAlignment="Center"/>
+- Windows\LocalChatOverlayWindow.xaml.cs:54: TwitchOverlayIcon.Width = iconSize;
+- Windows\LocalChatOverlayWindow.xaml.cs:55: TwitchOverlayIcon.Height = iconSize;
+- Windows\LocalChatOverlayWindow.xaml.cs:108: TwitchOverlayViewersText.Text = settings.TwitchViewers.ToString("N0");
+- Windows\LocalChatOverlayWindow.xaml.cs:109: TwitchOverlayStatusText.Text = settings.TwitchLive ? "LIVE" : "OFF";
+- Windows\LocalChatOverlayWindow.xaml.cs:110: TwitchOverlayStatusText.Foreground = settings.TwitchLive ? Brushes.LimeGreen : Brushes.Gray;
+- Windows\LocalChatOverlayWindow.xaml.cs:111: TwitchOverlayLiveDot.Fill = settings.TwitchLive ? Brushes.LimeGreen : Brushes.Gray;
+- Windows\OverlaySettingsWindow.xaml:78: <Grid Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="Twitch viewers" Foreground="{DynamicResource Muted}"/><TextBox x:Name="TwitchViewersBox" Text="0"/></StackPanel><StackPanel Grid.Column="1" Margin="6,0"><TextBlock Text="YouTube viewers" Foreground="{DynamicResource Muted}"/><TextBox x:Name="YouTubeViewersBox" Text="0"/></StackPanel><StackPanel Grid.Column="2"><TextBlock Text="YouTube likes" Foreground="{DynamicResource Muted}"/><TextBox x:Name="YouTubeLikesBox" Text="0"/></StackPanel><Button Grid.Column="3" Content="ЗАСТОСУВАТИ" Click="ApplyStats_Click" VerticalAlignment="Bottom"/></Grid>
+- Windows\OverlaySettingsWindow.xaml.cs:31: TwitchViewersBox.Text = _services.Settings.Value.TwitchViewers.ToString();
+- Windows\OverlaySettingsWindow.xaml.cs:53: _services.Settings.Value.TwitchViewers = ParseInt(TwitchViewersBox.Text);
+- Windows\OverlaySettingsWindow.xaml.cs:91: private void TestMention_Click(object sender, RoutedEventArgs e) => _services.Chat.AddIncoming("TWITCH", "TestViewer", "TiHiY-DED, тест кольору звернення", "Viewer");
+- Windows\SettingsWindow.xaml:254: <TextBlock Text="▣  TWITCH / YOUTUBE" Foreground="{DynamicResource Amber}" FontWeight="Bold" FontSize="14"/>
+- Windows\SettingsWindow.xaml:255: <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="90"/><ColumnDefinition/></Grid.ColumnDefinitions><TextBlock Text="Twitch"/><TextBlock x:Name="TwitchConnectionText" Grid.Column="1" Text="Не підключено" Foreground="{DynamicResource Muted}" TextAlignment="Right"/><TextBlock Grid.Row="1" Text="YouTube" Margin="0,16,0,0"/><TextBlock x:Name="YouTubeConnectionText" Grid.Row="1" Grid.Column="1" Text="Не підключено" Foreground="{DynamicResource Muted}" TextAlignment="Right" Margin="0,16,0,0"/></Grid>
+- Windows\SettingsWindow.xaml:289: <TabItem><TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="▣" FontSize="24" Width="40" Foreground="#A970FF"/><StackPanel><TextBlock Text="Twitch" FontSize="15" FontWeight="SemiBold"/><TextBlock Text="Channel &amp; Chat" FontSize="12" Opacity="0.78"/></StackPanel></StackPanel></TabItem.Header><StackPanel Margin="14,0,0,0"><TextBlock Text="TWITCH" Style="{StaticResource SettingsSectionTitle}"/><Border Style="{StaticResource SettingsCard}"><StackPanel><TextBlock Text="Авторизація, чат, модерація та автопідключення Twitch."/><Button Content="ВІДКРИТИ КАНАЛИ ТА TWITCH" Click="OpenChannelsWindow_Click" HorizontalAlignment="Left" Margin="0,12,0,0"/></StackPanel></Border></StackPanel></TabItem>
+- Windows\SettingsWindow.xaml.cs:39: _services.Twitch.StatusChanged += Channel_StatusChanged;
+- Windows\SettingsWindow.xaml.cs:150: _services.Twitch.StatusChanged -= Channel_StatusChanged;
+- Windows\SettingsWindow.xaml.cs:437: TwitchConnectionText.Text = _services.Twitch.IsChatConnected
+- Windows\SettingsWindow.xaml.cs:438: ? $"Підключено: {_services.Settings.Value.TwitchChannelName}"
+- Windows\SettingsWindow.xaml.cs:439: : _services.Twitch.Status;
+- Windows\SettingsWindow.xaml.cs:440: TwitchConnectionText.Foreground = (Brush)FindResource(_services.Twitch.IsChatConnected ? "Green" : "Muted");
+- Windows\StreamNotificationsWindow.xaml:51: <CheckBox x:Name="TwitchCheck" FontWeight="Bold" Foreground="#C6A6FF"><StackPanel Orientation="Horizontal"><Image Source="/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center"/><TextBlock Text="  TWITCH" VerticalAlignment="Center"/></StackPanel></CheckBox>
+- Windows\StreamNotificationsWindow.xaml:52: <TextBlock x:Name="TwitchStateText" Text="  не підключено" Foreground="{DynamicResource Muted}" VerticalAlignment="Center" Margin="0,0,18,0"/>
+- Windows\StreamNotificationsWindow.xaml:70: <CheckBox x:Name="TwitchMoneyCheck" Margin="14,3,3,3"><StackPanel Orientation="Horizontal"><Image Source="/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center"/><TextBlock Text="  Twitch Bits / Subs" VerticalAlignment="Center"/></StackPanel></CheckBox>
+- Windows\StreamNotificationsWindow.xaml.cs:20: _services.Twitch.StatusChanged += Channel_StatusChanged;
+- Windows\StreamNotificationsWindow.xaml.cs:35: TwitchCheck.IsChecked = settings.DiscordNotifyTwitch;
+- Windows\StreamNotificationsWindow.xaml.cs:42: TwitchMoneyCheck.IsChecked = settings.DiscordNotifyTwitchMonetization;
+- Windows\StreamNotificationsWindow.xaml.cs:57: settings.DiscordNotifyTwitch = TwitchCheck.IsChecked == true;
+- Windows\StreamNotificationsWindow.xaml.cs:66: settings.DiscordNotifyTwitchMonetization = TwitchMoneyCheck.IsChecked == true;
+- Windows\StreamNotificationsWindow.xaml.cs:98: LastActionText.Text = "Бот запущено. Він стежить за реальними станами Twitch і YouTube.";
+- Windows\StreamNotificationsWindow.xaml.cs:185: TwitchStateText.Text = _services.Twitch.IsChatConnected
+- Windows\StreamNotificationsWindow.xaml.cs:187: : $"  {_services.Twitch.Status.ToLowerInvariant()}";
+- Windows\StreamNotificationsWindow.xaml.cs:212: _services.Twitch.StatusChanged -= Channel_StatusChanged;
+- App.xaml.cs:52: Services.Settings.Value.TwitchAutoConnect = false;
+- MainWindow.xaml:134: <Border Style="{StaticResource CompactStatusPill}" BorderBrush="#8D48D8" MinWidth="142"><StackPanel Orientation="Horizontal"><Image Source="/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png" Width="21" Height="21"/><StackPanel Margin="6,0,0,0"><TextBlock Text="TWITCH" FontWeight="Bold" FontSize="10"/><TextBlock x:Name="TwitchTopStatusText" Text="ПІДКЛЮЧЕНО" Foreground="#B88AFF" FontWeight="Bold" FontSize="9"/></StackPanel></StackPanel></Border>
+- MainWindow.xaml:152: <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="МУЛЬТИЧАТ • TWITCH + YOUTUBE" Style="{StaticResource HeaderText}"/><TextBlock x:Name="ChatStatusText" Text="Об’єднаний чат ваших трансляцій у реальному часі" Style="{StaticResource TinyLabel}" Margin="0,3,0,0"/></StackPanel><StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><Border Background="#2D1742" BorderBrush="#8F4FE2" BorderThickness="1.2" CornerRadius="4" Padding="9,4" Margin="3"><StackPanel Orientation="Horizontal"><Image Source="/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png" Width="21" Height="21"/><TextBlock x:Name="TwitchViewerText" Text="0" FontSize="17" Margin="7,0"/><Ellipse x:Name="TwitchLiveDot" Width="7" Height="7" Fill="#1CD66D"/><TextBlock x:Name="TwitchLiveText" Text="ON" Visibility="Collapsed"/></StackPanel></Border><Border Background="#351219" BorderBrush="#D33942" BorderThickness="1.2" CornerRadius="4" Padding="9,4" Margin="3"><StackPanel Orientation="Horizontal"><Image Source="/TiHiY.StreamControlCenter;component/Assets/Platforms/youtube.png" Width="23" Height="21"/><TextBlock x:Name="YouTubeViewerText" Text="0" FontSize="17" Margin="7,0,5,0"/><TextBlock Text="♥" Foreground="#FF5B64" FontSize="16" Margin="3,0"/><TextBlock x:Name="YouTubeLikesText" Text="0" FontSize="16" Margin="2,0,5,0"/><Ellipse x:Name="YouTubeLiveDot" Width="7" Height="7" Fill="#1CD66D"/><TextBlock x:Name="YouTubeLiveText" Text="ON" Visibility="Collapsed"/></StackPanel></Border></StackPanel></Grid>
+- MainWindow.xaml:153: <Border Grid.Row="1" Background="#D0010A13" BorderBrush="#164C71" BorderThickness="1" CornerRadius="4" Padding="8,5"><Grid><ListBox x:Name="MainChatList" ItemsSource="{Binding MainChatMessages}" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" PreviewMouseRightButtonDown="MainChatList_PreviewMouseRightButtonDown" Background="Transparent" BorderThickness="0"><ListBox.ItemTemplate><DataTemplate DataType="{x:Type models:ChatMessage}"><Border Background="{Binding Background}" Padding="3,5"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="76"/><ColumnDefinition Width="32"/><ColumnDefinition Width="145"/><ColumnDefinition/></Grid.ColumnDefinitions><TextBlock Text="{Binding DisplayTime}" Foreground="#71899C" FontFamily="Consolas" FontSize="11"/><Border Grid.Column="1" Width="21" Height="21" CornerRadius="3" Background="{Binding PlatformColor}" HorizontalAlignment="Left"><Image Source="{Binding PlatformIconPath}" Margin="2"/></Border><TextBlock Grid.Column="2" Text="{Binding User}" Foreground="{Binding Foreground}" FontWeight="Bold" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Column="3" Text="{Binding Text}" TextWrapping="Wrap" Foreground="#DCE9F3"/></Grid></Border></DataTemplate></ListBox.ItemTemplate></ListBox><TextBlock x:Name="ChatEmptyStateText" Text="Підключіть Twitch або YouTube у налаштуваннях каналів." Foreground="#7891A4" TextAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="420" FontSize="13"/></Grid></Border>
+- MainWindow.xaml:154: <Grid Grid.Row="2" Margin="0,6,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="46"/><ColumnDefinition Width="0.62*"/><ColumnDefinition Width="0.62*"/><ColumnDefinition Width="0.48*"/></Grid.ColumnDefinitions><TextBox x:Name="ChatInput" KeyDown="ChatInput_KeyDown" ToolTip="Напишіть повідомлення…" MinHeight="34" VerticalContentAlignment="Center" Background="#071525" BorderBrush="#285A7B" Foreground="#EAF6FF" Padding="10,4"/><Button Grid.Column="1" Content="➤" Style="{StaticResource TinyActionButton}" Click="SendBoth_Click"/><Button x:Name="SendTwitchButton" Grid.Column="2" Click="SendTwitch_Click" Style="{StaticResource TinyActionButton}" BorderBrush="#8D4CDA"><StackPanel Orientation="Horizontal"><Image Source="/TiHiY.StreamControlCenter;component/Assets/Platforms/twitch.png" Width="18" Height="18"/><TextBlock Text="  TWITCH"/></StackPanel></Button><Button x:Name="SendYouTubeButton" Grid.Column="3" Click="SendYouTube_Click" Style="{StaticResource TinyActionButton}" BorderBrush="#D4363F"><StackPanel Orientation="Horizontal"><Image Source="/TiHiY.StreamControlCenter;component/Assets/Platforms/youtube.png" Width="19" Height="18"/><TextBlock Text="  YOUTUBE"/></StackPanel></Button><Button x:Name="SendBothButton" Grid.Column="4" Click="SendBoth_Click" Style="{StaticResource TinyActionButton}" Content="ОБИДВА"/></Grid>
+- MainWindow.xaml:185: <Grid><Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="*"/></Grid.RowDefinitions><TextBlock Text="СТАН СИСТЕМИ" Style="{StaticResource HeaderText}" FontSize="16"/><Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="1.05*"/><ColumnDefinition Width="0.95*"/><ColumnDefinition Width="130"/></Grid.ColumnDefinitions><StackPanel><TextBlock x:Name="SystemObsText" Text="OBS Audio: підключено" Foreground="#22DA72" FontSize="11.5" Margin="0,2"/><TextBlock x:Name="SystemTwitchText" Text="Twitch: підключено" Foreground="#22DA72" FontSize="11.5" Margin="0,2"/><TextBlock x:Name="SystemYouTubeText" Text="YouTube: підключено" Foreground="#22DA72" FontSize="11.5" Margin="0,2"/><TextBlock x:Name="SystemOverlayText" Text="Overlay Server: підключено" Foreground="#22DA72" FontSize="11.5" Margin="0,2"/><TextBlock x:Name="SystemDonatelloText" Text="Donatello: підключено" Foreground="#22DA72" FontSize="11.5" Margin="0,2"/><TextBlock x:Name="SystemDiscordText" Visibility="Collapsed"/><TextBlock x:Name="AllSystemsStatusText" Visibility="Collapsed"/></StackPanel><StackPanel Grid.Column="1"><TextBlock Text="CPU" Foreground="#8FA8BA"/><TextBlock x:Name="CpuLoadMonitorText" Text="9%" Foreground="#22DA72" FontWeight="Bold"/><TextBlock Text="RAM" Foreground="#8FA8BA" Margin="0,5,0,0"/><TextBlock x:Name="RamLoadMonitorText" Text="31% • 15,1/47,9 GB" Foreground="#22DA72" FontWeight="Bold"/><TextBlock x:Name="SystemStateText" Foreground="#7F98AA" FontSize="9" TextTrimming="CharacterEllipsis" Margin="0,5,0,0"/></StackPanel><Viewbox Grid.Column="2" Stretch="Uniform"><Path Stroke="#19B7FF" StrokeThickness="3" Fill="Transparent" Data="M0,45 L25,45 L35,37 L45,52 L58,8 L70,78 L82,35 L95,45 L125,45"/></Viewbox></Grid></Grid>
+- MainWindow.xaml.cs:289: var liveCount = (settings.TwitchLive ? 1 : 0) + (settings.YouTubeLive ? 1 : 0);
+- MainWindow.xaml.cs:290: var checkedCount = (_services.Twitch.IsChatConnected ? 1 : 0) + (_services.YouTube.IsConnected ? 1 : 0);
+- MainWindow.xaml.cs:340: var twitch = _services.Twitch.IsChatConnected ? "Twitch чат підключено" : $"Twitch: {_services.Twitch.Status}";
+- MainWindow.xaml.cs:342: ChatStatusText.Text = $"{twitch} • {youtube} • {MainChatMessages.Count} повідомлень";
+- MainWindow.xaml.cs:354: ChatEmptyStateText.Text = _services.Twitch.IsChatConnected || _services.YouTube.HasLiveChat
+- MainWindow.xaml.cs:356: : "Підключіть Twitch або YouTube у модулі «Канали».";
+- MainWindow.xaml.cs:362: TwitchViewerText.Text = settings.TwitchViewers.ToString("N0");
+- MainWindow.xaml.cs:365: TwitchLiveText.Text = settings.TwitchLive ? "LIVE" : "OFF";
+- MainWindow.xaml.cs:366: TwitchLiveText.Foreground = GetBrushResource(settings.TwitchLive ? "Green" : "Muted");
+- MainWindow.xaml.cs:367: TwitchLiveDot.Fill = GetBrushResource(settings.TwitchLive ? "Green" : "Muted");
+- MainWindow.xaml.cs:371: TwitchTopStatusText.Text = _services.Twitch.IsChatConnected ? (settings.TwitchLive ? "LIVE" : "CHAT ON") : _services.Twitch.Status;
+- MainWindow.xaml.cs:372: TwitchTopStatusText.Foreground = GetBrushResource(_services.Twitch.IsChatConnected ? (settings.TwitchLive ? "Green" : "Purple") : "Muted");
+- MainWindow.xaml.cs:379: var twitchMoney = _services.Twitch.IsChatConnected ? "TW: ON" : "TW: OFF";
+- MainWindow.xaml.cs:380: DonatelloStatusText.Text = $"DONATELLO: {donatelloLabel} • {youtubeMoney} • {twitchMoney}";
+- MainWindow.xaml.cs:382: SendTwitchButton.IsEnabled = _services.Twitch.IsChatConnected;
+- MainWindow.xaml.cs:384: SendBothButton.IsEnabled = _services.Twitch.IsChatConnected || _services.YouTube.HasLiveChat;
+- MainWindow.xaml.cs:396: SendChat("Twitch + YouTube");
+- MainWindow.xaml.cs:398: private void SendTwitch_Click(object sender, RoutedEventArgs e) => SendChat("Twitch");
+- MainWindow.xaml.cs:400: private void SendBoth_Click(object sender, RoutedEventArgs e) => SendChat("Twitch + YouTube");
+- MainWindow.xaml.cs:494: MessageBox.Show(this, ex.GetBaseException().Message + "\n\nДля Twitch після оновлення потрібна повторна OAuth-авторизація з правами модерації.", "Модерація чату", MessageBoxButton.OK, MessageBoxImage.Warning);
+- MainWindow.xaml.cs:813: SystemTwitchText.Text = _services.Twitch.IsChatConnected ? "Twitch: чат підключено" : $"Twitch: {_services.Twitch.Status}";
+- MainWindow.xaml.cs:814: SystemTwitchText.Foreground = GetBrushResource(_services.Twitch.IsChatConnected ? "Green" : "Yellow");
+- MainWindow.xaml.cs:834: _services.Twitch.IsChatConnected,
+- MainWindow.xaml.cs:1134: new ChatMessage { Time = DateTime.Today.AddHours(20).AddMinutes(38).AddSeconds(12), Platform = "TWITCH", User = "CyberGhost", Text = "Привіт всім! Як стрім?", Foreground = "#B58AFF" },
+- MainWindow.xaml.cs:1135: new ChatMessage { Time = DateTime.Today.AddHours(20).AddMinutes(38).AddSeconds(19), Platform = "TWITCH", User = "Vitalik", Text = "Тримай стрім на висоті! 💪", Foreground = "#6BE5FF" },
+- MainWindow.xaml.cs:1138: new ChatMessage { Time = DateTime.Today.AddHours(20).AddMinutes(38).AddSeconds(45), Platform = "TWITCH", User = "gaming_bro_ua", Text = "підписався на канал! 🎉", Foreground = "#4CF095" },
+- MainWindow.xaml.cs:1153: ChatStatusText.Text = "Twitch чат • YouTube синхронізація • 12 повідомлень";
+- MainWindow.xaml.cs:1154: TwitchViewerText.Text = "14";
+- MainWindow.xaml.cs:1155: TwitchLiveText.Text = "ON";
+- MainWindow.xaml.cs:1156: TwitchLiveText.Foreground = GetBrushResource("Green");
+- MainWindow.xaml.cs:1157: TwitchLiveDot.Fill = GetBrushResource("Green");
+- MainWindow.xaml.cs:1163: TwitchTopStatusText.Text = "CHAT ON";
+- MainWindow.xaml.cs:1189: LastNotificationText.Text = "Новий підписник: gaming_bro_ua (Twitch)";
+
+## Pattern: ChatMessage
+- Controls\RichChatTextBlock.cs:16: nameof(Message), typeof(ChatMessage), typeof(RichChatTextBlock),
+- Controls\RichChatTextBlock.cs:39: public ChatMessage? Message
+- Controls\RichChatTextBlock.cs:41: get => (ChatMessage?)GetValue(MessageProperty);
+- Controls\RichChatTextBlock.cs:119: private void AddText(string value, ChatMessage message)
+- Models\ChatMessage.cs:3: public sealed class ChatMessage
+- Models\ScheduledNotice.cs:9: private int _minimumChatMessages;
+- Models\ScheduledNotice.cs:17: public int MinimumChatMessages { get => _minimumChatMessages; set => Set(ref _minimumChatMessages, Math.Max(0, value)); }
+- Services\AppServices.cs:58: () => Application.Current.Dispatcher.Invoke(() => (IReadOnlyList<ChatMessage>)Chat.Messages.ToList()),
+- Services\AppServices.cs:122: private void Channel_MessageReceived(object? sender, ChatMessage message) =>
+- Services\AppServices.cs:138: Chat.AddIncoming(new ChatMessage
+- Services\AppServices.cs:202: public async Task ModerateChatUserAsync(ChatMessage message, bool permanent, int timeoutSeconds = 600)
+- Services\AppServices.cs:221: public async Task DeleteChatMessageAsync(ChatMessage message)
+- Services\ChatAppearanceRuntime.cs:71: foreach (var text in Descendants<TextBlock>(list).Where(x => x.DataContext is ChatMessage))
+- Services\ChatService.cs:18: public ObservableCollection<ChatMessage> Messages { get; } = new();
+- Services\ChatService.cs:21: public event EventHandler<ChatMessage>? MessageAdded;
+- Services\ChatService.cs:47: AddIncoming(new ChatMessage { Platform = platform, User = user, Text = text, Role = role });
+- Services\ChatService.cs:49: public void AddIncoming(ChatMessage incoming)
+- Services\ChatService.cs:64: private void TryExecuteCommand(ChatMessage message)
+- Services\ChatService.cs:86: private bool ShouldSuppressBot(ChatMessage message)
+- Services\ChatService.cs:188: if (_messagesSinceLastNotice < notice.MinimumChatMessages)
+- Services\ChatService.cs:202: private ChatMessage BuildMessage(string platform, string user, string text, string role)
+- Services\ChatService.cs:215: return new ChatMessage
+- Services\MainChatAndMeterFinalizer.cs:54: foreach (var border in Descendants<Border>(_window).Where(x => x.DataContext is ChatMessage).ToList())
+- Services\MainChatAndMeterFinalizer.cs:56: var message = (ChatMessage)border.DataContext;
+- Services\MainWindowVisualTuner.cs:643: chat.Visibility = _window.MainChatMessages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+- Services\OverlayServer.cs:12: private readonly Func<IReadOnlyList<ChatMessage>> _chatProvider;
+- Services\OverlayServer.cs:28: Func<IReadOnlyList<ChatMessage>> chatProvider,
+- Services\PlatformBadgeFinalizer.cs:47: .Where(x => x.DataContext is ChatMessage)
+- Services\PlatformBadgeFinalizer.cs:50: var message = (ChatMessage)messageHost.DataContext;
+- Services\RuntimeUiCorrections.cs:287: foreach (var rowBorder in Descendants<Border>(_window).Where(x => x.DataContext is ChatMessage).ToList())
+- Services\RuntimeUiCorrections.cs:289: var message = (ChatMessage)rowBorder.DataContext;
+- Services\SettingsExtensionsRuntime.cs:274: grid.Columns.Add(new DataGridTextColumn { Header = "Мін. чат", Binding = new Binding(nameof(ScheduledNotice.MinimumChatMessages)), Width = 76 });
+- Services\SettingsService.cs:64: MinimumChatMessages = 10,
+- Services\TwitchService.cs:31: public event EventHandler<ChatMessage>? MessageReceived;
+- Services\TwitchService.cs:242: private static ChatMessage? ParsePrivMsg(string line)
+- Services\TwitchService.cs:263: return new ChatMessage { Platform = "TWITCH", User = user, Text = text, Role = role, ExternalId = tags.TryGetValue("id", out var id) ? id : string.Empty, AuthorId = tags.TryGetValue("user-id", out var userId) ? userId : string.Empty, Time = DateTime.Now };
+- Services\YouTubeService.cs:40: public event EventHandler<ChatMessage>? MessageReceived;
+- Services\YouTubeService.cs:435: MessageReceived?.Invoke(this, new ChatMessage
+- Windows\ChatBotWindow.xaml:24: <ListBox x:Name="ChatMessagesList" Grid.Row="1" ItemsSource="{Binding VisibleMessages}" Background="Transparent" BorderThickness="0" Padding="0" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" PreviewMouseRightButtonDown="ChatMessagesList_PreviewMouseRightButtonDown">
+- Windows\ChatBotWindow.xaml:32: <ListBox.ItemTemplate><DataTemplate DataType="{x:Type models:ChatMessage}">
+- Windows\ChatBotWindow.xaml.cs:14: public ObservableCollection<ChatMessage> VisibleMessages { get; } = new();
+- Windows\ChatBotWindow.xaml.cs:32: private void Chat_MessageAdded(object? sender, ChatMessage e) => Dispatcher.BeginInvoke(new Action(RefreshVisibleMessages));
+- Windows\ChatBotWindow.xaml.cs:38: if (VisibleMessages.Count > 0) Dispatcher.BeginInvoke(new Action(() => ChatMessagesList.ScrollIntoView(VisibleMessages[^1])), DispatcherPriority.Background);
+- Windows\ChatBotWindow.xaml.cs:76: delete.Click += DeleteChatMessage_Click;
+- Windows\ChatBotWindow.xaml.cs:81: var message = ChatMessagesList.SelectedItem as ChatMessage;
+- Windows\ChatBotWindow.xaml.cs:89: ChatMessagesList.ContextMenu = menu;
+- Windows\ChatBotWindow.xaml.cs:92: private void ChatMessagesList_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+- Windows\ChatBotWindow.xaml.cs:95: ChatMessagesList,
+- Windows\ChatBotWindow.xaml.cs:105: ChatMessagesList.SelectedItem = null;
+- Windows\ChatBotWindow.xaml.cs:111: if (sender is not MenuItem { Tag: ChatMessage message }) return;
+- Windows\ChatBotWindow.xaml.cs:117: if (sender is not MenuItem { Tag: ChatMessage message }) return;
+- Windows\ChatBotWindow.xaml.cs:122: private async void DeleteChatMessage_Click(object sender, RoutedEventArgs e)
+- Windows\ChatBotWindow.xaml.cs:124: if (sender is not MenuItem { Tag: ChatMessage message }) return;
+- Windows\ChatBotWindow.xaml.cs:127: await _services.DeleteChatMessageAsync(message);
+- Windows\ChatBotWindow.xaml.cs:133: private async Task RunModerationAsync(ChatMessage message, string action, Func<Task> operation)
+- Windows\ChatBotWindow.xaml.cs:164: NoticeMinMessagesBox.Text = notice.MinimumChatMessages.ToString();
+- Windows\ChatBotWindow.xaml.cs:185: notice.MinimumChatMessages = ParseInt(NoticeMinMessagesBox.Text, 0, 0, 10000);
+- Windows\LocalChatOverlayWindow.xaml:73: <DataTemplate DataType="{x:Type models:ChatMessage}">
+- Windows\LocalChatOverlayWindow.xaml.cs:22: public ObservableCollection<ChatMessage> Messages { get; } = new();
+- Windows\LocalChatOverlayWindow.xaml.cs:93: private void Chat_MessageAdded(object? sender, ChatMessage message) => Dispatcher.BeginInvoke(new Action(() =>
+- MainWindow.xaml:153: <Border Grid.Row="1" Background="#D0010A13" BorderBrush="#164C71" BorderThickness="1" CornerRadius="4" Padding="8,5"><Grid><ListBox x:Name="MainChatList" ItemsSource="{Binding MainChatMessages}" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" PreviewMouseRightButtonDown="MainChatList_PreviewMouseRightButtonDown" Background="Transparent" BorderThickness="0"><ListBox.ItemTemplate><DataTemplate DataType="{x:Type models:ChatMessage}"><Border Background="{Binding Background}" Padding="3,5"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="76"/><ColumnDefinition Width="32"/><ColumnDefinition Width="145"/><ColumnDefinition/></Grid.ColumnDefinitions><TextBlock Text="{Binding DisplayTime}" Foreground="#71899C" FontFamily="Consolas" FontSize="11"/><Border Grid.Column="1" Width="21" Height="21" CornerRadius="3" Background="{Binding PlatformColor}" HorizontalAlignment="Left"><Image Source="{Binding PlatformIconPath}" Margin="2"/></Border><TextBlock Grid.Column="2" Text="{Binding User}" Foreground="{Binding Foreground}" FontWeight="Bold" TextTrimming="CharacterEllipsis"/><TextBlock Grid.Column="3" Text="{Binding Text}" TextWrapping="Wrap" Foreground="#DCE9F3"/></Grid></Border></DataTemplate></ListBox.ItemTemplate></ListBox><TextBlock x:Name="ChatEmptyStateText" Text="Підключіть Twitch або YouTube у налаштуваннях каналів." Foreground="#7891A4" TextAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="420" FontSize="13"/></Grid></Border>
+- MainWindow.xaml.cs:32: public ObservableCollection<ChatMessage> MainChatMessages { get; } = new();
+- MainWindow.xaml.cs:303: private void Chat_MessageAdded(object? sender, ChatMessage message) => Dispatcher.BeginInvoke(new Action(() =>
+- MainWindow.xaml.cs:305: MainChatMessages.Add(message);
+- MainWindow.xaml.cs:306: while (MainChatMessages.Count > 300) MainChatMessages.RemoveAt(0);
+- MainWindow.xaml.cs:312: private void UpdateNotificationFromMessage(ChatMessage message)
+- MainWindow.xaml.cs:330: MainChatMessages.Clear();
+- MainWindow.xaml.cs:331: foreach (var message in _services.Chat.Messages.TakeLast(300)) MainChatMessages.Add(message);
+- MainWindow.xaml.cs:334: if (MainChatMessages.Count > 0)
+- MainWindow.xaml.cs:335: Dispatcher.BeginInvoke(new Action(() => MainChatList.ScrollIntoView(MainChatMessages[^1])), DispatcherPriority.Background);
+- MainWindow.xaml.cs:342: ChatStatusText.Text = $"{twitch} • {youtube} • {MainChatMessages.Count} повідомлень";
+- MainWindow.xaml.cs:347: if (MainChatMessages.Count > 0)
+- MainWindow.xaml.cs:426: delete.Click += DeleteChatMessage_Click;
+- MainWindow.xaml.cs:431: var message = MainChatList.SelectedItem as ChatMessage;
+- MainWindow.xaml.cs:461: if (sender is not MenuItem { Tag: ChatMessage message }) return;
+- MainWindow.xaml.cs:467: if (sender is not MenuItem { Tag: ChatMessage message }) return;
+- MainWindow.xaml.cs:472: private async void DeleteChatMessage_Click(object sender, RoutedEventArgs e)
+- MainWindow.xaml.cs:474: if (sender is not MenuItem { Tag: ChatMessage message }) return;
+- MainWindow.xaml.cs:477: await _services.DeleteChatMessageAsync(message);
+- MainWindow.xaml.cs:479: MainChatMessages.Remove(message);
+- MainWindow.xaml.cs:483: private async Task RunModerationAsync(ChatMessage message, string action, Func<Task> operation)
+- MainWindow.xaml.cs:1131: MainChatMessages.Clear();
+- MainWindow.xaml.cs:1134: new ChatMessage { Time = DateTime.Today.AddHours(20).AddMinutes(38).AddSeconds(12), Platform = "TWITCH", User = "CyberGhost", Text = "Привіт всім! Як стрім?", Foreground = "#B58AFF" },
+- MainWindow.xaml.cs:1135: new ChatMessage { Time = DateTime.Today.AddHours(20).AddMinutes(38).AddSeconds(19), Platform = "TWITCH", User = "Vitalik", Text = "Тримай стрім на висоті! 💪", Foreground = "#6BE5FF" },
+- MainWindow.xaml.cs:1136: new ChatMessage { Time = DateTime.Today.AddHours(20).AddMinutes(38).AddSeconds(23), Platform = "YOUTUBE", User = "User123", Text = "Класний стрім! Дякую за контент!", Foreground = "#FF7474" },
+- MainWindow.xaml.cs:1137: new ChatMessage { Time = DateTime.Today.AddHours(20).AddMinutes(38).AddSeconds(31), Platform = "YOUTUBE", User = "Nightbot", Text = "Не забувайте підписатись та поставити лайк 👍", Foreground = "#71E7FF" },
+- MainWindow.xaml.cs:1138: new ChatMessage { Time = DateTime.Today.AddHours(20).AddMinutes(38).AddSeconds(45), Platform = "TWITCH", User = "gaming_bro_ua", Text = "підписався на канал! 🎉", Foreground = "#4CF095" },
+- MainWindow.xaml.cs:1139: new ChatMessage { Time = DateTime.Today.AddHours(20).AddMinutes(38).AddSeconds(51), Platform = "YOUTUBE", User = "Олена", Text = "Дякую за музику! 🎵", Foreground = "#FF71C8" },
+- MainWindow.xaml.cs:1140: new ChatMessage { Time = DateTime.Today.AddHours(20).AddMinutes(39).AddSeconds(2), Platform = "DONATELLO", User = "StreamElements", Text = "Донат від Vitalik на суму 250 UAH ❤️", Foreground = "#FFD66B" },
+- MainWindow.xaml.cs:1141: new ChatMessage { Time = DateTime.Today.AddHours(20).AddMinutes(39).AddSeconds(11), Platform = "YOUTUBE", User = "Макс", Text = "Коли наступний стрім?", Foreground = "#70A5FF" }
+- MainWindow.xaml.cs:1143: foreach (var item in demo) MainChatMessages.Add(item);
+
+## Pattern: Emote
+- Controls\RichChatTextBlock.cs:11: /// use the Windows emoji font fallback; platform emotes are inserted as inline images.
+- Controls\RichChatTextBlock.cs:35: public static readonly DependencyProperty EmoteSizeProperty = DependencyProperty.Register(
+- Controls\RichChatTextBlock.cs:36: nameof(EmoteSize), typeof(double), typeof(RichChatTextBlock),
+- Controls\RichChatTextBlock.cs:69: public double EmoteSize
+- Controls\RichChatTextBlock.cs:71: get => (double)GetValue(EmoteSizeProperty);
+- Controls\RichChatTextBlock.cs:72: set => SetValue(EmoteSizeProperty, value);
+- Controls\RichChatTextBlock.cs:101: var emotes = message.Emotes
+- Controls\RichChatTextBlock.cs:108: foreach (var emote in emotes)
+- Controls\RichChatTextBlock.cs:110: if (emote.Start < cursor) continue;
+- Controls\RichChatTextBlock.cs:111: AddText(text[cursor..emote.Start], message);
+- Controls\RichChatTextBlock.cs:112: AddEmote(emote);
+- Controls\RichChatTextBlock.cs:113: cursor = emote.End + 1;
+- Controls\RichChatTextBlock.cs:129: private void AddEmote(ChatEmote emote)
+- Controls\RichChatTextBlock.cs:135: bitmap.UriSource = new Uri(emote.ImageUrl, UriKind.Absolute);
+- Controls\RichChatTextBlock.cs:143: Width = EmoteSize,
+- Controls\RichChatTextBlock.cs:144: Height = EmoteSize,
+- Controls\RichChatTextBlock.cs:147: ToolTip = string.IsNullOrWhiteSpace(emote.Name) ? emote.Id : emote.Name,
+- Controls\RichChatTextBlock.cs:154: AddText(string.IsNullOrWhiteSpace(emote.Name) ? "□" : emote.Name, Message!);
+- Models\ChatEmote.cs:3: public sealed class ChatEmote
+- Models\ChatMessage.cs:15: public List<ChatEmote> Emotes { get; set; } = new();
+- Models\ChatMessage.cs:16: public bool HasEmotes => Emotes.Count > 0;
+- Windows\LocalChatOverlayWindow.xaml:87: HighlightBrush="#FFD329" EmoteSize="24"/>
+
+## Pattern: emotes
+- Controls\RichChatTextBlock.cs:11: /// use the Windows emoji font fallback; platform emotes are inserted as inline images.
+- Controls\RichChatTextBlock.cs:35: public static readonly DependencyProperty EmoteSizeProperty = DependencyProperty.Register(
+- Controls\RichChatTextBlock.cs:36: nameof(EmoteSize), typeof(double), typeof(RichChatTextBlock),
+- Controls\RichChatTextBlock.cs:69: public double EmoteSize
+- Controls\RichChatTextBlock.cs:71: get => (double)GetValue(EmoteSizeProperty);
+- Controls\RichChatTextBlock.cs:72: set => SetValue(EmoteSizeProperty, value);
+- Controls\RichChatTextBlock.cs:101: var emotes = message.Emotes
+- Controls\RichChatTextBlock.cs:108: foreach (var emote in emotes)
+- Controls\RichChatTextBlock.cs:143: Width = EmoteSize,
+- Controls\RichChatTextBlock.cs:144: Height = EmoteSize,
+- Models\ChatMessage.cs:15: public List<ChatEmote> Emotes { get; set; } = new();
+- Models\ChatMessage.cs:16: public bool HasEmotes => Emotes.Count > 0;
+- Windows\LocalChatOverlayWindow.xaml:87: HighlightBrush="#FFD329" EmoteSize="24"/>
+
+## Pattern: IRC
+- Services\TwitchService.cs:19: private ClientWebSocket? _irc;
+- Services\TwitchService.cs:21: private Task? _ircLoop;
+- Services\TwitchService.cs:28: public bool IsChatConnected => _irc?.State == WebSocketState.Open;
+- Services\TwitchService.cs:73: _irc = new ClientWebSocket();
+- Services\TwitchService.cs:74: await _irc.ConnectAsync(new Uri("wss://irc-ws.chat.twitch.tv:443"), _cts.Token);
+- Services\TwitchService.cs:75: await SendIrcAsync($"PASS oauth:{_token.AccessToken}", _cts.Token);
+- Services\TwitchService.cs:76: await SendIrcAsync($"NICK {_settings.Value.TwitchUserLogin.ToLowerInvariant()}", _cts.Token);
+- Services\TwitchService.cs:77: await SendIrcAsync("CAP REQ :twitch.tv/tags twitch.tv/commands twitch.tv/membership", _cts.Token);
+- Services\TwitchService.cs:78: await SendIrcAsync($"JOIN #{_settings.Value.TwitchChannelName.Trim().TrimStart('#').ToLowerInvariant()}", _cts.Token);
+- Services\TwitchService.cs:80: _ircLoop = Task.Run(() => IrcReceiveLoopAsync(_cts.Token));
+- Services\TwitchService.cs:89: await SendIrcAsync($"PRIVMSG #{_settings.Value.TwitchChannelName.Trim().TrimStart('#').ToLowerInvariant()} :{safe}", token);
+- Services\TwitchService.cs:203: private async Task IrcReceiveLoopAsync(CancellationToken token)
+- Services\TwitchService.cs:209: while (!token.IsCancellationRequested && _irc?.State == WebSocketState.Open)
+- Services\TwitchService.cs:214: result = await _irc.ReceiveAsync(new ArraySegment<byte>(buffer), token);
+- Services\TwitchService.cs:224: await SendIrcAsync(line.Replace("PING", "PONG", StringComparison.OrdinalIgnoreCase), token);
+- Services\TwitchService.cs:237: _logger.Error("Twitch IRC", ex);
+- Services\TwitchService.cs:305: private async Task SendIrcAsync(string line, CancellationToken token)
+- Services\TwitchService.cs:307: if (_irc is null || _irc.State != WebSocketState.Open) throw new InvalidOperationException("Twitch IRC не підключено.");
+- Services\TwitchService.cs:309: await _irc.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, token);
+- Services\TwitchService.cs:386: if (_irc is not null)
+- Services\TwitchService.cs:390: if (_irc.State == WebSocketState.Open)
+- Services\TwitchService.cs:393: await _irc.CloseAsync(WebSocketCloseStatus.NormalClosure, "closing", closeCts.Token).ConfigureAwait(false);
+- Services\TwitchService.cs:397: _irc.Dispose();
+- Services\TwitchService.cs:399: if (_ircLoop is not null) try { await _ircLoop.ConfigureAwait(false); } catch { }
+- Services\TwitchService.cs:401: _irc = null;
+- Services\TwitchService.cs:402: _ircLoop = null;
+- MainWindow.xaml:72: <Style x:Key="MetricCircle" TargetType="Border">
+- MainWindow.xaml:191: <Grid><Image Source="/TiHiY.StreamControlCenter;component/Assets/Themes/UkraineExact/footer-wheat.png" Width="112" Height="135" HorizontalAlignment="Right" VerticalAlignment="Bottom" Opacity="{DynamicResource ThemePremiumAccentOpacity}" IsHitTestVisible="False"/><Grid><Grid.RowDefinitions><RowDefinition Height="28"/><RowDefinition Height="*"/><RowDefinition Height="38"/></Grid.RowDefinitions><StackPanel Orientation="Horizontal"><Ellipse x:Name="AidaStatusDot" Width="9" Height="9" Fill="#22DA72" Margin="0,0,7,0"/><TextBlock x:Name="AidaStatusText" Text="AIDA64 LIVE" Foreground="#F5A900" FontWeight="Bold" FontSize="16"/></StackPanel><UniformGrid Grid.Row="1" Columns="4"><Border Style="{StaticResource MetricCircle}"><StackPanel VerticalAlignment="Center"><TextBlock Text="CPU" HorizontalAlignment="Center" Foreground="#F5A900"/><TextBlock x:Name="CpuTemperatureMonitorText" Text="52°C" HorizontalAlignment="Center" FontSize="20" FontWeight="Bold"/></StackPanel></Border><Border Style="{StaticResource MetricCircle}" BorderBrush="#23C878"><StackPanel VerticalAlignment="Center"><TextBlock Text="GPU" HorizontalAlignment="Center" Foreground="#F5A900"/><TextBlock x:Name="GpuTemperatureMonitorText" Text="54°C" HorizontalAlignment="Center" FontSize="20" FontWeight="Bold"/></StackPanel></Border><Border Style="{StaticResource MetricCircle}" BorderBrush="#E5A300"><StackPanel VerticalAlignment="Center"><TextBlock Text="RAM" HorizontalAlignment="Center" Foreground="#F5A900"/><TextBlock x:Name="GpuLoadMonitorText" Text="18%" HorizontalAlignment="Center" FontSize="20" FontWeight="Bold"/></StackPanel></Border><Border Style="{StaticResource MetricCircle}" BorderBrush="#1CAFE8"><StackPanel VerticalAlignment="Center"><TextBlock Text="FPS" HorizontalAlignment="Center" Foreground="#F5A900"/><TextBlock x:Name="ObsFpsText" Text="OBS 60 FPS" HorizontalAlignment="Center" FontSize="13" FontWeight="Bold" TextAlignment="Center"/></StackPanel></Border></UniformGrid><Button Grid.Row="2" Click="OpenSettings_Click" Style="{StaticResource TinyActionButton}" HorizontalAlignment="Stretch"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><TextBlock Style="{StaticResource IconGlyph}" Text="&#xE9D9;" FontSize="15"/><TextBlock Text="  ВІДКРИТИ AIDA64 / МОНІТОРИНГ"/></StackPanel></Button><StackPanel Visibility="Collapsed"><TextBlock x:Name="UptimeText"/><TextBlock x:Name="SystemClockText"/><TextBlock x:Name="CpuClockMonitorText"/><TextBlock x:Name="MemoryClockMonitorText"/><TextBlock x:Name="VramLoadMonitorText"/><TextBlock x:Name="NetworkText"/><TextBlock x:Name="LastLogText"/></StackPanel></Grid></Grid>
+
+## Pattern: PRIVMSG
+- Services\TwitchService.cs:89: await SendIrcAsync($"PRIVMSG #{_settings.Value.TwitchChannelName.Trim().TrimStart('#').ToLowerInvariant()} :{safe}", token);
+- Services\TwitchService.cs:227: var message = ParsePrivMsg(line);
+- Services\TwitchService.cs:242: private static ChatMessage? ParsePrivMsg(string line)
+- Services\TwitchService.cs:244: var privIndex = line.IndexOf(" PRIVMSG ", StringComparison.Ordinal);
+- Services\TwitchService.cs:281: var privIndex = line.IndexOf(" PRIVMSG ", StringComparison.Ordinal);
+
+## Pattern: DispatcherTimer
+- Services\ChatAppearanceRuntime.cs:34: private readonly DispatcherTimer _timer;
+- Services\ChatAppearanceRuntime.cs:41: _timer = new DispatcherTimer(DispatcherPriority.Background, window.Dispatcher)
+- Services\ChatService.cs:10: private readonly DispatcherTimer _timer;
+- Services\ChatService.cs:35: _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+- Services\MainChatAndMeterFinalizer.cs:29: private readonly DispatcherTimer _timer;
+- Services\MainChatAndMeterFinalizer.cs:35: _timer = new DispatcherTimer(DispatcherPriority.Render, window.Dispatcher)
+- Services\MainWindowMainPolish.cs:30: private readonly DispatcherTimer _timer;
+- Services\MainWindowMainPolish.cs:36: _timer = new DispatcherTimer(DispatcherPriority.Render, window.Dispatcher)
+- Services\MainWindowMixerPresentation.cs:29: private readonly DispatcherTimer _timer;
+- Services\MainWindowMixerPresentation.cs:37: _timer = new DispatcherTimer(DispatcherPriority.Render, window.Dispatcher)
+- Services\MainWindowVisualTuner.cs:17: private readonly DispatcherTimer _guardTimer;
+- Services\MainWindowVisualTuner.cs:53: _guardTimer = new DispatcherTimer(DispatcherPriority.Background, window.Dispatcher)
+- Services\MusicPlayerService.cs:16: private readonly DispatcherTimer _timer;
+- Services\MusicPlayerService.cs:38: _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+- Services\PlatformBadgeFinalizer.cs:27: private readonly DispatcherTimer _timer;
+- Services\PlatformBadgeFinalizer.cs:33: _timer = new DispatcherTimer(DispatcherPriority.Render, window.Dispatcher)
+- Services\RuntimeUiCorrections.cs:49: private readonly DispatcherTimer _meterTimer;
+- Services\RuntimeUiCorrections.cs:61: _meterTimer = new DispatcherTimer(DispatcherPriority.Render, window.Dispatcher)
+- Services\RuntimeUiCorrections.cs:268: private readonly DispatcherTimer _timer;
+- Services\RuntimeUiCorrections.cs:274: _timer = new DispatcherTimer(DispatcherPriority.Background, window.Dispatcher)
+- Services\RuntimeUiCorrections.cs:311: private readonly DispatcherTimer _timer;
+- Services\RuntimeUiCorrections.cs:317: _timer = new DispatcherTimer(DispatcherPriority.Background, window.Dispatcher)
+- Services\StalkerSettingsRuntime.cs:28: private readonly DispatcherTimer _timer;
+- Services\StalkerSettingsRuntime.cs:41: _timer = new DispatcherTimer(DispatcherPriority.Background, window.Dispatcher)
+- Services\StalkerThemeFinalizer.cs:26: private readonly DispatcherTimer _timer;
+- Services\StalkerThemeFinalizer.cs:35: _timer = new DispatcherTimer(DispatcherPriority.Render, window.Dispatcher)
+- Services\StalkerThemeRuntime.cs:29: private readonly DispatcherTimer _guard;
+- Services\StalkerThemeRuntime.cs:56: _guard = new DispatcherTimer(DispatcherPriority.Background, window.Dispatcher)
+- Windows\AudioMixerWindow.xaml.cs:9: private readonly DispatcherTimer _refreshTimer;
+- Windows\AudioMixerWindow.xaml.cs:23: _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+- Windows\LocalChatOverlayWindow.xaml.cs:17: private readonly DispatcherTimer _statsTimer;
+- Windows\LocalChatOverlayWindow.xaml.cs:32: _statsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+- MainWindow.xaml.cs:12: private readonly DispatcherTimer _audioRefreshTimer;
+- MainWindow.xaml.cs:13: private readonly DispatcherTimer _systemRefreshTimer;
+- MainWindow.xaml.cs:44: _audioRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+- MainWindow.xaml.cs:46: _systemRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(Math.Clamp(_services.Settings.Value.SystemMonitorRefreshMilliseconds, 500, 5000)) };
+
+## Pattern: CompositionTarget
+(no matches)
+
+## Pattern: InvalidateVisual
+- Services\MainChatAndMeterFinalizer.cs:121: if (e.PropertyName is nameof(AudioChannel.Db) or nameof(AudioChannel.Meter)) InvalidateVisual();
+- Services\ModuleWindowBase.cs:49: InvalidateVisual();
+- Services\RuntimeUiCorrections.cs:376: if (e.PropertyName is nameof(AudioChannel.Db) or nameof(AudioChannel.Meter)) InvalidateVisual();
+- Services\RuntimeUiCorrections.cs:446: EventHandler handler = (_, _) => InvalidateVisual();
+- Services\StalkerApprovedTextureRuntime.cs:266: _window.InvalidateVisual();
+- Services\StalkerApprovedTextureRuntime.cs:654: _window.InvalidateVisual();
+
+## Pattern: ThemeChanged
+- Services\ModuleWindowBase.cs:20: App.Services.Theme.ThemeChanged += Theme_ThemeChanged;
+- Services\ModuleWindowBase.cs:137: App.Services.Theme.ThemeChanged -= Theme_ThemeChanged;
+- Services\ModuleWindowBase.cs:155: private void Theme_ThemeChanged(object? sender, EventArgs e) =>
+- Services\StalkerApprovedLayoutRuntime.cs:55: App.Services.Theme.ThemeChanged += ThemeChanged;
+- Services\StalkerApprovedLayoutRuntime.cs:59: private void ThemeChanged(object? sender, EventArgs e) =>
+- Services\StalkerApprovedLayoutRuntime.cs:282: App.Services.Theme.ThemeChanged -= ThemeChanged;
+- Services\StalkerApprovedTextureRuntime.cs:177: App.Services.Theme.ThemeChanged += ThemeChanged;
+- Services\StalkerApprovedTextureRuntime.cs:181: private void ThemeChanged(object? sender, EventArgs e) =>
+- Services\StalkerApprovedTextureRuntime.cs:567: App.Services.Theme.ThemeChanged -= ThemeChanged;
+- Services\StalkerApprovedTextureRuntime.cs:604: App.Services.Theme.ThemeChanged += ThemeChanged;
+- Services\StalkerApprovedTextureRuntime.cs:608: private void ThemeChanged(object? sender, EventArgs e) =>
+- Services\StalkerApprovedTextureRuntime.cs:765: App.Services.Theme.ThemeChanged -= ThemeChanged;
+- Services\StalkerSettingsRuntime.cs:47: App.Services.Theme.ThemeChanged += Theme_ThemeChanged;
+- Services\StalkerSettingsRuntime.cs:64: private void Theme_ThemeChanged(object? sender, EventArgs e) =>
+- Services\StalkerSettingsRuntime.cs:348: App.Services.Theme.ThemeChanged -= Theme_ThemeChanged;
+- Services\StalkerThemeFinalizer.cs:42: App.Services.Theme.ThemeChanged += Theme_ThemeChanged;
+- Services\StalkerThemeFinalizer.cs:65: private void Theme_ThemeChanged(object? sender, EventArgs e) =>
+- Services\StalkerThemeFinalizer.cs:225: App.Services.Theme.ThemeChanged -= Theme_ThemeChanged;
+- Services\StalkerThemeRuntime.cs:55: App.Services.Theme.ThemeChanged += Theme_ThemeChanged;
+- Services\StalkerThemeRuntime.cs:82: private void Theme_ThemeChanged(object? sender, EventArgs e) =>
+- Services\StalkerThemeRuntime.cs:402: App.Services.Theme.ThemeChanged -= Theme_ThemeChanged;
+- Services\ThemeService.cs:22: public event EventHandler? ThemeChanged;
+- Services\ThemeService.cs:98: ThemeChanged?.Invoke(this, EventArgs.Empty);
+
+## Pattern: CurrentTheme
+- Services\StalkerApprovedTextureRuntime.cs:86: App.Services.Theme.CurrentTheme,
+- Services\StalkerSettingsRuntime.cs:53: App.Services.Theme.CurrentTheme,
+- Services\StalkerThemeFinalizer.cs:48: App.Services.Theme.CurrentTheme,
+- Services\StalkerThemeRuntime.cs:71: App.Services.Theme.CurrentTheme,
+- Services\ThemeService.cs:21: public string CurrentTheme => _settings.Value.UiTheme;
+- Windows\SettingsWindow.xaml.cs:74: _initialTheme = _services.Theme.CurrentTheme;
+
+## Pattern: ApplyTheme
+- Localization\Strings.en-US.xaml:40: <sys:String x:Key="Settings.ApplyTheme">APPLY THEME</sys:String>
+- Localization\Strings.uk-UA.xaml:40: <sys:String x:Key="Settings.ApplyTheme">ЗАСТОСУВАТИ ТЕМУ</sys:String>
+- Services\ModuleWindowBase.cs:15: ApplyThemeResources();
+- Services\ModuleWindowBase.cs:45: private void ApplyThemeResources()
+- Services\ModuleWindowBase.cs:124: ApplyThemeResources();
+- Services\ModuleWindowBase.cs:156: Dispatcher.BeginInvoke(new Action(ApplyThemeResources), DispatcherPriority.Render);
+- Services\ThemeService.cs:91: ApplyThemeSymbol(resources, theme.Name);
+- Services\ThemeService.cs:221: private static void ApplyThemeSymbol(ResourceDictionary resources, string themeName)
+
+## Pattern: ResourceDictionary
+- Localization\Strings.en-US.xaml:1: <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+- Localization\Strings.en-US.xaml:42: </ResourceDictionary>
+- Localization\Strings.uk-UA.xaml:1: <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+- Localization\Strings.uk-UA.xaml:42: </ResourceDictionary>
+- Services\LanguageService.cs:38: var replacement = new ResourceDictionary
+- Services\LanguageService.cs:65: private static bool IsLanguageDictionary(ResourceDictionary dictionary)
+- Services\ThemeService.cs:101: private static ResourceDictionary FindDictionary(ResourceDictionary root, string key)
+- Services\ThemeService.cs:112: private static ResourceDictionary? FindDictionaryOrNull(ResourceDictionary root, string key)
+- Services\ThemeService.cs:123: private static void SetColor(ResourceDictionary resources, string key, Color value)
+- Services\ThemeService.cs:128: private static void SetBrush(ResourceDictionary resources, string key, Color value)
+- Services\ThemeService.cs:189: private static void ApplySurfaceBrushes(ResourceDictionary resources, ThemeInfo theme)
+- Services\ThemeService.cs:221: private static void ApplyThemeSymbol(ResourceDictionary resources, string themeName)
+- Services\ThemeService.cs:259: private static void SetImageResource(ResourceDictionary resources, string key, string? fileName)
+- Services\ThemeService.cs:279: private static void SetTextureBrush(ResourceDictionary resources, string key, string fileName, double opacity, bool tile, Color fallback)
+- Services\ThemeService.cs:320: private static void SetGradient(ResourceDictionary resources, string key, params Color[] colors)
+- Themes\Compatibility.xaml:1: <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+- Themes\Compatibility.xaml:123: </ResourceDictionary>
+- Themes\CyberAmber.xaml:1: <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+- Themes\CyberAmber.xaml:463: </ResourceDictionary>
+- Themes\StalkerReference.xaml:1: <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+- Themes\StalkerReference.xaml:182: </ResourceDictionary>
+- Themes\UkraineReference.xaml:1: <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+- Themes\UkraineReference.xaml:189: </ResourceDictionary>
+- App.xaml:6: <ResourceDictionary>
+- App.xaml:7: <ResourceDictionary.MergedDictionaries>
+- App.xaml:8: <ResourceDictionary Source="Themes/CyberAmber.xaml"/>
+- App.xaml:9: <ResourceDictionary Source="Themes/Compatibility.xaml"/>
+- App.xaml:10: <ResourceDictionary Source="Themes/UkraineReference.xaml"/>
+- App.xaml:12: <ResourceDictionary Source="Themes/StalkerReference.xaml"/>
+- App.xaml:13: <ResourceDictionary Source="Localization/Strings.uk-UA.xaml"/>
+- App.xaml:14: </ResourceDictionary.MergedDictionaries>
+- App.xaml:15: </ResourceDictionary>
+
