@@ -164,3 +164,49 @@ jobs:
           git add ci-output
           git commit -m "CI: зберегти реальний скрін програми [skip ci]"
           git push
+
+  import-run-29557749076:
+    if: contains(github.event.head_commit.message, '[transfer-run-29557749076]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout destination branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/stalker-theme-and-chat-fixes
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Fetch and import exact source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_SHA=92cf943e0445a980b0322bdfaa0339faa21bdc2b
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote remove source 2>/dev/null || true
+          git remote add source https://github.com/sergsivak-lang/TiHiY-StreamControl-Center.git
+          git fetch --no-tags source refs/heads/feature/stalker-theme-and-chat-fixes
+          git cat-file -e "${SOURCE_SHA}^{commit}"
+
+          SOURCE_TREE=$(git rev-parse "${SOURCE_SHA}^{tree}")
+          echo "SOURCE_SHA=$SOURCE_SHA"
+          echo "SOURCE_TREE=$SOURCE_TREE"
+
+          git rm -r -f --ignore-unmatch .
+          git checkout "$SOURCE_SHA" -- .
+          git add -A
+
+          IMPORT_TREE=$(git write-tree)
+          echo "IMPORT_TREE=$IMPORT_TREE"
+          test "$IMPORT_TREE" = "$SOURCE_TREE"
+
+          test -f TiHiY.StreamControlCenter.sln
+          test -f TiHiY.StreamControlCenter.csproj
+          test -f MainWindow.xaml
+          test -f Themes/StalkerReference.xaml
+          test -f Themes/UkraineReference.xaml
+          test "$(cat VERSION.txt)" = "v1.0.5.3-UKRAINE-REFERENCE-THEME"
+
+          git commit -m "Import exact tree from run 29557749076 (92cf943)"
+          git push origin HEAD:feature/stalker-theme-and-chat-fixes
