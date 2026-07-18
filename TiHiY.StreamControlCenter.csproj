@@ -51,4 +51,6 @@
     <None Include="Assets\Themes\UkraineExact\central-glory.b64.*" Visible="false" />
     <Content Include="Design\Cyber-Amber-Exact-Mockup.png" Condition="Exists('Design\Cyber-Amber-Exact-Mockup.png')" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Import Project="StalkerApprovedExact.targets" Condition="Exists('StalkerApprovedExact.targets')" />
 </Project>
