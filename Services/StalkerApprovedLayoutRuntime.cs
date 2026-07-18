@@ -41,7 +41,6 @@ public static class StalkerApprovedGridLayoutRuntime
     private sealed class Controller : IDisposable
     {
         private readonly MainWindow _window;
-        private readonly DispatcherTimer _timer;
         private readonly Dictionary<FrameworkElement, ElementState> _elements = new();
         private readonly Dictionary<RowDefinition, GridLength> _rows = new();
         private readonly Dictionary<ColumnDefinition, GridLength> _columns = new();
@@ -52,21 +51,9 @@ public static class StalkerApprovedGridLayoutRuntime
         internal Controller(MainWindow window)
         {
             _window = window;
-            _timer = new DispatcherTimer(DispatcherPriority.Background, window.Dispatcher)
-            {
-                Interval = TimeSpan.FromMilliseconds(240)
-            };
-            _timer.Tick += TimerTick;
-            _window.Closed += WindowClosed;
+_window.Closed += WindowClosed;
             App.Services.Theme.ThemeChanged += ThemeChanged;
-            _timer.Start();
             _window.Dispatcher.BeginInvoke(new Action(ApplyNow), DispatcherPriority.Loaded);
-        }
-
-        private void TimerTick(object? sender, EventArgs e)
-        {
-            if (_disposed || !_window.IsLoaded) return;
-            if (StalkerApprovedAssets.IsStalkerTheme() || _lastStalker) ApplyNow();
         }
 
         private void ThemeChanged(object? sender, EventArgs e) =>
@@ -105,14 +92,13 @@ public static class StalkerApprovedGridLayoutRuntime
         private void ApplyWindow()
         {
             var work = SystemParameters.WorkArea;
-            _window.WindowState = WindowState.Normal;
             _window.SizeToContent = SizeToContent.Manual;
             _window.MinWidth = 1200;
             _window.MinHeight = 700;
-            _window.MaxWidth = Math.Max(DesignWidth, work.Width);
-            _window.MaxHeight = Math.Max(DesignHeight, work.Height);
-            _window.Width = DesignWidth;
-            _window.Height = DesignHeight;
+            _window.MaxWidth = double.PositiveInfinity;
+            _window.MaxHeight = double.PositiveInfinity;
+            if (_window.WindowState == WindowState.Normal && _window.Width < 1200) _window.Width = Math.Min(DesignWidth, work.Width);
+            if (_window.WindowState == WindowState.Normal && _window.Height < 700) _window.Height = Math.Min(DesignHeight, work.Height);
             _window.Left = work.Left + Math.Max(0, (work.Width - DesignWidth) / 2);
             _window.Top = work.Top + Math.Max(0, (work.Height - DesignHeight) / 2);
         }
@@ -270,7 +256,6 @@ public static class StalkerApprovedGridLayoutRuntime
         {
             if (_windowState is null) return;
             var s = _windowState;
-            _window.WindowState = WindowState.Normal;
             _window.SizeToContent = s.SizeToContent;
             _window.Width = s.Width;
             _window.Height = s.Height;
@@ -293,8 +278,6 @@ public static class StalkerApprovedGridLayoutRuntime
         {
             if (_disposed) return;
             _disposed = true;
-            _timer.Stop();
-            _timer.Tick -= TimerTick;
             _window.Closed -= WindowClosed;
             App.Services.Theme.ThemeChanged -= ThemeChanged;
         }
@@ -321,3 +304,4 @@ public static class StalkerApprovedGridLayoutRuntime
             WindowState WindowState);
     }
 }
+

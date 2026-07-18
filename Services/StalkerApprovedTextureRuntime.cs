@@ -160,7 +160,6 @@ public static class StalkerApprovedExactRuntime
         };
 
         private readonly MainWindow _window;
-        private readonly DispatcherTimer _timer;
         private readonly Dictionary<FrameworkElement, UIElement[]> _decorations = new();
         private readonly Dictionary<Border, BorderState> _borderStates = new();
         private readonly Dictionary<ContentControl, ContentState> _contentStates = new();
@@ -174,21 +173,9 @@ public static class StalkerApprovedExactRuntime
         internal Controller(MainWindow window)
         {
             _window = window;
-            _timer = new DispatcherTimer(DispatcherPriority.Background, window.Dispatcher)
-            {
-                Interval = TimeSpan.FromMilliseconds(220)
-            };
-            _timer.Tick += TimerTick;
-            _window.Closed += WindowClosed;
+_window.Closed += WindowClosed;
             App.Services.Theme.ThemeChanged += ThemeChanged;
-            _timer.Start();
             _window.Dispatcher.BeginInvoke(new Action(ApplyNow), DispatcherPriority.Loaded);
-        }
-
-        private void TimerTick(object? sender, EventArgs e)
-        {
-            if (_disposed || !_window.IsLoaded) return;
-            if (StalkerApprovedAssets.IsStalkerTheme() || _lastStalker) ApplyNow();
         }
 
         private void ThemeChanged(object? sender, EventArgs e) =>
@@ -198,15 +185,87 @@ public static class StalkerApprovedExactRuntime
         {
             if (_disposed || !_window.IsLoaded) return;
             var stalker = StalkerApprovedAssets.IsStalkerTheme();
-            ApplyRoot(stalker);
-            ApplyExactHeaderAndOuterFrame(stalker);
-            ApplyExactPanelShells(stalker);
-            ApplyExactCenterPanel(stalker);
-            ApplyAidaMetricLayout(stalker);
-            ApplyLiveControls(stalker);
-            ApplyTypography(stalker);
-            ApplyArtworkVisibility(stalker);
+
+            if (stalker)
+            {
+                ApplyRoot(true);
+                ApplyExactHeaderAndOuterFrame(true);
+                ApplyExactPanelShells(true);
+                ApplyExactCenterPanel(true);
+                ApplyAidaMetricLayout(true);
+                ApplyLiveControls(true);
+                ApplyTypography(true);
+                ApplyArtworkVisibility(true);
+            }
+            else if (_lastStalker)
+            {
+                ClearStalkerOverrides();
+            }
+
             _lastStalker = stalker;
+        }
+
+        private void ClearStalkerOverrides()
+        {
+            foreach (var parts in _decorations.Values)
+                SetVisibility(parts, false);
+
+            foreach (var border in _borderStates.Keys)
+            {
+                border.ClearValue(Border.BackgroundProperty);
+                border.ClearValue(Border.BorderBrushProperty);
+                border.ClearValue(Border.BorderThicknessProperty);
+                border.ClearValue(Border.CornerRadiusProperty);
+            }
+
+            foreach (var block in _contentStates.Keys)
+            {
+                block.ClearValue(Control.BackgroundProperty);
+                block.ClearValue(Control.BorderBrushProperty);
+                block.ClearValue(Control.BorderThicknessProperty);
+                block.ClearValue(Control.PaddingProperty);
+            }
+
+            foreach (var control in _controlStates.Keys)
+            {
+                control.ClearValue(Control.BackgroundProperty);
+                control.ClearValue(Control.BorderBrushProperty);
+                control.ClearValue(Control.BorderThicknessProperty);
+                control.ClearValue(Control.ForegroundProperty);
+                control.ClearValue(Control.FontFamilyProperty);
+            }
+
+            foreach (var text in _textStates.Keys)
+            {
+                text.ClearValue(TextBlock.ForegroundProperty);
+                text.ClearValue(TextBlock.FontFamilyProperty);
+                text.ClearValue(TextBlock.FontWeightProperty);
+            }
+
+            foreach (var element in _opacityStates.Keys)
+                element.ClearValue(UIElement.OpacityProperty);
+
+            foreach (var border in _metricStates.Keys)
+            {
+                border.ClearValue(FrameworkElement.WidthProperty);
+                border.ClearValue(FrameworkElement.HeightProperty);
+                border.ClearValue(FrameworkElement.MarginProperty);
+                border.ClearValue(Border.BackgroundProperty);
+                border.ClearValue(Border.BorderBrushProperty);
+                border.ClearValue(Border.BorderThicknessProperty);
+                border.ClearValue(Border.CornerRadiusProperty);
+            }
+
+            _borderStates.Clear();
+            _contentStates.Clear();
+            _controlStates.Clear();
+            _textStates.Clear();
+            _opacityStates.Clear();
+            _metricStates.Clear();
+
+            _window.InvalidateVisual();
+            _window.InvalidateMeasure();
+            _window.InvalidateArrange();
         }
 
         private void ApplyRoot(bool stalker)
@@ -504,8 +563,6 @@ public static class StalkerApprovedExactRuntime
         {
             if (_disposed) return;
             _disposed = true;
-            _timer.Stop();
-            _timer.Tick -= TimerTick;
             _window.Closed -= WindowClosed;
             App.Services.Theme.ThemeChanged -= ThemeChanged;
         }
@@ -533,7 +590,6 @@ public static class StalkerApprovedExactSettingsRuntime
     private sealed class Controller : IDisposable
     {
         private readonly SettingsWindow _window;
-        private readonly DispatcherTimer _timer;
         private readonly Dictionary<Border, BorderState> _borders = new();
         private readonly Dictionary<Control, ControlState> _controls = new();
         private readonly Dictionary<Image, ImageState> _images = new();
@@ -544,21 +600,9 @@ public static class StalkerApprovedExactSettingsRuntime
         internal Controller(SettingsWindow window)
         {
             _window = window;
-            _timer = new DispatcherTimer(DispatcherPriority.Background, window.Dispatcher)
-            {
-                Interval = TimeSpan.FromMilliseconds(240)
-            };
-            _timer.Tick += TimerTick;
-            _window.Closed += WindowClosed;
+_window.Closed += WindowClosed;
             App.Services.Theme.ThemeChanged += ThemeChanged;
-            _timer.Start();
             _window.Dispatcher.BeginInvoke(new Action(ApplyNow), DispatcherPriority.Loaded);
-        }
-
-        private void TimerTick(object? sender, EventArgs e)
-        {
-            if (_disposed || !_window.IsLoaded) return;
-            if (StalkerApprovedAssets.IsStalkerTheme() || _lastStalker) ApplyNow();
         }
 
         private void ThemeChanged(object? sender, EventArgs e) =>
@@ -567,10 +611,48 @@ public static class StalkerApprovedExactSettingsRuntime
         private void ApplyNow()
         {
             var stalker = StalkerApprovedAssets.IsStalkerTheme();
-            ApplyBorders(stalker);
-            ApplyControls(stalker);
-            ApplyImages(stalker);
-            ApplyTexts(stalker);
+            if (stalker)
+            {
+                ApplyBorders(true);
+                ApplyControls(true);
+                ApplyImages(true);
+                ApplyTexts(true);
+            }
+            else if (_lastStalker)
+            {
+                foreach (var border in _borders.Keys)
+                {
+                    border.ClearValue(Border.BackgroundProperty);
+                    border.ClearValue(Border.BorderBrushProperty);
+                    border.ClearValue(Border.BorderThicknessProperty);
+                    border.ClearValue(Border.CornerRadiusProperty);
+                }
+                foreach (var control in _controls.Keys)
+                {
+                    control.ClearValue(Control.BackgroundProperty);
+                    control.ClearValue(Control.BorderBrushProperty);
+                    control.ClearValue(Control.BorderThicknessProperty);
+                    control.ClearValue(Control.ForegroundProperty);
+                    control.ClearValue(Control.FontFamilyProperty);
+                }
+                foreach (var image in _images.Keys)
+                {
+                    image.ClearValue(UIElement.VisibilityProperty);
+                    image.ClearValue(UIElement.OpacityProperty);
+                }
+                foreach (var text in _texts.Keys)
+                {
+                    text.ClearValue(TextBlock.ForegroundProperty);
+                    text.ClearValue(TextBlock.FontFamilyProperty);
+                    text.ClearValue(TextBlock.FontWeightProperty);
+                    text.ClearValue(UIElement.OpacityProperty);
+                }
+                _borders.Clear();
+                _controls.Clear();
+                _images.Clear();
+                _texts.Clear();
+                _window.InvalidateVisual();
+            }
             _lastStalker = stalker;
         }
 
@@ -679,8 +761,6 @@ public static class StalkerApprovedExactSettingsRuntime
         {
             if (_disposed) return;
             _disposed = true;
-            _timer.Stop();
-            _timer.Tick -= TimerTick;
             _window.Closed -= WindowClosed;
             App.Services.Theme.ThemeChanged -= ThemeChanged;
         }
@@ -691,5 +771,6 @@ public static class StalkerApprovedExactSettingsRuntime
         private sealed record TextState(Brush? Foreground, FontFamily FontFamily, FontWeight FontWeight);
     }
 }
+
 
 
