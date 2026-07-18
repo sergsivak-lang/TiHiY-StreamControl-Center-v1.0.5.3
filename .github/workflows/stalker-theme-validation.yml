@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-stalker-theme:
@@ -17,6 +17,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || 'feature/stalker-theme-v1' }}
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Verify implementation files
         shell: pwsh
@@ -135,3 +137,35 @@ jobs:
             publish/**
             preview/**
           if-no-files-found: warn
+
+      - name: Publish validation report branch
+        if: always()
+        shell: pwsh
+        env:
+          VALIDATION_STATUS: ${{ job.status }}
+          VALIDATED_SHA: ${{ github.event.pull_request.head.sha || 'feature/stalker-theme-v1' }}
+        run: |
+          $stash = Join-Path $env:RUNNER_TEMP "stalker-validation-output"
+          Remove-Item $stash -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $stash | Out-Null
+          @(
+            "status=$env:VALIDATION_STATUS",
+            "validated_sha=$env:VALIDATED_SHA",
+            "run_id=${{ github.run_id }}",
+            "run_attempt=${{ github.run_attempt }}",
+            "completed_utc=$([DateTime]::UtcNow.ToString('O'))"
+          ) | Set-Content (Join-Path $stash "validation-result.txt") -Encoding utf8
+          if (Test-Path build.log) { Copy-Item build.log $stash -Force }
+          if (Test-Path build-errors.txt) { Copy-Item build-errors.txt $stash -Force }
+          if (Test-Path preview) { Copy-Item preview (Join-Path $stash "preview") -Recurse -Force }
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan ci-stalker-results-temp
+          git rm -rf . 2>$null
+          git clean -fdx
+          New-Item -ItemType Directory -Force -Path validation-output | Out-Null
+          Copy-Item (Join-Path $stash "*") validation-output -Recurse -Force
+          git add validation-output
+          git commit --allow-empty -m "CI: результат перевірки теми Сталкер ${{ github.run_id }}"
+          git push --force origin HEAD:ci/stalker-theme-results
