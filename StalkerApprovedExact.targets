@@ -9,6 +9,11 @@
     <!-- The approved mock-up is a visual reference, not a fixed 1672x941 layout.
          Keep the real responsive MainWindow grid and apply only the texture layer. -->
     <Compile Remove="Services\StalkerApprovedLayoutRuntime.cs" />
+
+    <!-- This obsolete post-test runtime changes VirtualizationMode after WPF Measure,
+         causing an endless cascade of exception dialogs. Its safe responsibilities
+         are handled by the remaining dedicated runtimes. -->
+    <Compile Remove="Services\ApprovedStalkerBehaviorFixRuntime.cs" />
   </ItemGroup>
 
   <ItemGroup>
