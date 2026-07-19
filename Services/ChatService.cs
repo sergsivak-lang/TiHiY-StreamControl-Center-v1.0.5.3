@@ -53,6 +53,7 @@ public sealed class ChatService
         message.Time = incoming.Time;
         message.ExternalId = incoming.ExternalId;
         message.AuthorId = incoming.AuthorId;
+        message.Emotes = incoming.Emotes?.ToList() ?? new List<ChatEmote>();
         Messages.Add(message);
         while (Messages.Count > 300) Messages.RemoveAt(0);
         _messagesSinceLastNotice++;
@@ -181,8 +182,6 @@ public sealed class ChatService
     private void Timer_Tick(object? sender, EventArgs e)
     {
         var settings = _settings.Value;
-        // Auto-start controls whether the bot starts with the application; it must not
-        // disable a timer that was already started manually from the bot window.
         if (!settings.ChatBotEnabled || !settings.AutoNoticesEnabled) return;
         var now = DateTime.Now;
         foreach (var notice in Notices.Where(n => n.Enabled && n.NextRun <= now).ToList())
