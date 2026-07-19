@@ -50,6 +50,7 @@ internal static class StalkerThemeTransitionGuardRuntime
         private bool _lastStalker;
         private bool _disposed;
         private bool _applyQueued;
+        private DispatcherTimer? _settleTimer;
 
         internal Controller(MainWindow window)
         {
@@ -66,7 +67,12 @@ internal static class StalkerThemeTransitionGuardRuntime
         {
             if (StalkerApprovedAssets.IsStalkerTheme()) QueueApply();
         }
-        private void ThemeChanged(object? sender, EventArgs e) => QueueApply();
+
+        private void ThemeChanged(object? sender, EventArgs e)
+        {
+            QueueApply();
+            QueueSettleApply();
+        }
 
         private void QueueApply()
         {
@@ -77,6 +83,27 @@ internal static class StalkerThemeTransitionGuardRuntime
                 _applyQueued = false;
                 Apply();
             }), DispatcherPriority.ApplicationIdle);
+        }
+
+        // Several legacy theme runtimes also react to ThemeChanged. Reapply once after
+        // they have completed so the final visible state is deterministic.
+        private void QueueSettleApply()
+        {
+            _settleTimer?.Stop();
+            _settleTimer = new DispatcherTimer(DispatcherPriority.ApplicationIdle, _window.Dispatcher)
+            {
+                Interval = TimeSpan.FromMilliseconds(180)
+            };
+            _settleTimer.Tick += SettleTimerTick;
+            _settleTimer.Start();
+        }
+
+        private void SettleTimerTick(object? sender, EventArgs e)
+        {
+            _settleTimer?.Stop();
+            if (_settleTimer is not null) _settleTimer.Tick -= SettleTimerTick;
+            _settleTimer = null;
+            Apply();
         }
 
         private void Apply()
@@ -100,21 +127,7 @@ internal static class StalkerThemeTransitionGuardRuntime
 
         private void ApplyCenterArtwork()
         {
-            var footer = FindNamed<Grid>("FooterBlocksGrid");
-
-            // ModulesBlockPanel is a hidden compatibility control. The real visible
-            // center panel is the unnamed ContentControl in FooterBlocksGrid column 2.
-            // Selecting the hidden control caused the Ukraine artwork to remain visible
-            // after switching Ukraine -> STALKER.
-            var visibleCenter = footer?.Children.OfType<ContentControl>()
-                .FirstOrDefault(x => Grid.GetColumn(x) == 2 && x.Visibility == Visibility.Visible);
-
-            if (!ReferenceEquals(_center, visibleCenter))
-            {
-                _center = visibleCenter;
-                _centerCaptured = false;
-            }
-
+            _center = FindRealCenterPanel() ?? _center;
             if (_center is null) return;
 
             if (!_centerCaptured)
@@ -134,6 +147,7 @@ internal static class StalkerThemeTransitionGuardRuntime
                 image.Tag = "StalkerTransitionCenter";
                 _center.Content = image;
             }
+
             image.Opacity = 1;
             image.Visibility = Visibility.Visible;
             image.HorizontalAlignment = HorizontalAlignment.Stretch;
@@ -146,6 +160,28 @@ internal static class StalkerThemeTransitionGuardRuntime
             _center.Padding = new Thickness(0);
             _center.Visibility = Visibility.Visible;
             _center.Opacity = 1;
+        }
+
+        private ContentControl? FindRealCenterPanel()
+        {
+            // Most reliable marker: the Ukraine center block contains this unique text.
+            var marker = StalkerApprovedAssets.FindDescendants<TextBlock>(_window)
+                .FirstOrDefault(x => string.Equals(x.Text, "СЛАВА УКРАЇНІ!", StringComparison.OrdinalIgnoreCase));
+            for (DependencyObject? current = marker; current is not null; current = StalkerApprovedAssets.GetParent(current))
+            {
+                if (current is ContentControl content && content.IsVisible)
+                    return content;
+            }
+
+            var footer = FindNamed<Grid>("FooterBlocksGrid");
+            if (footer is null) return null;
+
+            return footer.Children.OfType<ContentControl>()
+                .Where(x => x.IsVisible && x.Name != "ModulesBlockPanel")
+                .OrderBy(x => Math.Abs(Grid.GetColumn(x) - 2))
+                .FirstOrDefault(x => Grid.GetColumn(x) == 2)
+                ?? footer.Children.OfType<ContentControl>()
+                    .FirstOrDefault(x => x.IsVisible && x.Name != "SystemStatusBlockPanel" && x.Name != "SystemMonitorPanel");
         }
 
         private void RestoreCenter()
@@ -244,6 +280,8 @@ internal static class StalkerThemeTransitionGuardRuntime
         {
             if (_disposed) return;
             _disposed = true;
+            _settleTimer?.Stop();
+            if (_settleTimer is not null) _settleTimer.Tick -= SettleTimerTick;
             _window.Closed -= WindowClosed;
             _window.ContentRendered -= ContentRendered;
             _window.SizeChanged -= WindowSizeChanged;
