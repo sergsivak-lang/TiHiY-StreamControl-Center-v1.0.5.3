@@ -1,7 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using System.Windows.Threading;
 using TiHiY.StreamControlCenter.Windows;
 
@@ -86,7 +85,7 @@ internal static class SettingsCaptionSafetyBootstrap
                && height is >= 22 and <= 48;
     }
 
-    private static Point SafePosition(FrameworkElement element, Visual relativeTo)
+    private static Point SafePosition(FrameworkElement element, UIElement relativeTo)
     {
         try
         {
