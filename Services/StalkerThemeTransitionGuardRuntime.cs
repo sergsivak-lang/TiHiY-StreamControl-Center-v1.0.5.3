@@ -101,8 +101,20 @@ internal static class StalkerThemeTransitionGuardRuntime
         private void ApplyCenterArtwork()
         {
             var footer = FindNamed<Grid>("FooterBlocksGrid");
-            _center ??= FindNamed<ContentControl>("ModulesBlockPanel")
-                       ?? footer?.Children.OfType<ContentControl>().FirstOrDefault(x => Grid.GetColumn(x) == 2);
+
+            // ModulesBlockPanel is a hidden compatibility control. The real visible
+            // center panel is the unnamed ContentControl in FooterBlocksGrid column 2.
+            // Selecting the hidden control caused the Ukraine artwork to remain visible
+            // after switching Ukraine -> STALKER.
+            var visibleCenter = footer?.Children.OfType<ContentControl>()
+                .FirstOrDefault(x => Grid.GetColumn(x) == 2 && x.Visibility == Visibility.Visible);
+
+            if (!ReferenceEquals(_center, visibleCenter))
+            {
+                _center = visibleCenter;
+                _centerCaptured = false;
+            }
+
             if (_center is null) return;
 
             if (!_centerCaptured)
