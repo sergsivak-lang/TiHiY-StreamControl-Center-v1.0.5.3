@@ -11,6 +11,7 @@
     <Window.Resources>
         <SolidColorBrush x:Key="LocalOverlayTextBrush" Color="#F2FAFF"/>
         <SolidColorBrush x:Key="LocalOverlayUserBrush" Color="#55C8FF"/>
+        <Geometry x:Key="YouTubePlayGeometry">M 0,0 L 0,10 L 9,5 Z</Geometry>
     </Window.Resources>
     <Border x:Name="OverlayFrame" Background="#22000000" BorderBrush="#3D8CA0" BorderThickness="1" CornerRadius="8" Padding="8">
         <Grid>
@@ -43,7 +44,10 @@
                     </StackPanel>
                     <Border Grid.Column="1" Background="#355B6B"/>
                     <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <Image x:Name="YouTubeOverlayIcon" Source="/TiHiY.StreamControlCenter;component/Assets/Platforms/youtube.png" Width="22" Height="18" Stretch="Uniform"/>
+                        <Grid x:Name="YouTubeOverlayIcon" Width="22" Height="18" Margin="0">
+                            <Border Background="#FF0000" CornerRadius="4" Width="22" Height="15" VerticalAlignment="Center"/>
+                            <Path Data="{StaticResource YouTubePlayGeometry}" Fill="White" Width="8" Height="9" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
                         <TextBlock Text="  ГЛЯДАЧІ " Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
                         <TextBlock x:Name="YouTubeOverlayViewersText" Text="0" Foreground="{DynamicResource Text}" FontWeight="Bold" VerticalAlignment="Center"/>
                         <TextBlock Text="   ♥ " Foreground="#FF6B6B" FontWeight="Bold" VerticalAlignment="Center"/>
@@ -77,9 +81,14 @@
                                     <ColumnDefinition Width="30"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <Border Width="24" Height="22" CornerRadius="4" Background="{Binding PlatformColor}" VerticalAlignment="Top">
-                                    <Image Source="{Binding PlatformIconPath}" Stretch="Uniform" Margin="2"/>
-                                </Border>
+                                <Grid Width="24" Height="22" VerticalAlignment="Top">
+                                    <Border x:Name="PlatformIconBackground" CornerRadius="4" Background="{Binding PlatformColor}"/>
+                                    <Image x:Name="PlatformRasterIcon" Source="{Binding PlatformIconPath}" Stretch="Uniform" Margin="2"/>
+                                    <Grid x:Name="YouTubeVectorIcon" Visibility="Collapsed" Margin="2">
+                                        <Border Background="#FF0000" CornerRadius="3" VerticalAlignment="Center" Height="14"/>
+                                        <Path Data="{StaticResource YouTubePlayGeometry}" Fill="White" Width="7" Height="8" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Grid>
                                 <controls:RichChatTextBlock Grid.Column="1" Margin="6,0,0,0"
                                                             Message="{Binding}" IncludeUser="True"
                                                             UserBrush="{DynamicResource LocalOverlayUserBrush}"
@@ -87,6 +96,13 @@
                                                             HighlightBrush="#FFD329" EmoteSize="24"/>
                             </Grid>
                         </Border>
+                        <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding Platform}" Value="YOUTUBE">
+                                <Setter TargetName="PlatformRasterIcon" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="PlatformIconBackground" Property="Background" Value="Transparent"/>
+                                <Setter TargetName="YouTubeVectorIcon" Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
