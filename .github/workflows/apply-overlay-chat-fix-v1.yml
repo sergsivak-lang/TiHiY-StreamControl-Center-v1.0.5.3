@@ -1,0 +1,48 @@
+name: Apply overlay chat fix v1
+
+on:
+  push:
+    branches:
+      - agent/stalker-approved-exact-v4
+    paths:
+      - 'Build/Apply-OverlayChatFix-V1.ps1'
+      - '.github/workflows/apply-overlay-chat-fix-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-build-commit:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/stalker-approved-exact-v4
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply overlay patch
+        shell: pwsh
+        run: ./Build/Apply-OverlayChatFix-V1.ps1
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Build
+        shell: pwsh
+        run: |
+          dotnet restore TiHiY.StreamControlCenter.sln
+          dotnet build TiHiY.StreamControlCenter.sln --configuration Release --no-restore
+
+      - name: Commit source changes
+        shell: pwsh
+        run: |
+          Remove-Item Build/Apply-OverlayChatFix-V1.ps1 -Force
+          Remove-Item .github/workflows/apply-overlay-chat-fix-v1.yml -Force
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fix Twitch emotes and OBS browser chat overlay"
+          git push origin HEAD:agent/stalker-approved-exact-v4
