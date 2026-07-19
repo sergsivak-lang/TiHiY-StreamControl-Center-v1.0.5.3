@@ -58,8 +58,6 @@ internal static class ApprovedStalkerBehaviorFixRuntime
 
         window.Dispatcher.BeginInvoke(new Action(() =>
         {
-            // Keep one real caption-button group. Any additional generated group
-            // is hidden; painted texture controls are covered by the live header.
             var candidates = StalkerApprovedAssets.FindDescendants<Button>(window)
                 .Where(b => b.Content?.ToString() is "—" or "−" or "□" or "×")
                 .OrderByDescending(b => b.TranslatePoint(new Point(), window).X)
@@ -208,7 +206,6 @@ internal static class ApprovedStalkerBehaviorFixRuntime
                 FontFamily = new FontFamily("Bahnschrift SemiCondensed, Impact, Consolas"),
                 FontSize = 31,
                 FontWeight = FontWeights.Black,
-                CharacterSpacing = 180,
                 Foreground = new SolidColorBrush(Color.FromRgb(221, 211, 181)),
                 Effect = new System.Windows.Media.Effects.DropShadowEffect
                 {
