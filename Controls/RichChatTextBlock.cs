@@ -97,7 +97,13 @@ public sealed class RichChatTextBlock : TextBlock
             });
         }
 
-        var text = message.Text ?? string.Empty;
+        // Keep original text while platform emote offsets are in use. For normal
+        // messages render DisplayText so long URLs appear as compact domains in
+        // every rich-chat surface, including the local game overlay.
+        var text = message.HasEmotes
+            ? message.Text ?? string.Empty
+            : message.DisplayText ?? string.Empty;
+
         var emotes = message.Emotes
             .Where(x => x.Start >= 0 && x.End >= x.Start && x.End < text.Length && !string.IsNullOrWhiteSpace(x.ImageUrl))
             .OrderBy(x => x.Start)
