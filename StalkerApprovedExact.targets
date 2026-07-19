@@ -10,10 +10,12 @@
          Keep the real responsive MainWindow grid and apply only the texture layer. -->
     <Compile Remove="Services\StalkerApprovedLayoutRuntime.cs" />
 
-    <!-- This obsolete post-test runtime changes VirtualizationMode after WPF Measure,
-         causing an endless cascade of exception dialogs. Its safe responsibilities
-         are handled by the remaining dedicated runtimes. -->
+    <!-- Obsolete post-test runtimes conflict with theme switching and with WPF
+         virtualization. They leave STALKER local values on controls after switching
+         back to Ukraine and one of them changes VirtualizationMode after Measure. -->
     <Compile Remove="Services\ApprovedStalkerBehaviorFixRuntime.cs" />
+    <Compile Remove="Services\StalkerSingleLayerCorrectionRuntime.cs" />
+    <Compile Remove="Services\StalkerUiKitRuntime.cs" />
   </ItemGroup>
 
   <ItemGroup>
