@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Threading;
 using TiHiY.StreamControlCenter.Windows;
 
@@ -56,7 +57,8 @@ internal static class SettingsCaptionSafetyBootstrap
             .ToList();
 
         // Keep the right-most real caption triplet and hide only extra triplets.
-        foreach (var item in captionButtons.Take(3))
+        var keptButtons = captionButtons.Take(3).ToList();
+        foreach (var item in keptButtons)
         {
             item.Button.Visibility = Visibility.Visible;
             item.Button.IsHitTestVisible = true;
@@ -67,6 +69,35 @@ internal static class SettingsCaptionSafetyBootstrap
             item.Button.Visibility = Visibility.Collapsed;
             item.Button.IsHitTestVisible = false;
         }
+
+        // The approved mock-up leaves a small safety gap at the right edge.
+        // Move the surviving caption group left without altering button sizes.
+        var captionPanel = keptButtons
+            .Select(item => FindParentPanel(item.Button))
+            .FirstOrDefault(panel => panel is not null);
+
+        if (captionPanel is not null)
+        {
+            var margin = captionPanel.Margin;
+            captionPanel.Margin = new Thickness(
+                margin.Left,
+                margin.Top,
+                Math.Max(margin.Right, 16),
+                margin.Bottom);
+        }
+    }
+
+    private static Panel? FindParentPanel(DependencyObject child)
+    {
+        DependencyObject? current = child;
+        while (current is not null)
+        {
+            current = VisualTreeHelper.GetParent(current);
+            if (current is Panel panel)
+                return panel;
+        }
+
+        return null;
     }
 
     private static bool IsCaptionButton(Button button, Point position, Window window)
