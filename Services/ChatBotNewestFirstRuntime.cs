@@ -3,7 +3,6 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -73,10 +72,10 @@ internal static class ChatBotNewestFirstRuntime
             _list ??= FindNamed<ListBox>("ChatMessagesList");
             if (_list is null) return;
 
-            VirtualizingPanel.SetIsVirtualizing(_list, true);
-            VirtualizingPanel.SetVirtualizationMode(_list, VirtualizationMode.Standard);
-            ScrollViewer.SetCanContentScroll(_list, true);
-
+            // Do not change WPF virtualization attached properties here. At this point
+            // the ItemsControl may already have completed Measure, and changing
+            // VirtualizationMode then throws repeatedly. Virtualization remains owned
+            // by the original XAML/control template.
             var view = CollectionViewSource.GetDefaultView(_list.ItemsSource);
             if (view is not null &&
                 (view.SortDescriptions.Count != 1 ||
