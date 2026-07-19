@@ -181,7 +181,9 @@ public sealed class ChatService
     private void Timer_Tick(object? sender, EventArgs e)
     {
         var settings = _settings.Value;
-        if (!settings.ChatBotEnabled || !settings.ChatBotAutoStart || !settings.AutoNoticesEnabled) return;
+        // Auto-start controls whether the bot starts with the application; it must not
+        // disable a timer that was already started manually from the bot window.
+        if (!settings.ChatBotEnabled || !settings.AutoNoticesEnabled) return;
         var now = DateTime.Now;
         foreach (var notice in Notices.Where(n => n.Enabled && n.NextRun <= now).ToList())
         {
