@@ -50,6 +50,7 @@ internal static class ChatBotNewestFirstRuntime
         private readonly ChatBotWindow _window;
         private ListBox? _list;
         private INotifyCollectionChanged? _collection;
+        private bool _scrollQueued;
         private bool _disposed;
 
         internal Controller(ChatBotWindow window)
@@ -77,7 +78,10 @@ internal static class ChatBotNewestFirstRuntime
             ScrollViewer.SetCanContentScroll(_list, true);
 
             var view = CollectionViewSource.GetDefaultView(_list.ItemsSource);
-            if (view is not null)
+            if (view is not null &&
+                (view.SortDescriptions.Count != 1 ||
+                 view.SortDescriptions[0].PropertyName != "Time" ||
+                 view.SortDescriptions[0].Direction != ListSortDirection.Descending))
             {
                 using (view.DeferRefresh())
                 {
@@ -92,18 +96,29 @@ internal static class ChatBotNewestFirstRuntime
                 _collection.CollectionChanged += CollectionChanged;
             }
 
-            ScrollNewestToTop();
+            QueueScrollNewestToTop();
         }
 
         private void CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             if (e.Action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Reset or NotifyCollectionChangedAction.Replace)
-                _window.Dispatcher.BeginInvoke(new Action(ScrollNewestToTop), DispatcherPriority.Background);
+                QueueScrollNewestToTop();
+        }
+
+        private void QueueScrollNewestToTop()
+        {
+            if (_disposed || _scrollQueued) return;
+            _scrollQueued = true;
+            _window.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _scrollQueued = false;
+                ScrollNewestToTop();
+            }), DispatcherPriority.ContextIdle);
         }
 
         private void ScrollNewestToTop()
         {
-            if (_list is null || _list.Items.Count == 0) return;
+            if (_disposed || _list is null || _list.Items.Count == 0) return;
             _list.ScrollIntoView(_list.Items[0]);
             FindVisualChild<ScrollViewer>(_list)?.ScrollToTop();
         }
