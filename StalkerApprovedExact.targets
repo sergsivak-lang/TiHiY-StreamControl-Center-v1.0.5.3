@@ -16,6 +16,12 @@
     <Compile Remove="Services\ApprovedStalkerBehaviorFixRuntime.cs" />
     <Compile Remove="Services\StalkerSingleLayerCorrectionRuntime.cs" />
     <Compile Remove="Services\StalkerUiKitRuntime.cs" />
+
+    <!-- This guard repeatedly rewrites the header, panel margins and center content
+         on ContentRendered, SizeChanged and delayed timers. It is the source of the
+         duplicated layers and UI stalls seen during theme switching. The approved
+         texture runtime already owns these visuals, so keep a single owner. -->
+    <Compile Remove="Services\StalkerThemeTransitionGuardRuntime.cs" />
   </ItemGroup>
 
   <ItemGroup>
