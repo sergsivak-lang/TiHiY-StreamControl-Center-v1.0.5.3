@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -6,12 +8,6 @@ using System.Windows.Threading;
 
 namespace TiHiY.StreamControlCenter.Services;
 
-/// <summary>
-/// Keeps the real footer center artwork deterministic. The center panel in the
-/// Ukraine XAML has no name and older theme runtimes mutate its content, so this
-/// overlay is attached directly to FooterBlocksGrid column 2 and always wins the
-/// final visual layer without touching the live footer layout.
-/// </summary>
 internal static class StalkerCenterOverlayBootstrap
 {
     [ModuleInitializer]
@@ -36,7 +32,9 @@ internal static class StalkerCenterOverlayRuntime
 
     internal static IDisposable Attach(MainWindow window)
     {
-        if (Controllers.TryGetValue(window, out var existing)) return existing;
+        if (Controllers.TryGetValue(window, out var existing))
+            return existing;
+
         var controller = new Controller(window);
         Controllers.Add(window, controller);
         return controller;
@@ -78,7 +76,8 @@ internal static class StalkerCenterOverlayRuntime
         private void SettleTimerTick(object? sender, EventArgs e)
         {
             _settleTimer?.Stop();
-            if (_settleTimer is not null) _settleTimer.Tick -= SettleTimerTick;
+            if (_settleTimer is not null)
+                _settleTimer.Tick -= SettleTimerTick;
             _settleTimer = null;
             Apply();
         }
@@ -86,16 +85,18 @@ internal static class StalkerCenterOverlayRuntime
         private void QueueApply()
         {
             if (_disposed) return;
-            _window.Dispatcher.BeginInvoke(new Action(Apply), DispatcherPriority.ContextIdle);
+            _window.Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(Apply));
         }
 
         private void Apply()
         {
             if (_disposed || !_window.IsLoaded) return;
-            _footer ??= FindNamed<Grid>("FooterBlocksGrid");
+
+            _footer ??= StalkerApprovedAssets.FindDescendants<Grid>(_window)
+                .FirstOrDefault(item => string.Equals(item.Name, "FooterBlocksGrid", StringComparison.Ordinal));
             if (_footer is null) return;
 
-            if (_overlay is null || !ReferenceEquals(_overlay.Parent, _footer))
+            if (_overlay is null)
             {
                 _overlay = StalkerApprovedAssets.NewImage("center-zone-banner.png", Stretch.UniformToFill);
                 _overlay.Tag = "StalkerCenterOverlay";
@@ -110,7 +111,7 @@ internal static class StalkerCenterOverlayRuntime
 
             var stalker = StalkerApprovedAssets.IsStalkerTheme();
             _overlay.Visibility = stalker ? Visibility.Visible : Visibility.Collapsed;
-            _overlay.Opacity = stalker ? 1 : 0;
+            _overlay.Opacity = stalker ? 1d : 0d;
 
             if (stalker)
             {
@@ -119,10 +120,6 @@ internal static class StalkerCenterOverlayRuntime
             }
         }
 
-        private T? FindNamed<T>(string name) where T : FrameworkElement =>
-            StalkerApprovedAssets.FindDescendants<T>(_window)
-                .FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
-
         private void WindowClosed(object? sender, EventArgs e) => Dispose();
 
         public void Dispose()
@@ -130,7 +127,8 @@ internal static class StalkerCenterOverlayRuntime
             if (_disposed) return;
             _disposed = true;
             _settleTimer?.Stop();
-            if (_settleTimer is not null) _settleTimer.Tick -= SettleTimerTick;
+            if (_settleTimer is not null)
+                _settleTimer.Tick -= SettleTimerTick;
             _window.Closed -= WindowClosed;
             _window.ContentRendered -= ContentRendered;
             _window.SizeChanged -= WindowSizeChanged;
