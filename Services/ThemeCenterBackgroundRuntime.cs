@@ -11,9 +11,9 @@ namespace TiHiY.StreamControlCenter.Services;
 
 /// <summary>
 /// Final owner of the lower-center footer artwork.
-/// Uses the ContentControl background instead of a child overlay, so the STALKER
-/// shell cannot hide it by changing descendant opacity. Applies after all other
-/// theme runtimes both at startup and on every theme change.
+/// The artwork is a single persistent Image placed directly in FooterBlocksGrid.
+/// It is not a descendant of the center ContentControl, so the STALKER shell cannot
+/// hide it when it clears or changes descendant opacity.
 /// </summary>
 internal static class ThemeCenterBackgroundBootstrap
 {
@@ -48,10 +48,6 @@ internal static class ThemeCenterBackgroundRuntime
 
     private sealed class Controller : IDisposable
     {
-        // Assembly-qualified pack URIs are required for resources embedded in this
-        // executable. The previous unqualified URIs failed silently, leaving the
-        // center empty at STALKER startup and the hard-coded Ukraine child visible
-        // after switching themes.
         private const string UkraineArtworkUri =
             "pack://application:,,,/TiHiY.StreamControlCenter;component/Assets/Themes/UkraineExact/central-glory.jpg";
 
@@ -59,18 +55,15 @@ internal static class ThemeCenterBackgroundRuntime
             "pack://application:,,,/TiHiY.StreamControlCenter;component/Assets/Themes/StalkerApproved/center-zone-panel-exact.png";
 
         private readonly MainWindow _window;
-        private readonly ImageBrush _ukraineBrush;
-        private readonly ImageBrush _stalkerBrush;
+        private readonly BitmapImage _ukraineImage;
+        private readonly BitmapImage _stalkerImage;
 
+        private Grid? _footer;
         private ContentControl? _centerPanel;
+        private Image? _artworkLayer;
         private object? _originalContent;
         private Brush? _originalBackground;
         private Thickness _originalPadding;
-        private HorizontalAlignment _originalHorizontalContentAlignment;
-        private VerticalAlignment _originalVerticalContentAlignment;
-        private bool _originalClipToBounds;
-        private Visibility _originalVisibility;
-        private double _originalOpacity;
         private bool _captured;
         private bool _applyQueued;
         private bool _disposed;
@@ -78,8 +71,8 @@ internal static class ThemeCenterBackgroundRuntime
         internal Controller(MainWindow window)
         {
             _window = window;
-            _ukraineBrush = LoadFrozenBrush(UkraineArtworkUri);
-            _stalkerBrush = LoadFrozenBrush(StalkerArtworkUri);
+            _ukraineImage = LoadFrozenImage(UkraineArtworkUri);
+            _stalkerImage = LoadFrozenImage(StalkerArtworkUri);
 
             _window.ContentRendered += OnContentRendered;
             _window.Closed += OnWindowClosed;
@@ -101,8 +94,7 @@ internal static class ThemeCenterBackgroundRuntime
             if (_disposed || _applyQueued) return;
             _applyQueued = true;
 
-            // SystemIdle is deliberately later than Render, Loaded, ContextIdle and
-            // ApplicationIdle. This makes this class the final writer without timers.
+            // Run after all theme writers. No timers and no SizeChanged handlers.
             _window.Dispatcher.BeginInvoke(new Action(() =>
             {
                 _applyQueued = false;
@@ -113,43 +105,40 @@ internal static class ThemeCenterBackgroundRuntime
         private void ApplyCurrentTheme()
         {
             if (_disposed || !_window.IsLoaded) return;
-            if (!EnsureCenterPanel()) return;
+            if (!EnsureFooterLayer()) return;
 
-            var brush = StalkerApprovedAssets.IsStalkerTheme()
-                ? _stalkerBrush
-                : _ukraineBrush;
+            var stalker = StalkerApprovedAssets.IsStalkerTheme();
+            _artworkLayer!.Source = stalker ? _stalkerImage : _ukraineImage;
+            _artworkLayer.Visibility = Visibility.Visible;
+            _artworkLayer.Opacity = 1.0;
 
-            // Remove the old hard-coded Ukraine child. Both themes now use exactly one
-            // background artwork surface, so stale images cannot survive a theme switch.
+            // Remove the old hard-coded Ukraine composition. The persistent footer
+            // image is now the only owner of the inner artwork for both themes.
             _centerPanel!.Content = null;
-            _centerPanel.Background = brush;
+            _centerPanel.Background = Brushes.Transparent;
             _centerPanel.Padding = new Thickness(0);
-            _centerPanel.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-            _centerPanel.VerticalContentAlignment = VerticalAlignment.Stretch;
-            _centerPanel.ClipToBounds = true;
-            _centerPanel.Visibility = Visibility.Visible;
-            _centerPanel.Opacity = 1.0;
 
-            _centerPanel.InvalidateMeasure();
-            _centerPanel.InvalidateArrange();
-            _centerPanel.InvalidateVisual();
+            _artworkLayer.InvalidateMeasure();
+            _artworkLayer.InvalidateArrange();
+            _artworkLayer.InvalidateVisual();
         }
 
-        private bool EnsureCenterPanel()
+        private bool EnsureFooterLayer()
         {
-            if (_centerPanel is not null) return true;
+            if (_footer is not null && _centerPanel is not null && _artworkLayer is not null)
+                return true;
 
-            var footer = StalkerApprovedAssets.FindDescendants<Grid>(_window)
+            _footer = StalkerApprovedAssets.FindDescendants<Grid>(_window)
                 .FirstOrDefault(x => string.Equals(
                     x.Name,
                     "FooterBlocksGrid",
                     StringComparison.Ordinal));
 
-            _centerPanel = footer?.Children
+            _centerPanel = _footer?.Children
                 .OfType<ContentControl>()
                 .FirstOrDefault(x => Grid.GetColumn(x) == 2);
 
-            if (_centerPanel is null) return false;
+            if (_footer is null || _centerPanel is null) return false;
 
             if (!_captured)
             {
@@ -157,17 +146,35 @@ internal static class ThemeCenterBackgroundRuntime
                 _originalContent = _centerPanel.Content;
                 _originalBackground = _centerPanel.Background;
                 _originalPadding = _centerPanel.Padding;
-                _originalHorizontalContentAlignment = _centerPanel.HorizontalContentAlignment;
-                _originalVerticalContentAlignment = _centerPanel.VerticalContentAlignment;
-                _originalClipToBounds = _centerPanel.ClipToBounds;
-                _originalVisibility = _centerPanel.Visibility;
-                _originalOpacity = _centerPanel.Opacity;
+            }
+
+            if (_artworkLayer is null)
+            {
+                _artworkLayer = new Image
+                {
+                    Name = "ThemeCenterArtworkLayer",
+                    Stretch = Stretch.UniformToFill,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalAlignment = VerticalAlignment.Stretch,
+                    Margin = new Thickness(8, 7, 8, 7),
+                    ClipToBounds = true,
+                    IsHitTestVisible = false,
+                    SnapsToDevicePixels = true,
+                    UseLayoutRounding = true,
+                    Visibility = Visibility.Visible,
+                    Opacity = 1.0
+                };
+
+                Grid.SetColumn(_artworkLayer, 2);
+                Grid.SetRow(_artworkLayer, 0);
+                Panel.SetZIndex(_artworkLayer, 5000);
+                _footer.Children.Add(_artworkLayer);
             }
 
             return true;
         }
 
-        private static ImageBrush LoadFrozenBrush(string uri)
+        private static BitmapImage LoadFrozenImage(string uri)
         {
             var image = new BitmapImage();
             image.BeginInit();
@@ -176,16 +183,7 @@ internal static class ThemeCenterBackgroundRuntime
             image.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
             image.EndInit();
             image.Freeze();
-
-            var brush = new ImageBrush(image)
-            {
-                Stretch = Stretch.UniformToFill,
-                AlignmentX = AlignmentX.Center,
-                AlignmentY = AlignmentY.Center,
-                TileMode = TileMode.None
-            };
-            brush.Freeze();
-            return brush;
+            return image;
         }
 
         private void OnWindowClosed(object? sender, EventArgs e) => Dispose();
@@ -199,16 +197,14 @@ internal static class ThemeCenterBackgroundRuntime
             _window.Closed -= OnWindowClosed;
             App.Services.Theme.ThemeChanged -= OnThemeChanged;
 
+            if (_footer is not null && _artworkLayer is not null)
+                _footer.Children.Remove(_artworkLayer);
+
             if (_captured && _centerPanel is not null)
             {
                 _centerPanel.Content = _originalContent;
                 _centerPanel.Background = _originalBackground;
                 _centerPanel.Padding = _originalPadding;
-                _centerPanel.HorizontalContentAlignment = _originalHorizontalContentAlignment;
-                _centerPanel.VerticalContentAlignment = _originalVerticalContentAlignment;
-                _centerPanel.ClipToBounds = _originalClipToBounds;
-                _centerPanel.Visibility = _originalVisibility;
-                _centerPanel.Opacity = _originalOpacity;
             }
         }
     }
