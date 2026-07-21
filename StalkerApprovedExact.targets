@@ -22,6 +22,9 @@
          duplicated layers and UI stalls seen during theme switching. The approved
          texture runtime already owns these visuals, so keep a single owner. -->
     <Compile Remove="Services\StalkerThemeTransitionGuardRuntime.cs" />
+
+    <!-- Superseded by the compile-safe V2 implementation below. -->
+    <Compile Remove="Services\StalkerHeaderStatusCardTextureRuntime.cs" />
   </ItemGroup>
 
   <ItemGroup>
