@@ -29,9 +29,10 @@
     <Compile Remove="Services\StalkerHeaderStatusCardTextureRuntimeV2.cs" />
     <Compile Remove="Services\StalkerHeaderStatusCardTextureRuntimeV3.cs" />
 
-    <!-- The first center-artwork owner used a child Image that the STALKER shell
-         could hide through descendant opacity. The background owner is final. -->
+    <!-- All earlier lower-center owners are disabled. The painted-artwork runtime
+         collapses the original functional block and owns one simple Image surface. -->
     <Compile Remove="Services\ThemeCenterArtworkRuntime.cs" />
+    <Compile Remove="Services\ThemeCenterBackgroundRuntime.cs" />
   </ItemGroup>
 
   <ItemGroup>
