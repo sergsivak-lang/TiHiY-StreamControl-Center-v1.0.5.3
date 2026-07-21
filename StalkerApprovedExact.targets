@@ -23,8 +23,10 @@
          texture runtime already owns these visuals, so keep a single owner. -->
     <Compile Remove="Services\StalkerThemeTransitionGuardRuntime.cs" />
 
-    <!-- Superseded by the compile-safe V2 implementation below. -->
+    <!-- Superseded status-card implementations. V3 uses the measured coordinates
+         from the real 1672 x 941 approved reference. -->
     <Compile Remove="Services\StalkerHeaderStatusCardTextureRuntime.cs" />
+    <Compile Remove="Services\StalkerHeaderStatusCardTextureRuntimeV2.cs" />
   </ItemGroup>
 
   <ItemGroup>
