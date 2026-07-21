@@ -73,9 +73,6 @@ internal static class ThemeCenterPaintedArtworkRuntime
 
             _window.Closed += OnWindowClosed;
             App.Services.Theme.ThemeChanged += OnThemeChanged;
-
-            // Create the replacement after the visual tree is complete. No timers,
-            // no SizeChanged handlers and no repeated tree rebuilding are used.
             _window.Dispatcher.BeginInvoke(new Action(EnsureAndApply), DispatcherPriority.Loaded);
         }
 
@@ -110,9 +107,7 @@ internal static class ThemeCenterPaintedArtworkRuntime
             }
 
             _oldCenterPanel!.Visibility = Visibility.Collapsed;
-            _artworkHost.InvalidateMeasure();
-            _artworkHost.InvalidateArrange();
-            _artworkHost.InvalidateVisual();
+            _artworkHost!.InvalidateVisual();
         }
 
         private bool EnsureArtworkHost()
@@ -144,11 +139,8 @@ internal static class ThemeCenterPaintedArtworkRuntime
                 Stretch = Stretch.Fill,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch,
-                SnapsToDevicePixels = true,
-                UseLayoutRounding = true,
                 IsHitTestVisible = false
             };
-            RenderOptions.SetBitmapScalingMode(_artworkImage, BitmapScalingMode.HighQuality);
 
             _artworkHost = new Border
             {
@@ -160,8 +152,6 @@ internal static class ThemeCenterPaintedArtworkRuntime
                 Child = _artworkImage,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch,
-                SnapsToDevicePixels = true,
-                UseLayoutRounding = true,
                 IsHitTestVisible = false
             };
 
@@ -177,7 +167,6 @@ internal static class ThemeCenterPaintedArtworkRuntime
             image.BeginInit();
             image.UriSource = new Uri(uri, UriKind.Absolute);
             image.CacheOption = BitmapCacheOption.OnLoad;
-            image.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
             image.EndInit();
             image.Freeze();
             return image;
