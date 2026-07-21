@@ -10,9 +10,10 @@ using System.Windows.Threading;
 namespace TiHiY.StreamControlCenter.Services;
 
 /// <summary>
-/// Replaces the old functional lower-center ContentControl with one dedicated
-/// painted artwork surface. Ukraine and STALKER each get their own resource.
-/// The old panel is kept collapsed only to preserve the existing grid geometry.
+/// Permanently replaces the old lower-center ContentControl with one plain painted
+/// Border. The border is not a Control and contains no Image child, so the STALKER
+/// control/Ukraine-image cleanup runtimes cannot blank it. Its background is switched
+/// directly between the Ukraine and STALKER artwork resources.
 /// </summary>
 internal static class ThemeCenterPaintedArtworkBootstrap
 {
@@ -48,37 +49,58 @@ internal static class ThemeCenterPaintedArtworkRuntime
 
     private sealed class Controller : IDisposable
     {
-        private const string UkraineArtworkUri =
+        private const string UkraineResource =
             "pack://application:,,,/TiHiY.StreamControlCenter;component/Assets/Themes/UkraineExact/central-glory.jpg";
 
-        private const string StalkerArtworkUri =
+        private const string StalkerResource =
             "pack://application:,,,/TiHiY.StreamControlCenter;component/Assets/Themes/StalkerApproved/center-zone-panel-exact.png";
 
         private readonly MainWindow _window;
-        private readonly BitmapImage _ukraineArtwork;
-        private readonly BitmapImage _stalkerArtwork;
+        private readonly ImageBrush _ukraineBrush;
+        private readonly ImageBrush _stalkerBrush;
 
         private Grid? _footer;
-        private ContentControl? _oldCenterPanel;
-        private Visibility _oldCenterVisibility;
-        private Border? _artworkHost;
-        private Image? _artworkImage;
+        private ContentControl? _removedCenter;
+        private int _removedIndex = -1;
+        private Border? _paintedCenter;
+        private bool _applyQueued;
         private bool _disposed;
 
         internal Controller(MainWindow window)
         {
             _window = window;
-            _ukraineArtwork = LoadArtwork(UkraineArtworkUri);
-            _stalkerArtwork = LoadArtwork(StalkerArtworkUri);
+            _ukraineBrush = CreateBrush(UkraineResource);
+            _stalkerBrush = CreateBrush(StalkerResource);
 
+            _window.ContentRendered += OnContentRendered;
             _window.Closed += OnWindowClosed;
             App.Services.Theme.ThemeChanged += OnThemeChanged;
-            _window.Dispatcher.BeginInvoke(new Action(EnsureAndApply), DispatcherPriority.Loaded);
+
+            QueueApply(DispatcherPriority.Loaded);
+        }
+
+        private void OnContentRendered(object? sender, EventArgs e)
+        {
+            _window.ContentRendered -= OnContentRendered;
+            QueueApply(DispatcherPriority.SystemIdle);
         }
 
         private void OnThemeChanged(object? sender, EventArgs e)
         {
-            _window.Dispatcher.BeginInvoke(new Action(EnsureAndApply), DispatcherPriority.Render);
+            QueueApply(DispatcherPriority.SystemIdle);
+        }
+
+        private void QueueApply(DispatcherPriority priority)
+        {
+            if (_disposed || _applyQueued)
+                return;
+
+            _applyQueued = true;
+            _window.Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _applyQueued = false;
+                EnsureAndApply();
+            }), priority);
         }
 
         private void EnsureAndApply()
@@ -86,33 +108,28 @@ internal static class ThemeCenterPaintedArtworkRuntime
             if (_disposed || !_window.IsLoaded)
                 return;
 
-            if (!EnsureArtworkHost())
+            if (!EnsurePaintedCenter())
                 return;
 
-            var currentTheme = App.Services.Theme.CurrentTheme;
-            if (string.Equals(currentTheme, "Сталкер", StringComparison.OrdinalIgnoreCase))
-            {
-                _artworkImage!.Source = _stalkerArtwork;
-                _artworkHost!.Visibility = Visibility.Visible;
-            }
-            else if (string.Equals(currentTheme, "Україна", StringComparison.OrdinalIgnoreCase))
-            {
-                _artworkImage!.Source = _ukraineArtwork;
-                _artworkHost!.Visibility = Visibility.Visible;
-            }
-            else
-            {
-                _artworkImage!.Source = null;
-                _artworkHost!.Visibility = Visibility.Collapsed;
-            }
+            // Only the two approved themes use this decorative footer artwork.
+            // The application currently opens in one of these themes during testing;
+            // any non-STALKER value deliberately receives the Ukraine artwork instead
+            // of leaving the column empty because of a localized/string mismatch.
+            _paintedCenter!.Background = StalkerApprovedAssets.IsStalkerTheme()
+                ? _stalkerBrush
+                : _ukraineBrush;
 
-            _oldCenterPanel!.Visibility = Visibility.Collapsed;
-            _artworkHost!.InvalidateVisual();
+            _paintedCenter.Visibility = Visibility.Visible;
+            _paintedCenter.Opacity = 1.0;
+            _paintedCenter.IsEnabled = true;
+            _paintedCenter.InvalidateMeasure();
+            _paintedCenter.InvalidateArrange();
+            _paintedCenter.InvalidateVisual();
         }
 
-        private bool EnsureArtworkHost()
+        private bool EnsurePaintedCenter()
         {
-            if (_artworkHost is not null)
+            if (_paintedCenter is not null)
                 return true;
 
             _footer = StalkerApprovedAssets.FindDescendants<Grid>(_window)
@@ -124,52 +141,65 @@ internal static class ThemeCenterPaintedArtworkRuntime
             if (_footer is null)
                 return false;
 
-            _oldCenterPanel = _footer.Children
+            _removedCenter = _footer.Children
                 .OfType<ContentControl>()
                 .FirstOrDefault(x => Grid.GetColumn(x) == 2);
 
-            if (_oldCenterPanel is null)
-                return false;
-
-            _oldCenterVisibility = _oldCenterPanel.Visibility;
-            _oldCenterPanel.Visibility = Visibility.Collapsed;
-
-            _artworkImage = new Image
+            if (_removedCenter is not null)
             {
-                Stretch = Stretch.Fill,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch,
-                IsHitTestVisible = false
-            };
+                _removedIndex = _footer.Children.IndexOf(_removedCenter);
+                _footer.Children.Remove(_removedCenter);
+            }
 
-            _artworkHost = new Border
+            _paintedCenter = new Border
             {
-                Margin = new Thickness(3, 0, 3, 0),
+                Name = "ThemePaintedCenterPanel",
+                Margin = new Thickness(3, 0),
                 Padding = new Thickness(0),
                 BorderThickness = new Thickness(0),
+                CornerRadius = new CornerRadius(0),
                 Background = Brushes.Transparent,
                 ClipToBounds = true,
-                Child = _artworkImage,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch,
-                IsHitTestVisible = false
+                Visibility = Visibility.Visible,
+                Opacity = 1.0,
+                IsHitTestVisible = false,
+                SnapsToDevicePixels = true,
+                UseLayoutRounding = true
             };
 
-            Grid.SetColumn(_artworkHost, 2);
-            Panel.SetZIndex(_artworkHost, 1000);
-            _footer.Children.Add(_artworkHost);
+            Grid.SetColumn(_paintedCenter, 2);
+            Panel.SetZIndex(_paintedCenter, int.MaxValue);
+
+            if (_removedIndex >= 0 && _removedIndex <= _footer.Children.Count)
+                _footer.Children.Insert(_removedIndex, _paintedCenter);
+            else
+                _footer.Children.Add(_paintedCenter);
+
             return true;
         }
 
-        private static BitmapImage LoadArtwork(string uri)
+        private static ImageBrush CreateBrush(string resourceUri)
         {
-            var image = new BitmapImage();
-            image.BeginInit();
-            image.UriSource = new Uri(uri, UriKind.Absolute);
-            image.CacheOption = BitmapCacheOption.OnLoad;
-            image.EndInit();
-            image.Freeze();
-            return image;
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = new Uri(resourceUri, UriKind.Absolute);
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+            bitmap.EndInit();
+            bitmap.Freeze();
+
+            var brush = new ImageBrush(bitmap)
+            {
+                Stretch = Stretch.Fill,
+                AlignmentX = AlignmentX.Center,
+                AlignmentY = AlignmentY.Center,
+                TileMode = TileMode.None,
+                Opacity = 1.0
+            };
+            brush.Freeze();
+            return brush;
         }
 
         private void OnWindowClosed(object? sender, EventArgs e) => Dispose();
@@ -180,14 +210,20 @@ internal static class ThemeCenterPaintedArtworkRuntime
                 return;
 
             _disposed = true;
+            _window.ContentRendered -= OnContentRendered;
             _window.Closed -= OnWindowClosed;
             App.Services.Theme.ThemeChanged -= OnThemeChanged;
 
-            if (_footer is not null && _artworkHost is not null)
-                _footer.Children.Remove(_artworkHost);
+            if (_footer is not null && _paintedCenter is not null)
+                _footer.Children.Remove(_paintedCenter);
 
-            if (_oldCenterPanel is not null)
-                _oldCenterPanel.Visibility = _oldCenterVisibility;
+            if (_footer is not null && _removedCenter is not null)
+            {
+                if (_removedIndex >= 0 && _removedIndex <= _footer.Children.Count)
+                    _footer.Children.Insert(_removedIndex, _removedCenter);
+                else
+                    _footer.Children.Add(_removedCenter);
+            }
         }
     }
 }
