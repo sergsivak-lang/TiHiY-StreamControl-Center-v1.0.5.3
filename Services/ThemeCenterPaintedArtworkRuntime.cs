@@ -111,10 +111,6 @@ internal static class ThemeCenterPaintedArtworkRuntime
             if (!EnsurePaintedCenter())
                 return;
 
-            // Only the two approved themes use this decorative footer artwork.
-            // The application currently opens in one of these themes during testing;
-            // any non-STALKER value deliberately receives the Ukraine artwork instead
-            // of leaving the column empty because of a localized/string mismatch.
             _paintedCenter!.Background = StalkerApprovedAssets.IsStalkerTheme()
                 ? _stalkerBrush
                 : _ukraineBrush;
@@ -154,7 +150,7 @@ internal static class ThemeCenterPaintedArtworkRuntime
             _paintedCenter = new Border
             {
                 Name = "ThemePaintedCenterPanel",
-                Margin = new Thickness(3, 0),
+                Margin = new Thickness(3, 0, 3, 0),
                 Padding = new Thickness(0),
                 BorderThickness = new Thickness(0),
                 CornerRadius = new CornerRadius(0),
