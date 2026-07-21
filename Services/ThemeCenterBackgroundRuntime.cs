@@ -48,15 +48,19 @@ internal static class ThemeCenterBackgroundRuntime
 
     private sealed class Controller : IDisposable
     {
+        // Assembly-qualified pack URIs are required for resources embedded in this
+        // executable. The previous unqualified URIs failed silently, leaving the
+        // center empty at STALKER startup and the hard-coded Ukraine child visible
+        // after switching themes.
         private const string UkraineArtworkUri =
-            "pack://application:,,,/Assets/Themes/UkraineExact/central-glory.jpg";
+            "pack://application:,,,/TiHiY.StreamControlCenter;component/Assets/Themes/UkraineExact/central-glory.jpg";
 
         private const string StalkerArtworkUri =
-            "pack://application:,,,/Assets/Themes/StalkerApproved/center-zone-panel-exact.png";
+            "pack://application:,,,/TiHiY.StreamControlCenter;component/Assets/Themes/StalkerApproved/center-zone-panel-exact.png";
 
         private readonly MainWindow _window;
-        private readonly ImageBrush? _ukraineBrush;
-        private readonly ImageBrush? _stalkerBrush;
+        private readonly ImageBrush _ukraineBrush;
+        private readonly ImageBrush _stalkerBrush;
 
         private ContentControl? _centerPanel;
         private object? _originalContent;
@@ -65,6 +69,8 @@ internal static class ThemeCenterBackgroundRuntime
         private HorizontalAlignment _originalHorizontalContentAlignment;
         private VerticalAlignment _originalVerticalContentAlignment;
         private bool _originalClipToBounds;
+        private Visibility _originalVisibility;
+        private double _originalOpacity;
         private bool _captured;
         private bool _applyQueued;
         private bool _disposed;
@@ -113,8 +119,6 @@ internal static class ThemeCenterBackgroundRuntime
                 ? _stalkerBrush
                 : _ukraineBrush;
 
-            if (brush is null) return;
-
             // Remove the old hard-coded Ukraine child. Both themes now use exactly one
             // background artwork surface, so stale images cannot survive a theme switch.
             _centerPanel!.Content = null;
@@ -123,6 +127,8 @@ internal static class ThemeCenterBackgroundRuntime
             _centerPanel.HorizontalContentAlignment = HorizontalAlignment.Stretch;
             _centerPanel.VerticalContentAlignment = VerticalAlignment.Stretch;
             _centerPanel.ClipToBounds = true;
+            _centerPanel.Visibility = Visibility.Visible;
+            _centerPanel.Opacity = 1.0;
 
             _centerPanel.InvalidateMeasure();
             _centerPanel.InvalidateArrange();
@@ -154,39 +160,32 @@ internal static class ThemeCenterBackgroundRuntime
                 _originalHorizontalContentAlignment = _centerPanel.HorizontalContentAlignment;
                 _originalVerticalContentAlignment = _centerPanel.VerticalContentAlignment;
                 _originalClipToBounds = _centerPanel.ClipToBounds;
+                _originalVisibility = _centerPanel.Visibility;
+                _originalOpacity = _centerPanel.Opacity;
             }
 
             return true;
         }
 
-        private static ImageBrush? LoadFrozenBrush(string uri)
+        private static ImageBrush LoadFrozenBrush(string uri)
         {
-            try
-            {
-                var image = new BitmapImage();
-                image.BeginInit();
-                image.UriSource = new Uri(uri, UriKind.Absolute);
-                image.CacheOption = BitmapCacheOption.OnLoad;
-                image.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
-                image.EndInit();
-                image.Freeze();
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.UriSource = new Uri(uri, UriKind.Absolute);
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+            image.EndInit();
+            image.Freeze();
 
-                var brush = new ImageBrush(image)
-                {
-                    Stretch = Stretch.UniformToFill,
-                    AlignmentX = AlignmentX.Center,
-                    AlignmentY = AlignmentY.Center,
-                    TileMode = TileMode.None
-                };
-                brush.Freeze();
-                return brush;
-            }
-            catch (Exception ex)
+            var brush = new ImageBrush(image)
             {
-                System.Diagnostics.Debug.WriteLine(
-                    $"Lower-center artwork was not loaded from '{uri}': {ex.Message}");
-                return null;
-            }
+                Stretch = Stretch.UniformToFill,
+                AlignmentX = AlignmentX.Center,
+                AlignmentY = AlignmentY.Center,
+                TileMode = TileMode.None
+            };
+            brush.Freeze();
+            return brush;
         }
 
         private void OnWindowClosed(object? sender, EventArgs e) => Dispose();
@@ -208,6 +207,8 @@ internal static class ThemeCenterBackgroundRuntime
                 _centerPanel.HorizontalContentAlignment = _originalHorizontalContentAlignment;
                 _centerPanel.VerticalContentAlignment = _originalVerticalContentAlignment;
                 _centerPanel.ClipToBounds = _originalClipToBounds;
+                _centerPanel.Visibility = _originalVisibility;
+                _centerPanel.Opacity = _originalOpacity;
             }
         }
     }
