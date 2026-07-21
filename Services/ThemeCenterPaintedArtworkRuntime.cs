@@ -144,7 +144,7 @@ internal static class ThemeCenterPaintedArtworkRuntime
 
             _artworkHost = new Border
             {
-                Margin = new Thickness(3, 0),
+                Margin = new Thickness(3, 0, 3, 0),
                 Padding = new Thickness(0),
                 BorderThickness = new Thickness(0),
                 Background = Brushes.Transparent,
