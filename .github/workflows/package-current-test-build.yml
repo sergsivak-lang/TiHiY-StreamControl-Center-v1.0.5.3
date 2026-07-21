@@ -24,8 +24,18 @@ jobs:
       - name: Restore and build
         shell: pwsh
         run: |
-          dotnet restore TiHiY.StreamControlCenter.sln
-          dotnet build TiHiY.StreamControlCenter.sln --configuration Release --no-restore
+          dotnet restore TiHiY.StreamControlCenter.sln *>&1 | Tee-Object -FilePath restore-build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet build TiHiY.StreamControlCenter.sln --configuration Release --no-restore *>&1 | Tee-Object -FilePath restore-build.log -Append
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TiHiY-build-diagnostics
+          path: restore-build.log
+          if-no-files-found: ignore
 
       - name: Publish Windows x64
         shell: pwsh
