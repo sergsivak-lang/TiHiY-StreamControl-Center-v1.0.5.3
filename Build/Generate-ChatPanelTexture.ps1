@@ -43,7 +43,7 @@ if ($actualSourceSha256 -ne $expectedSourceSha256) {
 
 $stream = New-Object IO.MemoryStream(,$sourceBytes)
 $source = [Drawing.Image]::FromStream($stream)
-$clean = New-Object Drawing.Bitmap 512,254,[Drawing.Imaging.PixelFormat]::Format24bppRgb
+$clean = [Drawing.Bitmap]::new(512, 254, [Drawing.Imaging.PixelFormat]::Format24bppRgb)
 $graphics = [Drawing.Graphics]::FromImage($clean)
 $graphics.CompositingQuality = [Drawing.Drawing2D.CompositingQuality]::HighQuality
 $graphics.InterpolationMode = [Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
@@ -54,16 +54,11 @@ function Copy-CleanPatch([Drawing.Rectangle]$target, [Drawing.Rectangle]$patch) 
     $graphics.DrawImage($source, $target, $patch, [Drawing.GraphicsUnit]::Pixel)
 }
 
-# Remove painted counter contents while preserving their frames.
 Copy-CleanPatch ([Drawing.Rectangle]::new(400,11,27,10)) ([Drawing.Rectangle]::new(292,31,27,10))
 Copy-CleanPatch ([Drawing.Rectangle]::new(433,11,27,10)) ([Drawing.Rectangle]::new(292,31,27,10))
 Copy-CleanPatch ([Drawing.Rectangle]::new(465,11,26,10)) ([Drawing.Rectangle]::new(292,31,26,10))
-
-# Remove painted viewer/like labels and the painted empty-state message.
 Copy-CleanPatch ([Drawing.Rectangle]::new(18,106,145,12)) ([Drawing.Rectangle]::new(186,32,145,12))
 Copy-CleanPatch ([Drawing.Rectangle]::new(172,109,180,25)) ([Drawing.Rectangle]::new(172,49,180,25))
-
-# Remove painted button icons/captions from the bottom strip, leaving only frames.
 Copy-CleanPatch ([Drawing.Rectangle]::new(182,221,86,13)) ([Drawing.Rectangle]::new(182,49,86,13))
 Copy-CleanPatch ([Drawing.Rectangle]::new(278,221,81,13)) ([Drawing.Rectangle]::new(278,49,81,13))
 Copy-CleanPatch ([Drawing.Rectangle]::new(369,221,73,13)) ([Drawing.Rectangle]::new(369,49,73,13))
@@ -73,8 +68,8 @@ Copy-CleanPatch ([Drawing.Rectangle]::new(470,221,13,13)) ([Drawing.Rectangle]::
 $encoder = [Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() |
     Where-Object { $_.MimeType -eq 'image/jpeg' } |
     Select-Object -First 1
-$parameters = New-Object Drawing.Imaging.EncoderParameters 1
-$parameters.Param[0] = New-Object Drawing.Imaging.EncoderParameter([Drawing.Imaging.Encoder]::Quality, [long]95)
+$parameters = [Drawing.Imaging.EncoderParameters]::new(1)
+$parameters.Param[0] = [Drawing.Imaging.EncoderParameter]::new([Drawing.Imaging.Encoder]::Quality, [long]95)
 $clean.Save($targetPath, $encoder, $parameters)
 
 $parameters.Dispose()
