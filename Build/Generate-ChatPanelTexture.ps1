@@ -48,22 +48,49 @@ $graphics = [Drawing.Graphics]::FromImage($clean)
 $graphics.CompositingQuality = [Drawing.Drawing2D.CompositingQuality]::HighQuality
 $graphics.InterpolationMode = [Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
 $graphics.SmoothingMode = [Drawing.Drawing2D.SmoothingMode]::HighQuality
+$graphics.PixelOffsetMode = [Drawing.Drawing2D.PixelOffsetMode]::HighQuality
 $graphics.DrawImage($source, 0, 0, 512, 254)
 
-function Copy-CleanPatch([Drawing.Rectangle]$target, [Drawing.Rectangle]$patch) {
-    $graphics.DrawImage($source, $target, $patch, [Drawing.GraphicsUnit]::Pixel)
+# Replace the entire live-chat interior with a clean part of the same dark texture.
+# This completely removes the old painted viewer overlay and painted empty-state text.
+$graphics.DrawImage(
+    $source,
+    [Drawing.Rectangle]::new(15, 30, 482, 189),
+    [Drawing.Rectangle]::new(175, 30, 322, 189),
+    [Drawing.GraphicsUnit]::Pixel)
+
+# Clear the old footer position using clean interior texture.
+$graphics.DrawImage(
+    $source,
+    [Drawing.Rectangle]::new(15, 218, 482, 36),
+    [Drawing.Rectangle]::new(175, 183, 322, 36),
+    [Drawing.GraphicsUnit]::Pixel)
+
+# Move the painted footer frames down by seven pixels so they sit against the
+# lower edge of the block instead of floating above the live controls.
+$graphics.DrawImage(
+    $source,
+    [Drawing.Rectangle]::new(15, 226, 482, 28),
+    [Drawing.Rectangle]::new(15, 219, 482, 28),
+    [Drawing.GraphicsUnit]::Pixel)
+
+function Blank-FrameInterior([Drawing.Rectangle]$target) {
+    $graphics.DrawImage(
+        $source,
+        $target,
+        [Drawing.Rectangle]::new(255, 160, 80, 20),
+        [Drawing.GraphicsUnit]::Pixel)
 }
 
-Copy-CleanPatch ([Drawing.Rectangle]::new(400,11,27,10)) ([Drawing.Rectangle]::new(292,31,27,10))
-Copy-CleanPatch ([Drawing.Rectangle]::new(433,11,27,10)) ([Drawing.Rectangle]::new(292,31,27,10))
-Copy-CleanPatch ([Drawing.Rectangle]::new(465,11,26,10)) ([Drawing.Rectangle]::new(292,31,26,10))
-Copy-CleanPatch ([Drawing.Rectangle]::new(18,106,145,12)) ([Drawing.Rectangle]::new(186,32,145,12))
-Copy-CleanPatch ([Drawing.Rectangle]::new(172,109,180,25)) ([Drawing.Rectangle]::new(172,49,180,25))
-Copy-CleanPatch ([Drawing.Rectangle]::new(182,221,86,13)) ([Drawing.Rectangle]::new(182,49,86,13))
-Copy-CleanPatch ([Drawing.Rectangle]::new(278,221,81,13)) ([Drawing.Rectangle]::new(278,49,81,13))
-Copy-CleanPatch ([Drawing.Rectangle]::new(369,221,73,13)) ([Drawing.Rectangle]::new(369,49,73,13))
-Copy-CleanPatch ([Drawing.Rectangle]::new(450,221,12,13)) ([Drawing.Rectangle]::new(450,49,12,13))
-Copy-CleanPatch ([Drawing.Rectangle]::new(470,221,13,13)) ([Drawing.Rectangle]::new(470,49,13,13))
+# Remove all painted icons, captions and values. The real WPF controls are drawn here.
+Blank-FrameInterior ([Drawing.Rectangle]::new(402, 10, 24, 12))
+Blank-FrameInterior ([Drawing.Rectangle]::new(435, 10, 24, 12))
+Blank-FrameInterior ([Drawing.Rectangle]::new(468, 10, 22, 12))
+Blank-FrameInterior ([Drawing.Rectangle]::new(184, 231, 90, 17))
+Blank-FrameInterior ([Drawing.Rectangle]::new(281, 231, 86, 17))
+Blank-FrameInterior ([Drawing.Rectangle]::new(373, 231, 68, 17))
+Blank-FrameInterior ([Drawing.Rectangle]::new(449, 231, 14, 17))
+Blank-FrameInterior ([Drawing.Rectangle]::new(470, 231, 17, 17))
 
 $encoder = [Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() |
     Where-Object { $_.MimeType -eq 'image/jpeg' } |
@@ -92,4 +119,4 @@ if ((Get-Item $targetPath).Length -lt 8000) {
     throw "Generated multichat texture is unexpectedly small: $targetPath"
 }
 
-Write-Host "Generated cleaned STALKER multichat texture: $targetPath"
+Write-Host "Generated STALKER multichat texture without old overlay and with lowered footer: $targetPath"
