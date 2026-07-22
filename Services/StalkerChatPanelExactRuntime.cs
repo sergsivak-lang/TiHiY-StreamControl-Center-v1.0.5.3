@@ -12,9 +12,8 @@ using System.Windows.Threading;
 namespace TiHiY.StreamControlCenter.Services;
 
 /// <summary>
-/// Final STALKER owner for the multichat block. The painted texture supplies only
-/// the shell. Counters, chat history, input and send controls remain real WPF controls
-/// and are positioned by the same proportions as the approved 512 x 254 texture.
+/// Sole final owner of the STALKER multichat geometry. The JPG supplies only the
+/// painted shell; chat history, counters, input and buttons remain live WPF controls.
 /// </summary>
 internal static class StalkerChatPanelExactBootstrap
 {
@@ -53,6 +52,7 @@ internal static class StalkerChatPanelExactRuntime
         private readonly Dictionary<Border, BorderState> _borders = new();
         private readonly Dictionary<Control, ControlState> _controls = new();
         private readonly Dictionary<Panel, Brush?> _panelBackgrounds = new();
+        private readonly List<Button> _utilityButtons = new();
 
         private ContentControl? _chat;
         private Grid? _root;
@@ -61,12 +61,11 @@ internal static class StalkerChatPanelExactRuntime
         private Grid? _footer;
         private StackPanel? _titleStack;
         private StackPanel? _counterStack;
-        private Border? _viewerPanel;
+        private Border? _legacyViewerOverlay;
         private TextBox? _chatInput;
         private Button? _twitchButton;
         private Button? _youtubeButton;
         private Button? _bothButton;
-        private Button? _sendButton;
 
         private ContentState? _chatState;
         private List<RowState>? _rows;
@@ -79,6 +78,12 @@ internal static class StalkerChatPanelExactRuntime
         internal Controller(MainWindow window)
         {
             _window = window;
+
+            // Capture the XAML baseline synchronously during Loaded, before the older
+            // deferred STALKER runtimes write local values. This makes Ukraine restore
+            // correctly even when the application initially starts in STALKER mode.
+            EnsureTargets();
+
             _window.ContentRendered += OnContentRendered;
             _window.Closed += OnClosed;
             App.Services.Theme.ThemeChanged += OnThemeChanged;
@@ -137,18 +142,19 @@ internal static class StalkerChatPanelExactRuntime
             _twitchButton = FindNamed<Button>("SendTwitchButton");
             _youtubeButton = FindNamed<Button>("SendYouTubeButton");
             _bothButton = FindNamed<Button>("SendBothButton");
-            _sendButton = _footer.Children.OfType<Button>().FirstOrDefault(x =>
+
+            _utilityButtons.Clear();
+            _utilityButtons.AddRange(_footer.Children.OfType<Button>().Where(x =>
                 !ReferenceEquals(x, _twitchButton) &&
                 !ReferenceEquals(x, _youtubeButton) &&
-                !ReferenceEquals(x, _bothButton));
+                !ReferenceEquals(x, _bothButton)));
 
-            _viewerPanel = StalkerApprovedAssets.FindDescendants<Border>(_chat)
+            _legacyViewerOverlay = StalkerApprovedAssets.FindDescendants<Border>(_chat)
                 .FirstOrDefault(border => !ReferenceEquals(border, _body) &&
                     StalkerApprovedAssets.FindDescendants<TextBlock>(border)
                         .Any(text => text.Text?.Contains("ГЛЯДАЧІ", StringComparison.OrdinalIgnoreCase) == true));
 
             CaptureOriginal();
-            _chat.SizeChanged += OnChatSizeChanged;
             return true;
         }
 
@@ -157,12 +163,23 @@ internal static class StalkerChatPanelExactRuntime
             if (_chat is null || _root is null || _header is null || _body is null || _footer is null) return;
 
             _chatState ??= new ContentState(
-                _chat.Background, _chat.BorderBrush, _chat.BorderThickness, _chat.Padding,
-                _chat.HorizontalContentAlignment, _chat.VerticalContentAlignment, _chat.ClipToBounds);
+                _chat.Background,
+                _chat.BorderBrush,
+                _chat.BorderThickness,
+                _chat.Padding,
+                _chat.HorizontalContentAlignment,
+                _chat.VerticalContentAlignment,
+                _chat.ClipToBounds);
 
-            _rows ??= _root.RowDefinitions.Select(x => new RowState(x.Height, x.MinHeight, x.MaxHeight)).ToList();
-            _rootColumns ??= _root.ColumnDefinitions.Select(x => new ColumnState(x.Width, x.MinWidth, x.MaxWidth)).ToList();
-            _footerColumns ??= _footer.ColumnDefinitions.Select(x => new ColumnState(x.Width, x.MinWidth, x.MaxWidth)).ToList();
+            _rows ??= _root.RowDefinitions
+                .Select(x => new RowState(x.Height, x.MinHeight, x.MaxHeight))
+                .ToList();
+            _rootColumns ??= _root.ColumnDefinitions
+                .Select(x => new ColumnState(x.Width, x.MinWidth, x.MaxWidth))
+                .ToList();
+            _footerColumns ??= _footer.ColumnDefinitions
+                .Select(x => new ColumnState(x.Width, x.MinWidth, x.MaxWidth))
+                .ToList();
 
             SaveElement(_root);
             SaveElement(_header);
@@ -170,23 +187,24 @@ internal static class StalkerChatPanelExactRuntime
             SaveElement(_footer);
             SaveElement(_titleStack);
             SaveElement(_counterStack);
-            SaveElement(_viewerPanel);
+            SaveElement(_legacyViewerOverlay);
             SaveElement(_chatInput);
             SaveElement(_twitchButton);
             SaveElement(_youtubeButton);
             SaveElement(_bothButton);
-            SaveElement(_sendButton);
+            foreach (var button in _utilityButtons) SaveElement(button);
 
             SavePanel(_root);
             SavePanel(_header);
             SavePanel(_footer);
             SaveBorder(_body);
-            SaveBorder(_viewerPanel);
+            SaveBorder(_legacyViewerOverlay);
             SaveControl(_chatInput);
             SaveControl(_twitchButton);
             SaveControl(_youtubeButton);
             SaveControl(_bothButton);
-            SaveControl(_sendButton);
+            foreach (var button in _utilityButtons) SaveControl(button);
+
             foreach (var border in CounterBorders())
             {
                 SaveElement(border);
@@ -215,22 +233,23 @@ internal static class StalkerChatPanelExactRuntime
             _root.VerticalAlignment = VerticalAlignment.Stretch;
             _root.Background = Brushes.Transparent;
 
-            // Texture proportions: left frame 15 px, live interior 476 px, right frame 21 px.
+            // Exact proportions of the 512 x 254 painted shell.
             _root.ColumnDefinitions.Clear();
             _root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(15, GridUnitType.Star) });
             _root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(476, GridUnitType.Star) });
             _root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(21, GridUnitType.Star) });
 
-            // Texture proportions: header 28 px, chat history 190 px, controls 36 px.
+            // Footer frames now start at y=224 and touch the bottom edge.
             _root.RowDefinitions.Clear();
             _root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28, GridUnitType.Star) });
-            _root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(190, GridUnitType.Star) });
-            _root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(36, GridUnitType.Star) });
+            _root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(196, GridUnitType.Star) });
+            _root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(30, GridUnitType.Star) });
 
             PlaceInInterior(_header, 0);
             PlaceInInterior(_body, 1);
             PlaceInInterior(_footer, 2);
 
+            _header.Margin = new Thickness(0);
             _header.Background = Brushes.Transparent;
             if (_titleStack is not null) _titleStack.Visibility = Visibility.Collapsed;
             if (_counterStack is not null)
@@ -250,10 +269,14 @@ internal static class StalkerChatPanelExactRuntime
             _body.HorizontalAlignment = HorizontalAlignment.Stretch;
             _body.VerticalAlignment = VerticalAlignment.Stretch;
 
+            // The compact viewer overlay belongs to the OBS/game overlay, not to the
+            // desktop multichat history. Never show it over this painted chat window.
+            if (_legacyViewerOverlay is not null)
+                _legacyViewerOverlay.Visibility = Visibility.Collapsed;
+
             _footer.Margin = new Thickness(0);
             _footer.Background = Brushes.Transparent;
             ConfigureFooter();
-            UpdateViewerPanelSize();
 
             _chat.InvalidateMeasure();
             _chat.InvalidateArrange();
@@ -303,60 +326,42 @@ internal static class StalkerChatPanelExactRuntime
         {
             if (_footer is null) return;
 
-            // Exact horizontal proportions of the cleaned footer texture.
+            // Widths sum to 476 and line up with the lowered painted frames.
             _footer.ColumnDefinitions.Clear();
-            foreach (var width in new[] { 163d, 5d, 92d, 5d, 89d, 4d, 70d, 6d, 13d, 8d, 18d })
-                _footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(width, GridUnitType.Star) });
+            foreach (var width in new[] { 164d, 4d, 96d, 4d, 92d, 4d, 73d, 5d, 15d, 4d, 15d })
+                _footer.ColumnDefinitions.Add(new ColumnDefinition
+                {
+                    Width = new GridLength(width, GridUnitType.Star)
+                });
 
             PlaceFooter(_chatInput, 0);
             PlaceFooter(_twitchButton, 2);
             PlaceFooter(_youtubeButton, 4);
             PlaceFooter(_bothButton, 6);
-            PlaceFooter(_sendButton, 10);
+
+            if (_utilityButtons.Count > 0) PlaceFooter(_utilityButtons[0], 8);
+            if (_utilityButtons.Count > 1) PlaceFooter(_utilityButtons[1], 10);
         }
 
         private static void PlaceFooter(Control? control, int column)
         {
             if (control is null) return;
+
             Grid.SetColumn(control, column);
             Grid.SetColumnSpan(control, 1);
             control.Width = double.NaN;
             control.Height = double.NaN;
             control.MinWidth = 0;
             control.MinHeight = 0;
-            control.Margin = new Thickness(1, 3, 1, 3);
-            control.Padding = control is TextBox ? new Thickness(5, 0, 5, 0) : new Thickness(1, 0, 1, 0);
+            control.Margin = new Thickness(1, 2, 1, 1);
+            control.Padding = control is TextBox
+                ? new Thickness(5, 0, 5, 0)
+                : new Thickness(1, 0, 1, 0);
             control.Background = Brushes.Transparent;
             control.BorderBrush = Brushes.Transparent;
             control.BorderThickness = new Thickness(0);
             control.HorizontalContentAlignment = HorizontalAlignment.Center;
             control.VerticalContentAlignment = VerticalAlignment.Center;
-        }
-
-        private void OnChatSizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            if (_lastStalker || StalkerApprovedAssets.IsStalkerTheme())
-                UpdateViewerPanelSize();
-        }
-
-        private void UpdateViewerPanelSize()
-        {
-            if (_viewerPanel is null || _body is null) return;
-
-            var width = _body.ActualWidth > 0 ? _body.ActualWidth * 153.0 / 476.0 : 153;
-            var height = _body.ActualHeight > 0 ? _body.ActualHeight * 110.0 / 190.0 : 110;
-
-            _viewerPanel.Width = Math.Max(120, width);
-            _viewerPanel.Height = Math.Max(80, height);
-            _viewerPanel.MinWidth = 0;
-            _viewerPanel.MinHeight = 0;
-            _viewerPanel.Margin = new Thickness(0);
-            _viewerPanel.HorizontalAlignment = HorizontalAlignment.Left;
-            _viewerPanel.VerticalAlignment = VerticalAlignment.Bottom;
-            _viewerPanel.Background = Brushes.Transparent;
-            _viewerPanel.BorderBrush = Brushes.Transparent;
-            _viewerPanel.BorderThickness = new Thickness(0);
-            _viewerPanel.CornerRadius = new CornerRadius(0);
         }
 
         private Brush LoadTextureBrush()
@@ -390,7 +395,6 @@ internal static class StalkerChatPanelExactRuntime
             }
             catch
             {
-                // Never interrupt the whole program because a decorative texture is missing.
                 return StalkerApprovedAssets.NewStretchBrush("chat-shell.png", 1.0);
             }
         }
@@ -398,6 +402,7 @@ internal static class StalkerChatPanelExactRuntime
         private IEnumerable<Border> CounterBorders()
         {
             if (_header is null) yield break;
+
             var found = new HashSet<Border>();
             foreach (var name in new[] { "TwitchViewerText", "YouTubeViewerText", "YouTubeLikesText" })
             {
@@ -426,44 +431,48 @@ internal static class StalkerChatPanelExactRuntime
             RestoreColumns(_root, _rootColumns);
             if (_footer is not null) RestoreColumns(_footer, _footerColumns);
 
-            foreach (var pair in _panelBackgrounds) pair.Key.Background = pair.Value;
+            foreach (var pair in _panelBackgrounds)
+                pair.Key.Background = pair.Value;
+
             foreach (var pair in _borders)
             {
-                var b = pair.Key;
-                var s = pair.Value;
-                b.Background = s.Background;
-                b.BorderBrush = s.BorderBrush;
-                b.BorderThickness = s.BorderThickness;
-                b.CornerRadius = s.CornerRadius;
-                b.Padding = s.Padding;
+                var border = pair.Key;
+                var state = pair.Value;
+                border.Background = state.Background;
+                border.BorderBrush = state.BorderBrush;
+                border.BorderThickness = state.BorderThickness;
+                border.CornerRadius = state.CornerRadius;
+                border.Padding = state.Padding;
             }
+
             foreach (var pair in _controls)
             {
-                var c = pair.Key;
-                var s = pair.Value;
-                c.Background = s.Background;
-                c.BorderBrush = s.BorderBrush;
-                c.BorderThickness = s.BorderThickness;
-                c.Padding = s.Padding;
-                c.HorizontalContentAlignment = s.HorizontalContentAlignment;
-                c.VerticalContentAlignment = s.VerticalContentAlignment;
+                var control = pair.Key;
+                var state = pair.Value;
+                control.Background = state.Background;
+                control.BorderBrush = state.BorderBrush;
+                control.BorderThickness = state.BorderThickness;
+                control.Padding = state.Padding;
+                control.HorizontalContentAlignment = state.HorizontalContentAlignment;
+                control.VerticalContentAlignment = state.VerticalContentAlignment;
             }
+
             foreach (var pair in _elements)
             {
-                var e = pair.Key;
-                var s = pair.Value;
-                e.Width = s.Width;
-                e.Height = s.Height;
-                e.MinWidth = s.MinWidth;
-                e.MinHeight = s.MinHeight;
-                e.Margin = s.Margin;
-                e.HorizontalAlignment = s.HorizontalAlignment;
-                e.VerticalAlignment = s.VerticalAlignment;
-                e.Visibility = s.Visibility;
-                Grid.SetRow(e, s.Row);
-                Grid.SetColumn(e, s.Column);
-                Grid.SetRowSpan(e, s.RowSpan);
-                Grid.SetColumnSpan(e, s.ColumnSpan);
+                var element = pair.Key;
+                var state = pair.Value;
+                element.Width = state.Width;
+                element.Height = state.Height;
+                element.MinWidth = state.MinWidth;
+                element.MinHeight = state.MinHeight;
+                element.Margin = state.Margin;
+                element.HorizontalAlignment = state.HorizontalAlignment;
+                element.VerticalAlignment = state.VerticalAlignment;
+                element.Visibility = state.Visibility;
+                Grid.SetRow(element, state.Row);
+                Grid.SetColumn(element, state.Column);
+                Grid.SetRowSpan(element, state.RowSpan);
+                Grid.SetColumnSpan(element, state.ColumnSpan);
             }
 
             _chat.InvalidateMeasure();
@@ -475,23 +484,36 @@ internal static class StalkerChatPanelExactRuntime
         {
             if (states is null) return;
             grid.RowDefinitions.Clear();
-            foreach (var s in states)
-                grid.RowDefinitions.Add(new RowDefinition { Height = s.Height, MinHeight = s.MinHeight, MaxHeight = s.MaxHeight });
+            foreach (var state in states)
+                grid.RowDefinitions.Add(new RowDefinition
+                {
+                    Height = state.Height,
+                    MinHeight = state.MinHeight,
+                    MaxHeight = state.MaxHeight
+                });
         }
 
         private static void RestoreColumns(Grid grid, List<ColumnState>? states)
         {
             if (states is null) return;
             grid.ColumnDefinitions.Clear();
-            foreach (var s in states)
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = s.Width, MinWidth = s.MinWidth, MaxWidth = s.MaxWidth });
+            foreach (var state in states)
+                grid.ColumnDefinitions.Add(new ColumnDefinition
+                {
+                    Width = state.Width,
+                    MinWidth = state.MinWidth,
+                    MaxWidth = state.MaxWidth
+                });
         }
 
         private T? FindNamed<T>(string name) where T : FrameworkElement =>
-            _chat is null ? null : StalkerApprovedAssets.FindDescendants<T>(_chat)
-                .FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.Ordinal));
+            _chat is null
+                ? null
+                : StalkerApprovedAssets.FindDescendants<T>(_chat)
+                    .FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.Ordinal));
 
-        private static T? FindAncestor<T>(DependencyObject current, DependencyObject stopAt) where T : DependencyObject
+        private static T? FindAncestor<T>(DependencyObject current, DependencyObject stopAt)
+            where T : DependencyObject
         {
             var parent = StalkerApprovedAssets.GetParent(current);
             while (parent is not null && !ReferenceEquals(parent, stopAt))
@@ -502,33 +524,51 @@ internal static class StalkerChatPanelExactRuntime
             return null;
         }
 
-        private void SaveElement(FrameworkElement? e)
+        private void SaveElement(FrameworkElement? element)
         {
-            if (e is null || _elements.ContainsKey(e)) return;
-            _elements[e] = new ElementState(
-                e.Width, e.Height, e.MinWidth, e.MinHeight, e.Margin,
-                e.HorizontalAlignment, e.VerticalAlignment, e.Visibility,
-                Grid.GetRow(e), Grid.GetColumn(e), Grid.GetRowSpan(e), Grid.GetColumnSpan(e));
+            if (element is null || _elements.ContainsKey(element)) return;
+            _elements[element] = new ElementState(
+                element.Width,
+                element.Height,
+                element.MinWidth,
+                element.MinHeight,
+                element.Margin,
+                element.HorizontalAlignment,
+                element.VerticalAlignment,
+                element.Visibility,
+                Grid.GetRow(element),
+                Grid.GetColumn(element),
+                Grid.GetRowSpan(element),
+                Grid.GetColumnSpan(element));
         }
 
-        private void SavePanel(Panel? p)
+        private void SavePanel(Panel? panel)
         {
-            if (p is null || _panelBackgrounds.ContainsKey(p)) return;
-            _panelBackgrounds[p] = p.Background;
+            if (panel is null || _panelBackgrounds.ContainsKey(panel)) return;
+            _panelBackgrounds[panel] = panel.Background;
         }
 
-        private void SaveBorder(Border? b)
+        private void SaveBorder(Border? border)
         {
-            if (b is null || _borders.ContainsKey(b)) return;
-            _borders[b] = new BorderState(b.Background, b.BorderBrush, b.BorderThickness, b.CornerRadius, b.Padding);
+            if (border is null || _borders.ContainsKey(border)) return;
+            _borders[border] = new BorderState(
+                border.Background,
+                border.BorderBrush,
+                border.BorderThickness,
+                border.CornerRadius,
+                border.Padding);
         }
 
-        private void SaveControl(Control? c)
+        private void SaveControl(Control? control)
         {
-            if (c is null || _controls.ContainsKey(c)) return;
-            _controls[c] = new ControlState(
-                c.Background, c.BorderBrush, c.BorderThickness, c.Padding,
-                c.HorizontalContentAlignment, c.VerticalContentAlignment);
+            if (control is null || _controls.ContainsKey(control)) return;
+            _controls[control] = new ControlState(
+                control.Background,
+                control.BorderBrush,
+                control.BorderThickness,
+                control.Padding,
+                control.HorizontalContentAlignment,
+                control.VerticalContentAlignment);
         }
 
         private void OnClosed(object? sender, EventArgs e) => Dispose();
@@ -540,21 +580,47 @@ internal static class StalkerChatPanelExactRuntime
             _window.ContentRendered -= OnContentRendered;
             _window.Closed -= OnClosed;
             App.Services.Theme.ThemeChanged -= OnThemeChanged;
-            if (_chat is not null) _chat.SizeChanged -= OnChatSizeChanged;
             RestoreOriginal();
         }
 
-        private sealed record ContentState(Brush? Background, Brush? BorderBrush, Thickness BorderThickness,
-            Thickness Padding, HorizontalAlignment HorizontalContentAlignment,
-            VerticalAlignment VerticalContentAlignment, bool ClipToBounds);
-        private sealed record ElementState(double Width, double Height, double MinWidth, double MinHeight,
-            Thickness Margin, HorizontalAlignment HorizontalAlignment, VerticalAlignment VerticalAlignment,
-            Visibility Visibility, int Row, int Column, int RowSpan, int ColumnSpan);
-        private sealed record BorderState(Brush? Background, Brush? BorderBrush, Thickness BorderThickness,
-            CornerRadius CornerRadius, Thickness Padding);
-        private sealed record ControlState(Brush? Background, Brush? BorderBrush, Thickness BorderThickness,
-            Thickness Padding, HorizontalAlignment HorizontalContentAlignment,
+        private sealed record ContentState(
+            Brush? Background,
+            Brush? BorderBrush,
+            Thickness BorderThickness,
+            Thickness Padding,
+            HorizontalAlignment HorizontalContentAlignment,
+            VerticalAlignment VerticalContentAlignment,
+            bool ClipToBounds);
+
+        private sealed record ElementState(
+            double Width,
+            double Height,
+            double MinWidth,
+            double MinHeight,
+            Thickness Margin,
+            HorizontalAlignment HorizontalAlignment,
+            VerticalAlignment VerticalAlignment,
+            Visibility Visibility,
+            int Row,
+            int Column,
+            int RowSpan,
+            int ColumnSpan);
+
+        private sealed record BorderState(
+            Brush? Background,
+            Brush? BorderBrush,
+            Thickness BorderThickness,
+            CornerRadius CornerRadius,
+            Thickness Padding);
+
+        private sealed record ControlState(
+            Brush? Background,
+            Brush? BorderBrush,
+            Thickness BorderThickness,
+            Thickness Padding,
+            HorizontalAlignment HorizontalContentAlignment,
             VerticalAlignment VerticalContentAlignment);
+
         private sealed record RowState(GridLength Height, double MinHeight, double MaxHeight);
         private sealed record ColumnState(GridLength Width, double MinWidth, double MaxWidth);
     }
