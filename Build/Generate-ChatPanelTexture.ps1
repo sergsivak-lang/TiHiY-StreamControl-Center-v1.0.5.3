@@ -7,7 +7,6 @@ $ErrorActionPreference = 'Stop'
 
 $sourceDirectory = Join-Path $ProjectDir 'Assets\Themes\StalkerApproved'
 $targetPath = Join-Path $sourceDirectory 'chat-multichat-panel-exact.jpg'
-$partPattern = Join-Path $sourceDirectory 'chat-multichat-panel-exact.b64.*'
 $expectedSha256 = 'e9e7597a28d1830e1dc0e813e4069d6719b92d771f8889d20aea33f366cdf60d'
 
 $parts = Get-ChildItem -LiteralPath $sourceDirectory -Filter 'chat-multichat-panel-exact.b64.*' |
@@ -18,7 +17,7 @@ if ($parts.Count -ne 4) {
     throw "Expected 4 multichat texture chunks, found $($parts.Count) in $sourceDirectory"
 }
 
-$builder = [Text.StringBuilder]::new()
+$builder = New-Object Text.StringBuilder
 foreach ($part in $parts) {
     $chunk = (Get-Content -Raw -LiteralPath $part.FullName) -replace '\s', ''
     if ([string]::IsNullOrWhiteSpace($chunk)) {
@@ -39,7 +38,15 @@ if (-not (Test-Path $targetPath) -or (Get-Item $targetPath).Length -ne 9951) {
     throw "Generated multichat texture has invalid size: $targetPath"
 }
 
-$actualSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $targetPath).Hash.ToLowerInvariant()
+$sha256 = [Security.Cryptography.SHA256]::Create()
+try {
+    $hashBytes = $sha256.ComputeHash($bytes)
+    $actualSha256 = ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+}
+finally {
+    $sha256.Dispose()
+}
+
 if ($actualSha256 -ne $expectedSha256) {
     throw "Generated multichat texture hash mismatch. Expected $expectedSha256, got $actualSha256"
 }
