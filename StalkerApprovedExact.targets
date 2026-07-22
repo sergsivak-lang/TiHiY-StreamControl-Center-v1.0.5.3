@@ -46,6 +46,14 @@
           BeforeTargets="PrepareResources"
           Condition="Exists('$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\center-zone-banner.png')">
     <MakeDir Directories="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact" />
+
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\Build\Generate-ChatPanelTexture.ps1&quot; -ProjectDir &quot;$(MSBuildProjectDirectory)&quot;" />
+
+    <ItemGroup>
+      <Resource Remove="Assets\Themes\StalkerApproved\chat-multichat-panel-exact.jpg" />
+      <Resource Include="Assets\Themes\StalkerApproved\chat-multichat-panel-exact.jpg" />
+    </ItemGroup>
+
     <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\header-skyline-exact.png"
           DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact\zone-header.png" />
     <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\header-emblem-exact.png"
