@@ -6,8 +6,7 @@
     <Compile Remove="Services\StalkerThemeFinalizer.cs" />
     <Compile Remove="Services\StalkerSettingsRuntime.cs" />
 
-    <!-- The approved mock-up is a visual reference, not a fixed 1672x941 layout.
-         Keep the real responsive MainWindow grid and apply only the texture layer. -->
+    <!-- The approved mock-up is a visual reference, not a fixed 1672x941 layout. -->
     <Compile Remove="Services\StalkerApprovedLayoutRuntime.cs" />
 
     <!-- Obsolete post-test runtimes conflict with theme switching and WPF virtualization. -->
@@ -24,14 +23,17 @@
     <!-- Earlier lower-center owners are disabled. -->
     <Compile Remove="Services\ThemeCenterArtworkRuntime.cs" />
     <Compile Remove="Services\ThemeCenterBackgroundRuntime.cs" />
+
+    <!-- V2 is the sole owner of the STALKER multichat background and live geometry. -->
+    <Compile Remove="Services\StalkerChatPanelExactRuntime.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <Resource Remove="Assets\Themes\StalkerApproved\*.png" />
     <Resource Include="Assets\Themes\StalkerApproved\*.png" />
 
-    <!-- The cleaned multichat shell is generated before build and copied next to
-         the executable. Loading it from disk avoids WPF pack-resource failures. -->
+    <!-- Generated before build and copied next to the executable. Loading from disk
+         avoids pack-resource failures and lets the cleaned shell be regenerated exactly. -->
     <Content Include="Assets\Themes\StalkerApproved\chat-multichat-panel-exact.jpg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
