@@ -10,49 +10,40 @@
          Keep the real responsive MainWindow grid and apply only the texture layer. -->
     <Compile Remove="Services\StalkerApprovedLayoutRuntime.cs" />
 
-    <!-- Obsolete post-test runtimes conflict with theme switching and with WPF
-         virtualization. They leave STALKER local values on controls after switching
-         back to Ukraine and one of them changes VirtualizationMode after Measure. -->
+    <!-- Obsolete post-test runtimes conflict with theme switching and WPF virtualization. -->
     <Compile Remove="Services\ApprovedStalkerBehaviorFixRuntime.cs" />
     <Compile Remove="Services\StalkerSingleLayerCorrectionRuntime.cs" />
     <Compile Remove="Services\StalkerUiKitRuntime.cs" />
-
-    <!-- This guard repeatedly rewrites the header, panel margins and center content
-         on ContentRendered, SizeChanged and delayed timers. It is the source of the
-         duplicated layers and UI stalls seen during theme switching. The approved
-         texture runtime already owns these visuals, so keep a single owner. -->
     <Compile Remove="Services\StalkerThemeTransitionGuardRuntime.cs" />
 
-    <!-- Superseded status-card implementations. V4 uses a clean blank textured
-         surface and never contains painted icons, buttons, captions or status values. -->
+    <!-- Superseded status-card implementations. -->
     <Compile Remove="Services\StalkerHeaderStatusCardTextureRuntime.cs" />
     <Compile Remove="Services\StalkerHeaderStatusCardTextureRuntimeV2.cs" />
     <Compile Remove="Services\StalkerHeaderStatusCardTextureRuntimeV3.cs" />
 
-    <!-- All earlier lower-center owners are disabled. The painted-artwork runtime
-         collapses the original functional block and owns one simple Image surface. -->
+    <!-- Earlier lower-center owners are disabled. -->
     <Compile Remove="Services\ThemeCenterArtworkRuntime.cs" />
     <Compile Remove="Services\ThemeCenterBackgroundRuntime.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The main project already contains an Assets/Themes/**/*.png glob.
-         Remove then add to guarantee exactly one WPF Resource item. -->
     <Resource Remove="Assets\Themes\StalkerApproved\*.png" />
     <Resource Include="Assets\Themes\StalkerApproved\*.png" />
+
+    <!-- The cleaned multichat shell is generated before build and copied next to
+         the executable. Loading it from disk avoids WPF pack-resource failures. -->
+    <Content Include="Assets\Themes\StalkerApproved\chat-multichat-panel-exact.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
 
   <Target Name="ApplyApprovedStalkerExactTextures"
-          BeforeTargets="PrepareResources"
+          BeforeTargets="PrepareForBuild"
           Condition="Exists('$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\center-zone-banner.png')">
     <MakeDir Directories="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact" />
 
     <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\Build\Generate-ChatPanelTexture.ps1&quot; -ProjectDir &quot;$(MSBuildProjectDirectory)&quot;" />
-
-    <ItemGroup>
-      <Resource Remove="Assets\Themes\StalkerApproved\chat-multichat-panel-exact.jpg" />
-      <Resource Include="Assets\Themes\StalkerApproved\chat-multichat-panel-exact.jpg" />
-    </ItemGroup>
 
     <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\header-skyline-exact.png"
           DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact\zone-header.png" />
