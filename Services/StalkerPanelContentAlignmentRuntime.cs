@@ -9,10 +9,11 @@ using System.Windows.Threading;
 namespace TiHiY.StreamControlCenter.Services;
 
 /// <summary>
-/// Aligns the live content of the STALKER Donations, Notifications and OBS Mixer
-/// panels with the painted inner windows of their approved shell textures.
-/// The shell title bands are taller than the stock Ukraine layout, so the row-1
-/// content must start lower while the bottom action strip stays anchored in place.
+/// Aligns live content with the actual painted inner windows of the approved
+/// STALKER panel textures. The shell images are stretched with the panel, so a
+/// fixed top margin cannot stay aligned. Instead the header row is recalculated
+/// from the exact vertical proportion of each source texture while the original
+/// 38-DIP live action row remains anchored at the bottom.
 /// </summary>
 internal static class StalkerPanelContentAlignmentBootstrap
 {
@@ -48,19 +49,33 @@ internal static class StalkerPanelContentAlignmentRuntime
 
     private sealed class Controller : IDisposable
     {
-        private static readonly IReadOnlyDictionary<string, Thickness> ContentMargins =
-            new Dictionary<string, Thickness>(StringComparer.Ordinal)
-            {
-                // The donation shell has the deepest painted title band.
-                ["DonationsBlockPanel"] = new Thickness(0, 22, 0, 5),
+        private static readonly PanelSpec[] Specs =
+        {
+            // donations-shell.png: 836 x 298; inner list begins at y = 50.
+            new(
+                "DonationsBlockPanel",
+                50d / 298d,
+                new Thickness(28, 0, 26, 0),
+                new Thickness(18, 12, 16, 12)),
 
-                // Notification and mixer shells use the same lower inner-window line.
-                ["NotificationsBlockPanel"] = new Thickness(0, 20, 0, 5),
-                ["MixerBlockPanel"] = new Thickness(0, 20, 0, 5)
-            };
+            // notifications-shell.png: 836 x 208; inner list begins at y = 48.
+            new(
+                "NotificationsBlockPanel",
+                48d / 208d,
+                new Thickness(28, 0, 26, 0),
+                new Thickness(18, 11, 16, 10)),
+
+            // mixer-shell.png: 816 x 208; channel area begins at y = 46.
+            new(
+                "MixerBlockPanel",
+                46d / 208d,
+                new Thickness(28, 0, 26, 0),
+                new Thickness(18, 11, 16, 10))
+        };
 
         private readonly MainWindow _window;
-        private readonly Dictionary<FrameworkElement, ElementState> _states = new();
+        private readonly Dictionary<ContentControl, PanelState> _states = new();
+        private readonly HashSet<ContentControl> _sizeHandlers = new();
         private bool _queued;
         private bool _lastStalker;
         private bool _disposed;
@@ -104,68 +119,178 @@ internal static class StalkerPanelContentAlignmentRuntime
             if (stalker)
                 ApplyStalkerGeometry();
             else if (_lastStalker)
-                RestoreOriginalGeometry();
+                RestoreUkraineGeometry();
 
             _lastStalker = stalker;
         }
 
         private void ApplyStalkerGeometry()
         {
-            foreach (var pair in ContentMargins)
+            foreach (var spec in Specs)
             {
-                var block = FindNamed<ContentControl>(pair.Key);
-                if (block?.Content is not Grid root)
+                var block = FindNamed<ContentControl>(spec.Name);
+                if (block?.Content is not Grid root || root.RowDefinitions.Count < 3)
                     continue;
 
-                var content = root.Children
-                    .OfType<FrameworkElement>()
-                    .FirstOrDefault(child => Grid.GetRow(child) == 1);
-                if (content is null)
-                    continue;
+                Capture(block, root, spec);
+                AttachSizeHandler(block);
 
-                Save(content);
-                content.Margin = pair.Value;
-                content.VerticalAlignment = VerticalAlignment.Stretch;
-                content.HorizontalAlignment = HorizontalAlignment.Stretch;
-                content.ClipToBounds = true;
+                // Remove the fixed vertical padding previously added around the live
+                // grid. The grid now shares the same vertical coordinate system as
+                // the stretched texture, while the approved horizontal frame inset
+                // is preserved.
+                block.Padding = spec.StalkerPadding;
+                block.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+                block.VerticalContentAlignment = VerticalAlignment.Stretch;
+                block.ClipToBounds = true;
 
-                // Keep the action strip at the painted bottom frame. Only the active
-                // row is moved down; no overlay, Viewbox or timer is introduced.
-                content.InvalidateMeasure();
-                content.InvalidateArrange();
-                content.InvalidateVisual();
-                block.InvalidateMeasure();
-                block.InvalidateArrange();
-                block.InvalidateVisual();
+                root.Margin = new Thickness(0);
+                root.HorizontalAlignment = HorizontalAlignment.Stretch;
+                root.VerticalAlignment = VerticalAlignment.Stretch;
+                root.ClipToBounds = true;
+
+                var content = FindRowChild(root, 1);
+                if (content is not null)
+                {
+                    content.Margin = new Thickness(0);
+                    content.HorizontalAlignment = HorizontalAlignment.Stretch;
+                    content.VerticalAlignment = VerticalAlignment.Stretch;
+                    content.ClipToBounds = true;
+                }
+
+                UpdateHeaderHeight(block, root, spec);
+                Invalidate(block, root, content);
             }
         }
 
-        private void RestoreOriginalGeometry()
+        private void AttachSizeHandler(ContentControl block)
+        {
+            if (!_sizeHandlers.Add(block))
+                return;
+
+            block.SizeChanged += OnPanelSizeChanged;
+        }
+
+        private void OnPanelSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (_disposed || !_lastStalker || sender is not ContentControl block)
+                return;
+
+            var spec = Specs.FirstOrDefault(item => string.Equals(item.Name, block.Name, StringComparison.Ordinal));
+            if (spec is null || block.Content is not Grid root || root.RowDefinitions.Count < 3)
+                return;
+
+            UpdateHeaderHeight(block, root, spec);
+        }
+
+        private static void UpdateHeaderHeight(ContentControl block, Grid root, PanelSpec spec)
+        {
+            var panelHeight = block.ActualHeight;
+            if (panelHeight <= 1)
+                return;
+
+            // Match the shell's painted boundary at every window size and UI zoom.
+            // Keep the stock footer row at 38 DIP because its real WPF button must
+            // sit inside the small painted button frame rather than fill the entire
+            // decorative footer band.
+            var headerHeight = Math.Round(panelHeight * spec.HeaderRatio, 2);
+            var maxHeader = Math.Max(42, panelHeight - 76);
+            headerHeight = Math.Clamp(headerHeight, 42, maxHeader);
+
+            root.RowDefinitions[0].Height = new GridLength(headerHeight, GridUnitType.Pixel);
+            root.RowDefinitions[1].Height = new GridLength(1, GridUnitType.Star);
+            root.RowDefinitions[2].Height = new GridLength(38, GridUnitType.Pixel);
+        }
+
+        private void RestoreUkraineGeometry()
         {
             foreach (var pair in _states)
             {
-                var element = pair.Key;
+                var block = pair.Key;
                 var state = pair.Value;
-                element.Margin = state.Margin;
-                element.VerticalAlignment = state.VerticalAlignment;
-                element.HorizontalAlignment = state.HorizontalAlignment;
-                element.ClipToBounds = state.ClipToBounds;
-                element.InvalidateMeasure();
-                element.InvalidateArrange();
-                element.InvalidateVisual();
+                if (block.Content is not Grid root)
+                    continue;
+
+                block.Padding = state.Spec.UkrainePadding;
+                block.HorizontalContentAlignment = state.HorizontalContentAlignment;
+                block.VerticalContentAlignment = state.VerticalContentAlignment;
+                block.ClipToBounds = state.BlockClipToBounds;
+
+                root.Margin = state.RootMargin;
+                root.HorizontalAlignment = state.RootHorizontalAlignment;
+                root.VerticalAlignment = state.RootVerticalAlignment;
+                root.ClipToBounds = state.RootClipToBounds;
+
+                RestoreRows(root, state.Rows);
+
+                var content = FindRowChild(root, 1);
+                if (content is not null && state.Content is not null)
+                {
+                    content.Margin = state.Content.Margin;
+                    content.HorizontalAlignment = state.Content.HorizontalAlignment;
+                    content.VerticalAlignment = state.Content.VerticalAlignment;
+                    content.ClipToBounds = state.Content.ClipToBounds;
+                }
+
+                Invalidate(block, root, content);
             }
         }
 
-        private void Save(FrameworkElement element)
+        private void Capture(ContentControl block, Grid root, PanelSpec spec)
         {
-            if (_states.ContainsKey(element))
+            if (_states.ContainsKey(block))
                 return;
 
-            _states[element] = new ElementState(
-                element.Margin,
-                element.VerticalAlignment,
-                element.HorizontalAlignment,
-                element.ClipToBounds);
+            var content = FindRowChild(root, 1);
+            _states[block] = new PanelState(
+                spec,
+                root.RowDefinitions.Select(row =>
+                    new RowState(row.Height, row.MinHeight, row.MaxHeight)).ToArray(),
+                block.HorizontalContentAlignment,
+                block.VerticalContentAlignment,
+                block.ClipToBounds,
+                root.Margin,
+                root.HorizontalAlignment,
+                root.VerticalAlignment,
+                root.ClipToBounds,
+                content is null
+                    ? null
+                    : new ElementState(
+                        content.Margin,
+                        content.HorizontalAlignment,
+                        content.VerticalAlignment,
+                        content.ClipToBounds));
+        }
+
+        private static FrameworkElement? FindRowChild(Grid root, int row) =>
+            root.Children.OfType<FrameworkElement>()
+                .FirstOrDefault(child => Grid.GetRow(child) == row);
+
+        private static void RestoreRows(Grid root, IReadOnlyList<RowState> rows)
+        {
+            root.RowDefinitions.Clear();
+            foreach (var row in rows)
+            {
+                root.RowDefinitions.Add(new RowDefinition
+                {
+                    Height = row.Height,
+                    MinHeight = row.MinHeight,
+                    MaxHeight = row.MaxHeight
+                });
+            }
+        }
+
+        private static void Invalidate(ContentControl block, Grid root, FrameworkElement? content)
+        {
+            content?.InvalidateMeasure();
+            content?.InvalidateArrange();
+            content?.InvalidateVisual();
+            root.InvalidateMeasure();
+            root.InvalidateArrange();
+            root.InvalidateVisual();
+            block.InvalidateMeasure();
+            block.InvalidateArrange();
+            block.InvalidateVisual();
         }
 
         private T? FindNamed<T>(string name) where T : FrameworkElement =>
@@ -183,13 +308,41 @@ internal static class StalkerPanelContentAlignmentRuntime
             _window.ContentRendered -= OnContentRendered;
             _window.Closed -= OnClosed;
             App.Services.Theme.ThemeChanged -= OnThemeChanged;
-            RestoreOriginalGeometry();
+
+            foreach (var block in _sizeHandlers)
+                block.SizeChanged -= OnPanelSizeChanged;
+            _sizeHandlers.Clear();
+
+            RestoreUkraineGeometry();
         }
+
+        private sealed record PanelSpec(
+            string Name,
+            double HeaderRatio,
+            Thickness StalkerPadding,
+            Thickness UkrainePadding);
+
+        private sealed record PanelState(
+            PanelSpec Spec,
+            IReadOnlyList<RowState> Rows,
+            HorizontalAlignment HorizontalContentAlignment,
+            VerticalAlignment VerticalContentAlignment,
+            bool BlockClipToBounds,
+            Thickness RootMargin,
+            HorizontalAlignment RootHorizontalAlignment,
+            VerticalAlignment RootVerticalAlignment,
+            bool RootClipToBounds,
+            ElementState? Content);
 
         private sealed record ElementState(
             Thickness Margin,
-            VerticalAlignment VerticalAlignment,
             HorizontalAlignment HorizontalAlignment,
+            VerticalAlignment VerticalAlignment,
             bool ClipToBounds);
+
+        private sealed record RowState(
+            GridLength Height,
+            double MinHeight,
+            double MaxHeight);
     }
 }
