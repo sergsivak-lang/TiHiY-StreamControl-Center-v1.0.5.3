@@ -260,10 +260,52 @@ public sealed class TwitchService : IAsyncDisposable
         var user = tags.TryGetValue("display-name", out var display) && !string.IsNullOrWhiteSpace(display) ? display : "Twitch";
         var badges = tags.TryGetValue("badges", out var badgeText) ? badgeText : string.Empty;
         var role = badges.Contains("broadcaster/") ? "Owner" : badges.Contains("moderator/") ? "Moderator" : badges.Contains("vip/") ? "VIP" : badges.Contains("subscriber/") ? "Subscriber" : "Viewer";
-        return new ChatMessage { Platform = "TWITCH", User = user, Text = text, Role = role, ExternalId = tags.TryGetValue("id", out var id) ? id : string.Empty, AuthorId = tags.TryGetValue("user-id", out var userId) ? userId : string.Empty, Time = DateTime.Now };
+        return new ChatMessage
+        {
+            Platform = "TWITCH",
+            User = user,
+            Text = text,
+            Role = role,
+            ExternalId = tags.TryGetValue("id", out var id) ? id : string.Empty,
+            AuthorId = tags.TryGetValue("user-id", out var userId) ? userId : string.Empty,
+            Time = DateTime.Now,
+            Emotes = ParseTwitchEmotes(tags, text)
+        };
     }
 
 
+    private static List<ChatEmote> ParseTwitchEmotes(IReadOnlyDictionary<string, string> tags, string text)
+    {
+        var result = new List<ChatEmote>();
+        if (!tags.TryGetValue("emotes", out var raw) || string.IsNullOrWhiteSpace(raw)) return result;
+
+        foreach (var group in raw.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var separator = group.IndexOf(':');
+            if (separator <= 0 || separator >= group.Length - 1) continue;
+            var emoteId = group[..separator];
+
+            foreach (var range in group[(separator + 1)..].Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var dash = range.IndexOf('-');
+                if (dash <= 0 || dash >= range.Length - 1) continue;
+                if (!int.TryParse(range[..dash], out var start) || !int.TryParse(range[(dash + 1)..], out var end)) continue;
+                if (start < 0 || end < start || end >= text.Length) continue;
+
+                result.Add(new ChatEmote
+                {
+                    Platform = "TWITCH",
+                    Id = emoteId,
+                    Name = text.Substring(start, end - start + 1),
+                    Start = start,
+                    End = end,
+                    ImageUrl = $"https://static-cdn.jtvnw.net/emoticons/v2/{Uri.EscapeDataString(emoteId)}/default/dark/2.0"
+                });
+            }
+        }
+
+        return result.OrderBy(x => x.Start).ThenByDescending(x => x.Length).ToList();
+    }
     private static DonationEvent? ParseDonation(string line)
     {
         if (!line.StartsWith('@')) return null;
@@ -419,3 +461,4 @@ public sealed class TwitchService : IAsyncDisposable
         _http.Dispose();
     }
 }
+

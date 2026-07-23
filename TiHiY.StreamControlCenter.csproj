@@ -33,6 +33,7 @@
           BeforeTargets="PrepareResources"
           Condition="'$(DesignTimeBuild)' != 'true'">
     <Exec Command="pwsh -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\Build\Generate-StalkerAssets.ps1&quot; -ProjectDir &quot;$(MSBuildProjectDirectory)&quot;" />
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\Build\Adapt-StalkerCenter.ps1&quot; -ProjectDir &quot;$(MSBuildProjectDirectory)&quot;" />
     <ItemGroup>
       <Resource Remove="Assets\Themes\StalkerExact\*.png" />
       <Resource Remove="Assets\Themes\stalker_zone.png" />
@@ -51,4 +52,6 @@
     <None Include="Assets\Themes\UkraineExact\central-glory.b64.*" Visible="false" />
     <Content Include="Design\Cyber-Amber-Exact-Mockup.png" Condition="Exists('Design\Cyber-Amber-Exact-Mockup.png')" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Import Project="StalkerApprovedExact.targets" Condition="Exists('StalkerApprovedExact.targets')" />
 </Project>
