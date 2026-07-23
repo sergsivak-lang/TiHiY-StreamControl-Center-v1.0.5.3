@@ -1,0 +1,59 @@
+name: Theme Engine v1
+
+on:
+  push:
+    branches:
+      - agent/stalker-approved-exact-v4
+    paths:
+      - ".github/workflows/theme-engine-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/stalker-approved-exact-v4
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply Theme Engine v1 patch
+        shell: pwsh
+        run: ./Build/Apply-ThemeEngine-V1.ps1
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Build and publish
+        shell: pwsh
+        run: |
+          dotnet restore TiHiY.StreamControlCenter.sln
+          dotnet build TiHiY.StreamControlCenter.sln --configuration Release --no-restore
+          dotnet publish TiHiY.StreamControlCenter.csproj --configuration Release --runtime win-x64 --self-contained true -p:PublishSingleFile=false --output publish
+
+      - name: Package
+        shell: pwsh
+        run: Compress-Archive -Path publish\* -DestinationPath TiHiY-StreamControl-Center-ThemeEngine-v1.zip -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TiHiY-StreamControl-Center-ThemeEngine-v1
+          path: TiHiY-StreamControl-Center-ThemeEngine-v1.zip
+
+      - name: Commit source changes
+        shell: pwsh
+        run: |
+          Remove-Item publish -Recurse -Force
+          Remove-Item TiHiY-StreamControl-Center-ThemeEngine-v1.zip -Force
+          Remove-Item .github/workflows/theme-engine-v1.yml -Force
+          Remove-Item Build/Apply-ThemeEngine-V1.ps1 -Force
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Theme Engine v1: Twitch emotes і STALKER center"
+          git push origin HEAD:agent/stalker-approved-exact-v4

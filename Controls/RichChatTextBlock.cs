@@ -1,17 +1,25 @@
+using System.Diagnostics;
+using System.Text.RegularExpressions;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
 using TiHiY.StreamControlCenter.Models;
 
 namespace TiHiY.StreamControlCenter.Controls;
 
 /// <summary>
-/// Renders a chat message as one wrapping text flow. Unicode emoji stay in text and
-/// use the Windows emoji font fallback; platform emotes are inserted as inline images.
+/// Renders a chat message as one wrapping text flow. Unicode emoji stay in text,
+/// platform emotes are inserted as inline images, and URLs remain clickable while
+/// only their host name is displayed.
 /// </summary>
 public sealed class RichChatTextBlock : TextBlock
 {
+    private static readonly Regex UrlRegex = new(
+        @"https?://[^\s]+",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
     public static readonly DependencyProperty MessageProperty = DependencyProperty.Register(
         nameof(Message), typeof(ChatMessage), typeof(RichChatTextBlock),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsMeasure, OnVisualPropertyChanged));
@@ -97,6 +105,9 @@ public sealed class RichChatTextBlock : TextBlock
             });
         }
 
+        // Always keep the original string here because platform emote offsets refer
+        // to ChatMessage.Text. URL compaction is done inside AddText without changing
+        // those offsets.
         var text = message.Text ?? string.Empty;
         var emotes = message.Emotes
             .Where(x => x.Start >= 0 && x.End >= x.Start && x.End < text.Length && !string.IsNullOrWhiteSpace(x.ImageUrl))
@@ -119,11 +130,72 @@ public sealed class RichChatTextBlock : TextBlock
     private void AddText(string value, ChatMessage message)
     {
         if (value.Length == 0) return;
+
+        var foreground = message.IsHighlighted ? HighlightBrush : MessageBrush;
+        var weight = message.IsHighlighted ? FontWeights.Bold : FontWeights.Normal;
+        var cursor = 0;
+
+        foreach (Match match in UrlRegex.Matches(value))
+        {
+            if (match.Index > cursor)
+                AddRun(value[cursor..match.Index], foreground, weight);
+
+            var original = match.Value;
+            var trimmed = original.TrimEnd('.', ',', ';', ':', '!', '?', ')', ']', '}');
+            var suffix = original[trimmed.Length..];
+
+            if (Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+            {
+                var host = uri.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase)
+                    ? uri.Host[4..]
+                    : uri.Host;
+
+                var link = new Hyperlink(new Run(host))
+                {
+                    NavigateUri = uri,
+                    Foreground = foreground,
+                    FontWeight = weight,
+                    ToolTip = trimmed
+                };
+                link.RequestNavigate += OpenLink;
+                Inlines.Add(link);
+
+                if (suffix.Length > 0)
+                    AddRun(suffix, foreground, weight);
+            }
+            else
+            {
+                AddRun(original, foreground, weight);
+            }
+
+            cursor = match.Index + match.Length;
+        }
+
+        if (cursor < value.Length)
+            AddRun(value[cursor..], foreground, weight);
+    }
+
+    private void AddRun(string value, Brush foreground, FontWeight weight)
+    {
+        if (value.Length == 0) return;
         Inlines.Add(new Run(value)
         {
-            Foreground = message.IsHighlighted ? HighlightBrush : MessageBrush,
-            FontWeight = message.IsHighlighted ? FontWeights.Bold : FontWeights.Normal
+            Foreground = foreground,
+            FontWeight = weight
         });
+    }
+
+    private static void OpenLink(object sender, RequestNavigateEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
+            e.Handled = true;
+        }
+        catch
+        {
+            // Keep the chat stable if Windows has no registered browser handler.
+        }
     }
 
     private void AddEmote(ChatEmote emote)

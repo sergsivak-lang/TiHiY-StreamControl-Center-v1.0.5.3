@@ -1,0 +1,27 @@
+TiHiY STALKER Approved Exact Patch v4 — local validation
+
+Ground truth:
+- Final Windows PDB SourceLink commit: e3afb0ef8da5dfa306e67bea341e2e691b84f1c5
+- Real embedded MainWindow.xaml recovered from that PDB and used for layout verification.
+- Previous v3 rejected because its Freeform canvas target does not exist in the final XAML.
+
+C# syntax Services/StalkerApprovedTextureRuntime.cs: PASS
+C# syntax Services/StalkerApprovedLayoutRuntime.cs: PASS
+MSBuild XML StalkerApprovedExact.targets: PASS
+JSON approved-crop-manifest.json: PASS
+JSON approved-layout-manifest.json: PASS
+PNG references: 15 checked; missing=none
+Disable old flat runtime StalkerThemeRuntime.cs: PASS
+Disable old flat runtime StalkerThemeFinalizer.cs: PASS
+Disable old flat runtime StalkerSettingsRuntime.cs: PASS
+Approved reference SHA256: 5fd4bc7770f7972dfd65ef9dd103c7e52e3395f8ce1591cf902d2f3b8376ba3a
+
+Additional completed checks:
+- 30 image assets reconstructed and pixel-verified from the approved reference only.
+- Exact grid coordinates verified against the real MainWindow.xaml.
+- Static shell composite matches approved frame regions with max normalized MAE 0.0106.
+
+Pending before acceptance:
+- Windows Release Build/Publish;
+- real EXE launch;
+- CI screenshot and automated region comparison.

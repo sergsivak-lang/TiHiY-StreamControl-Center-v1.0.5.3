@@ -1,0 +1,67 @@
+<Project>
+  <ItemGroup>
+    <!-- Disable earlier experimental STALKER runtimes. They overwrite the same
+         controls and cause duplicated text, blue-frame leftovers and flicker. -->
+    <Compile Remove="Services\StalkerThemeRuntime.cs" />
+    <Compile Remove="Services\StalkerThemeFinalizer.cs" />
+    <Compile Remove="Services\StalkerSettingsRuntime.cs" />
+
+    <!-- The approved mock-up is a visual reference, not a fixed 1672x941 layout. -->
+    <Compile Remove="Services\StalkerApprovedLayoutRuntime.cs" />
+
+    <!-- Obsolete post-test runtimes conflict with theme switching and WPF virtualization. -->
+    <Compile Remove="Services\ApprovedStalkerBehaviorFixRuntime.cs" />
+    <Compile Remove="Services\StalkerSingleLayerCorrectionRuntime.cs" />
+    <Compile Remove="Services\StalkerUiKitRuntime.cs" />
+    <Compile Remove="Services\StalkerThemeTransitionGuardRuntime.cs" />
+
+    <!-- Superseded status-card implementations. -->
+    <Compile Remove="Services\StalkerHeaderStatusCardTextureRuntime.cs" />
+    <Compile Remove="Services\StalkerHeaderStatusCardTextureRuntimeV2.cs" />
+    <Compile Remove="Services\StalkerHeaderStatusCardTextureRuntimeV3.cs" />
+
+    <!-- Earlier lower-center owners are disabled. -->
+    <Compile Remove="Services\ThemeCenterArtworkRuntime.cs" />
+    <Compile Remove="Services\ThemeCenterBackgroundRuntime.cs" />
+
+    <!-- V2 is the sole owner of the STALKER multichat background and live geometry. -->
+    <Compile Remove="Services\StalkerChatPanelExactRuntime.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Remove="Assets\Themes\StalkerApproved\*.png" />
+    <Resource Include="Assets\Themes\StalkerApproved\*.png" />
+
+    <!-- Generated before build and copied next to the executable. Loading from disk
+         avoids pack-resource failures and lets the cleaned shell be regenerated exactly. -->
+    <Content Include="Assets\Themes\StalkerApproved\chat-multichat-panel-exact.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <Target Name="ApplyApprovedStalkerExactTextures"
+          BeforeTargets="PrepareForBuild"
+          Condition="Exists('$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\center-zone-banner.png')">
+    <MakeDir Directories="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact" />
+
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\Build\Generate-ChatPanelTexture.ps1&quot; -ProjectDir &quot;$(MSBuildProjectDirectory)&quot;" />
+
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\header-skyline-exact.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact\zone-header.png" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\header-emblem-exact.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact\stalker-symbol.png" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\center-zone-banner.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact\zone-banner.png" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\panel-fill.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact\rusted-metal.png" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\panel-edge-top.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact\scratches.png" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\panel-corner-tl.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerExact\hazard-corner.png" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\center-zone-banner.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\stalker_zone.png" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Assets\Themes\StalkerApproved\header-emblem-exact.png"
+          DestinationFiles="$(MSBuildProjectDirectory)\Assets\Themes\stalker_symbol.png" />
+  </Target>
+</Project>
