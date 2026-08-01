@@ -1,5 +1,6 @@
 name: MINI Ukraine Widgets Build
 
+# Validation for standalone MINI built from test_42 / v1.0.5.3.
 on:
   push:
     branches: [ "mini-ukraine-widgets" ]
