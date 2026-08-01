@@ -9,9 +9,9 @@ public sealed class AppLogger
 
     public AppLogger()
     {
-        _folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TiHiY", "StreamControlCenter", "Logs");
+        _folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TiHiY", "StreamControlMini", "Logs");
         Directory.CreateDirectory(_folder);
-        _file = Path.Combine(_folder, $"TiHiY-{DateTime.Now:yyyy-MM-dd}.log");
+        _file = Path.Combine(_folder, $"TiHiY-MINI-{DateTime.Now:yyyy-MM-dd}.log");
     }
 
     public string Folder => _folder;
