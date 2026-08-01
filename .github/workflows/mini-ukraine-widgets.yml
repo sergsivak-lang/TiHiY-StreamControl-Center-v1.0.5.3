@@ -3,7 +3,7 @@ name: MINI Ukraine Widgets Build
 # Validation for standalone MINI built from test_42 / v1.0.5.3.
 on:
   push:
-    branches: [ "mini-ukraine-widgets" ]
+    branches: [ "mini-ukraine-widgets", "feature/mini-ukraine-widgets" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
