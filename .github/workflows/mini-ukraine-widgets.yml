@@ -48,6 +48,15 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "MINI screenshot process failed with exit code $($p.ExitCode)." }
           if (-not (Test-Path $shot)) { throw "MINI did not create a screenshot." }
 
+      - name: Smoke test MINI Settings window
+        shell: pwsh
+        run: |
+          $shot = Join-Path $PWD "preview/TiHiY-StreamControl-MINI-Settings.png"
+          $args = @("--ci-screenshot=$shot", "--ci-open-settings", "--ci-settings-theme-preview")
+          $p = Start-Process -FilePath (Resolve-Path "publish-mini/TiHiY.StreamControlMini.exe") -ArgumentList $args -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "MINI Settings screenshot process failed with exit code $($p.ExitCode)." }
+          if (-not (Test-Path $shot)) { throw "MINI did not create Settings screenshot." }
+
       - name: Smoke test all overlay widgets and full AIMP bridge
         shell: pwsh
         run: |
@@ -102,7 +111,7 @@ jobs:
             if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
           }
 
-      - name: Upload MINI screenshot
+      - name: Upload MINI screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
