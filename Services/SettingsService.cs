@@ -33,6 +33,11 @@ public sealed class SettingsService
             Normalize(settings);
             settings.UiTheme = "Україна";
 
+            // MINI не використовує OBS Audio та PC/AIDA64 dashboard.
+            // Віджети, Twitch, YouTube, Donatello та Discord від цього не залежать.
+            settings.AutoConnectObs = false;
+            settings.Aida64MonitoringEnabled = false;
+
             if (!File.Exists(_file))
                 Save(settings);
 
@@ -49,6 +54,8 @@ public sealed class SettingsService
         lock (_gate)
         {
             settings.UiTheme = "Україна";
+            settings.AutoConnectObs = false;
+            settings.Aida64MonitoringEnabled = false;
             Directory.CreateDirectory(_folder);
             var temp = _file + ".tmp";
             File.WriteAllText(temp, JsonSerializer.Serialize(settings, _options));
@@ -73,7 +80,9 @@ public sealed class SettingsService
         var result = new AppSettings
         {
             UiTheme = "Україна",
-            OverlayTheme = "TiHiY-DED Ukraine"
+            OverlayTheme = "TiHiY-DED Ukraine",
+            AutoConnectObs = false,
+            Aida64MonitoringEnabled = false
         };
         result.BotCommands.Add(new BotCommand { Name = "!song", Reply = "Зараз грає: {song}", Target = "Twitch + YouTube", CooldownSeconds = 10 });
         result.ScheduledNotices.Add(new ScheduledNotice
