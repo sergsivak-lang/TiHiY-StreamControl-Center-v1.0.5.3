@@ -36,8 +36,15 @@ public partial class DiscordServersWindow : ModuleWindowBase
             ChannelGrid.IsEnabled = false;
             var token = _services.Discord.LoadBotToken();
             var discovered = await DiscordServerDiscoveryService.DiscoverAsync(token);
+
+            var profiles = _services.Discord.Profiles.Profiles;
             var streamIds = ParseIds(_services.Settings.Value.DiscordChannelIds);
             var donationIds = ParseIds(_services.Settings.Value.DiscordMonetizationChannelIds);
+            foreach (var profile in profiles)
+            {
+                streamIds.UnionWith(profile.StreamChannelIds);
+                donationIds.UnionWith(profile.MonetizationChannelIds);
+            }
 
             _allRows.Clear();
             _allRows.AddRange(discovered.Select(x => new ChannelSelectionRow
@@ -50,7 +57,7 @@ public partial class DiscordServersWindow : ModuleWindowBase
 
             var servers = _allRows.Select(x => x.ServerId).Distinct(StringComparer.Ordinal).Count();
             var usable = _allRows.Count(x => x.IsUsable);
-            StatusText.Text = $"Знайдено серверів: {servers} • текстових каналів: {_allRows.Count} • готові до сповіщень: {usable}.";
+            StatusText.Text = $"Знайдено серверів: {servers} • текстових каналів: {_allRows.Count} • готові: {usable}.";
         }
         catch (Exception ex)
         {
@@ -70,11 +77,15 @@ public partial class DiscordServersWindow : ModuleWindowBase
 
     private void ApplyFilter()
     {
+        var selectedId = (ChannelGrid.SelectedItem as ChannelSelectionRow)?.ChannelId;
         _visibleRows.Clear();
         var usableOnly = UsableOnlyCheck.IsChecked == true;
         foreach (var row in _allRows)
             if (!usableOnly || row.IsUsable)
                 _visibleRows.Add(row);
+
+        if (!string.IsNullOrWhiteSpace(selectedId))
+            ChannelGrid.SelectedItem = _visibleRows.FirstOrDefault(x => x.ChannelId == selectedId);
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
@@ -82,7 +93,7 @@ public partial class DiscordServersWindow : ModuleWindowBase
         try
         {
             SaveSelection();
-            StatusText.Text = "Вибір Discord-каналів збережено.";
+            StatusText.Text = "Канали та профілі Discord-серверів збережено.";
         }
         catch (Exception ex) { ShowError("Збереження Discord-каналів", ex); }
     }
@@ -100,7 +111,32 @@ public partial class DiscordServersWindow : ModuleWindowBase
             _allRows.Where(x => x.StreamSelected && x.IsUsable).Select(x => x.ChannelId).Distinct(StringComparer.Ordinal));
         _services.Settings.Value.DiscordMonetizationChannelIds = string.Join(Environment.NewLine,
             _allRows.Where(x => x.MonetizationSelected && x.IsUsable).Select(x => x.ChannelId).Distinct(StringComparer.Ordinal));
+
+        _services.Discord.Profiles.SynchronizeChannels(
+            _allRows.Select(x => (x.ServerId, x.ServerName, x.ChannelId, x.StreamSelected && x.IsUsable, x.MonetizationSelected && x.IsUsable)),
+            _services.Settings.Value.DiscordMention,
+            _services.Settings.Value.DiscordMessageTemplate,
+            _services.Settings.Value.DiscordMonetizationMention);
+
         _services.Save();
+    }
+
+    private void Profile_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (ChannelGrid.SelectedItem is not ChannelSelectionRow row)
+            {
+                MessageBox.Show(this, "Спочатку виділи будь-який канал потрібного Discord-сервера.", "Профіль сервера", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            SaveSelection();
+            var editor = new DiscordServerProfileWindow(row.ServerId, row.ServerName) { Owner = this };
+            editor.ShowDialog();
+            StatusText.Text = $"Профіль сервера «{row.ServerName}» закрито. Зміни збережені окремо для цього сервера.";
+        }
+        catch (Exception ex) { ShowError("Профіль Discord-сервера", ex); }
     }
 
     private async void TestStreams_Click(object sender, RoutedEventArgs e)
@@ -109,7 +145,7 @@ public partial class DiscordServersWindow : ModuleWindowBase
         {
             SaveSelection();
             await _services.Discord.TestAsync();
-            StatusText.Text = "Тест стрімів надіслано в усі вибрані канали.";
+            StatusText.Text = "Тест стрімів надіслано з персональним текстом кожного сервера.";
         }
         catch (Exception ex) { ShowError("Тест каналів стрімів", ex); }
     }
@@ -120,7 +156,7 @@ public partial class DiscordServersWindow : ModuleWindowBase
         {
             SaveSelection();
             await _services.Discord.TestMonetizationAsync();
-            StatusText.Text = "Тест донатів надіслано в усі вибрані канали.";
+            StatusText.Text = "Тест донатів надіслано з персональним текстом кожного сервера.";
         }
         catch (Exception ex) { ShowError("Тест каналів донатів", ex); }
     }
