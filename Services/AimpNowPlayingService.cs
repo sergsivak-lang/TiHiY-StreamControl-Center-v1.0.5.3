@@ -1,16 +1,26 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Windows.Media.Control;
 using Windows.Storage.Streams;
 
 namespace TiHiY.StreamControlCenter.Services;
 
 /// <summary>
-/// Event-driven AIMP integration for MINI via Windows Global Media Sessions.
-/// No polling timer and no audio engine are created. AIMP pushes media/playback/timeline
-/// changes to Windows; MINI only caches the latest state for the overlay.
+/// Event-driven AIMP metadata integration via Windows Global Media Sessions.
+/// Exact position/duration are read on demand from the official AIMP Remote Access API.
+/// There is no background polling timer: a cached Remote API read happens only when the
+/// overlay/API requests the current state, at most twice per second.
 /// </summary>
 public sealed class AimpNowPlayingService : IAsyncDisposable
 {
+    private const string AimpRemoteWindowClass = "AIMP2_RemoteInfo";
+    private const uint WmUser = 0x0400;
+    private const uint WmAimpProperty = WmUser + 0x77;
+    private const uint AimpPropertyPlayerPosition = 0x20;
+    private const uint AimpPropertyPlayerDuration = 0x30;
+    private const uint AimpPropertyPlayerState = 0x40;
+    private const uint SmtoAbortIfHung = 0x0002;
+
     private readonly object _gate = new();
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private GlobalSystemMediaTransportControlsSessionManager? _manager;
@@ -19,6 +29,7 @@ public sealed class AimpNowPlayingService : IAsyncDisposable
     private AimpCoverPayload _cover = AimpCoverPayload.Empty;
     private DateTimeOffset _timelineCapturedAt = DateTimeOffset.UtcNow;
     private DateTimeOffset _lastFallbackScan = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastRemoteTimelineRead = DateTimeOffset.MinValue;
     private bool _disposed;
 
     public event EventHandler? Changed;
@@ -36,12 +47,18 @@ public sealed class AimpNowPlayingService : IAsyncDisposable
         catch
         {
             // Windows media-session integration may be unavailable/disabled.
-            // The synchronous title fallback in Read() remains available.
+            // Window-title fallback and AIMP Remote Access timeline remain available.
         }
     }
 
     public AimpTrackSnapshot Read()
     {
+        bool needsFallback;
+        lock (_gate) needsFallback = !_snapshot.Active || string.IsNullOrWhiteSpace(_snapshot.Title);
+        if (needsFallback) ReadFallbackTitleIfNeeded();
+
+        RefreshRemoteTimelineIfDue();
+
         lock (_gate)
         {
             var current = _snapshot;
@@ -51,12 +68,8 @@ public sealed class AimpNowPlayingService : IAsyncDisposable
                 var position = Math.Clamp(current.PositionSeconds + elapsed, 0, current.DurationSeconds);
                 return current with { PositionSeconds = position };
             }
-
-            if (current.Active)
-                return current;
+            return current;
         }
-
-        return ReadFallbackTitleIfNeeded();
     }
 
     public AimpCoverPayload ReadCover()
@@ -99,6 +112,70 @@ public sealed class AimpNowPlayingService : IAsyncDisposable
         catch { return false; }
     }
 
+    private void RefreshRemoteTimelineIfDue()
+    {
+        var now = DateTimeOffset.UtcNow;
+        lock (_gate)
+        {
+            if (now - _lastRemoteTimelineRead < TimeSpan.FromMilliseconds(500)) return;
+            _lastRemoteTimelineRead = now;
+        }
+
+        var window = FindWindow(AimpRemoteWindowClass, null);
+        if (window == IntPtr.Zero) return;
+
+        if (!TryReadAimpProperty(window, AimpPropertyPlayerState, out var rawState)) return;
+        _ = TryReadAimpProperty(window, AimpPropertyPlayerPosition, out var rawPosition);
+        _ = TryReadAimpProperty(window, AimpPropertyPlayerDuration, out var rawDuration);
+
+        var state = (int)Math.Clamp(rawState, 0, 2);
+        var position = Math.Max(0, rawPosition) / 1000d;
+        var duration = Math.Max(0, rawDuration) / 1000d;
+
+        lock (_gate)
+        {
+            var current = _snapshot;
+            var mode = current.IntegrationMode switch
+            {
+                "WindowsMediaSession" => "WindowsMediaSession+AIMPRemote",
+                "WindowTitle" => "WindowTitle+AIMPRemote",
+                "Unavailable" => "AIMPRemote",
+                _ when current.IntegrationMode.Contains("AIMPRemote", StringComparison.OrdinalIgnoreCase) => current.IntegrationMode,
+                _ => current.IntegrationMode + "+AIMPRemote"
+            };
+
+            _timelineCapturedAt = now;
+            _snapshot = current with
+            {
+                Active = state != 0 || current.Active,
+                PositionSeconds = position,
+                DurationSeconds = duration,
+                IsPlaying = state == 2,
+                IntegrationMode = mode
+            };
+        }
+    }
+
+    private static bool TryReadAimpProperty(IntPtr window, uint property, out long value)
+    {
+        value = 0;
+        try
+        {
+            var ok = SendMessageTimeout(
+                window,
+                WmAimpProperty,
+                new UIntPtr(property),
+                IntPtr.Zero,
+                SmtoAbortIfHung,
+                120,
+                out var result);
+            if (ok == IntPtr.Zero) return false;
+            value = unchecked((long)result.ToUInt64());
+            return true;
+        }
+        catch { return false; }
+    }
+
     private async void Manager_SessionsChanged(GlobalSystemMediaTransportControlsSessionManager sender, SessionsChangedEventArgs args)
     {
         try { await SelectAimpSessionAsync().ConfigureAwait(false); } catch { }
@@ -112,8 +189,7 @@ public sealed class AimpNowPlayingService : IAsyncDisposable
     private async Task SelectAimpSessionAsync()
     {
         if (_disposed || _manager is null) return;
-        var next = _manager.GetSessions()
-            .FirstOrDefault(IsAimpSession);
+        var next = _manager.GetSessions().FirstOrDefault(IsAimpSession);
 
         GlobalSystemMediaTransportControlsSession? previous;
         lock (_gate) previous = _session;
@@ -300,16 +376,14 @@ public sealed class AimpNowPlayingService : IAsyncDisposable
     {
         lock (_gate)
         {
-            if (DateTimeOffset.UtcNow - _lastFallbackScan < TimeSpan.FromSeconds(2))
-                return _snapshot;
+            if (DateTimeOffset.UtcNow - _lastFallbackScan < TimeSpan.FromSeconds(2)) return _snapshot;
             _lastFallbackScan = DateTimeOffset.UtcNow;
         }
 
         var fallback = ReadProcessTitleFallback();
         lock (_gate)
         {
-            if (_session is null)
-                _snapshot = fallback;
+            if (_session is null) _snapshot = fallback;
             return _snapshot;
         }
     }
@@ -322,10 +396,7 @@ public sealed class AimpNowPlayingService : IAsyncDisposable
 
         try
         {
-            var aimp = processes
-                .Where(SafeProcessNameStartsWithAimp)
-                .OrderByDescending(SafeHasMainWindow)
-                .FirstOrDefault();
+            var aimp = processes.Where(SafeProcessNameStartsWithAimp).OrderByDescending(SafeHasMainWindow).FirstOrDefault();
             if (aimp is null) return AimpTrackSnapshot.Empty;
 
             var caption = CleanCaption(SafeCaption(aimp));
@@ -375,8 +446,7 @@ public sealed class AimpNowPlayingService : IAsyncDisposable
     {
         var text = value.Trim();
         foreach (var suffix in new[] { " - AIMP", " — AIMP", " – AIMP", " [AIMP]", " | AIMP" })
-            if (text.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
-                return text[..^suffix.Length].Trim();
+            if (text.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) return text[..^suffix.Length].Trim();
         return text;
     }
 
@@ -410,6 +480,19 @@ public sealed class AimpNowPlayingService : IAsyncDisposable
         _refreshGate.Dispose();
         return ValueTask.CompletedTask;
     }
+
+    [DllImport("user32.dll", CharSet = CharSet.Ansi, SetLastError = true)]
+    private static extern IntPtr FindWindow(string lpClassName, string? lpWindowName);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr SendMessageTimeout(
+        IntPtr hWnd,
+        uint msg,
+        UIntPtr wParam,
+        IntPtr lParam,
+        uint flags,
+        uint timeout,
+        out UIntPtr result);
 }
 
 public sealed record AimpTrackSnapshot(
