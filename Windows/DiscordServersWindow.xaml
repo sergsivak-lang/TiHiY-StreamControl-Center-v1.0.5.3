@@ -3,16 +3,16 @@
     xmlns:services="clr-namespace:TiHiY.StreamControlCenter.Services"
     x:Class="TiHiY.StreamControlCenter.Windows.DiscordServersWindow"
     Title="Discord сервери та канали"
-    Width="1240" Height="780" MinWidth="880" MinHeight="560"
+    Width="1240" Height="800" MinWidth="920" MinHeight="620"
     WindowStyle="None" ResizeMode="CanResize" WindowStartupLocation="CenterOwner"
     Loaded="Window_Loaded">
     <Border BorderBrush="{DynamicResource Line}" BorderThickness="1" Background="{DynamicResource WindowGradient}">
         <Grid x:Name="DesignSurface" Margin="10">
             <Grid.RowDefinitions>
                 <RowDefinition Height="58"/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="76"/>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="58"/>
+                <RowDefinition Height="104"/>
             </Grid.RowDefinitions>
 
             <Border Background="{DynamicResource Panel2}" BorderBrush="{DynamicResource Amber}" BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
@@ -31,12 +31,22 @@
 
             <Border Grid.Row="1" Style="{StaticResource PanelBorder}" Margin="0,10,0,10" Padding="10">
                 <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                    <Button Grid.Column="0" Content="ОНОВИТИ СЕРВЕРИ" Click="Refresh_Click" Background="#1453A5"/>
-                    <Button Grid.Column="1" Content="ДОДАТИ БОТА НА СЕРВЕР" Click="InviteBot_Click" Margin="8,0,0,0" Background="#293577"/>
-                    <Button Grid.Column="2" Content="ВІДКРИТИ ВИБРАНИЙ КАНАЛ" Click="OpenSelected_Click" Margin="8,0,0,0"/>
-                    <TextBlock Grid.Column="3" x:Name="StatusText" Text="Готово до пошуку Discord-серверів." Foreground="{DynamicResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="14,0"/>
-                    <CheckBox Grid.Column="4" x:Name="UsableOnlyCheck" Content="Тільки доступні" IsChecked="False" VerticalAlignment="Center" Checked="Filter_Changed" Unchecked="Filter_Changed"/>
+                    <Grid.RowDefinitions><RowDefinition Height="38"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="205"/>
+                            <ColumnDefinition Width="225"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="135"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="ОНОВИТИ СЕРВЕРИ" Click="Refresh_Click" Background="#1453A5" Height="34" MinHeight="34"/>
+                        <Button Grid.Column="1" Content="ДОДАТИ БОТА НА СЕРВЕР" Click="InviteBot_Click" Margin="8,0,0,0" Background="#293577" Height="34" MinHeight="34"/>
+                        <Button Grid.Column="2" Content="ВІДКРИТИ ВИБРАНИЙ КАНАЛ" Click="OpenSelected_Click" Margin="8,0,0,0" Height="34" MinHeight="34"/>
+                        <TextBlock Grid.Column="3" x:Name="StatusText" Text="Готово до пошуку Discord-серверів." Foreground="{DynamicResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="14,0"/>
+                        <CheckBox Grid.Column="4" x:Name="UsableOnlyCheck" Content="Тільки доступні" IsChecked="False" VerticalAlignment="Center" Checked="Filter_Changed" Unchecked="Filter_Changed"/>
+                    </Grid>
+                    <TextBlock Grid.Row="1" Text="Вибери канали галочками. Для кожного сервера можна окремо вказати стріми та донати." Foreground="{DynamicResource Muted}" VerticalAlignment="Bottom" Margin="2,4,0,0"/>
                 </Grid>
             </Border>
 
@@ -46,28 +56,29 @@
                     HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                     SelectionMode="Single" SelectionUnit="FullRow" IsReadOnly="False"
                     Background="{DynamicResource Panel}" Foreground="{DynamicResource Text}"
-                    BorderThickness="0" RowHeaderWidth="0">
+                    BorderThickness="0" RowHeaderWidth="0" RowHeight="38" ColumnHeaderHeight="36">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="СЕРВЕР" Binding="{Binding ServerName}" Width="1.15*" IsReadOnly="True"/>
-                        <DataGridTextColumn Header="КАНАЛ" Binding="{Binding DisplayChannel}" Width="1.4*" IsReadOnly="True"/>
-                        <DataGridTextColumn Header="ПРАВА БОТА" Binding="{Binding PermissionSummary}" Width="210" IsReadOnly="True"/>
-                        <DataGridCheckBoxColumn Header="СТРІМИ" Binding="{Binding StreamSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="85"/>
-                        <DataGridCheckBoxColumn Header="ДОНАТИ" Binding="{Binding MonetizationSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="85"/>
+                        <DataGridTextColumn Header="СЕРВЕР" Binding="{Binding ServerName}" Width="1.15*" MinWidth="170" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="КАНАЛ" Binding="{Binding DisplayChannel}" Width="1.45*" MinWidth="220" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="ПРАВА БОТА" Binding="{Binding PermissionSummary}" Width="1.15*" MinWidth="220" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="СТРІМИ" Binding="{Binding StreamSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="95"/>
+                        <DataGridCheckBoxColumn Header="ДОНАТИ" Binding="{Binding MonetizationSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="95"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </Border>
 
-            <Border Grid.Row="3" Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="5" Padding="9" Margin="0,10,0,0">
+            <Border Grid.Row="3" Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,10,0,0">
                 <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="42"/></Grid.RowDefinitions>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="Галочки автоматично замінюють ручний список Channel ID." Foreground="{DynamicResource Green}" FontWeight="Bold"/>
-                        <TextBlock Text="Для сповіщень потрібні View Channel + Send Messages + Embed Links. @everyone показується окремо." Foreground="{DynamicResource Muted}" Margin="0,3,0,0"/>
+                        <TextBlock Text="Для сповіщень потрібні View Channel + Send Messages + Embed Links. @everyone показується окремо." Foreground="{DynamicResource Muted}" Margin="0,3,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <Button Content="ТЕСТ СТРІМІВ" Click="TestStreams_Click" Background="#56408A"/>
-                        <Button Content="ТЕСТ ДОНАТІВ" Click="TestDonations_Click" Margin="8,0,0,0" Background="#7A5A10"/>
-                        <Button Content="ЗБЕРЕГТИ ВИБІР" Click="Save_Click" Margin="8,0,0,0" Background="#145F43"/>
-                        <Button Content="ЗАКРИТИ" Click="Close_Click" Margin="8,0,0,0"/>
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                        <Button Content="ТЕСТ СТРІМІВ" Click="TestStreams_Click" Background="#56408A" Height="34" MinHeight="34" MinWidth="125"/>
+                        <Button Content="ТЕСТ ДОНАТІВ" Click="TestDonations_Click" Margin="8,0,0,0" Background="#7A5A10" Height="34" MinHeight="34" MinWidth="125"/>
+                        <Button Content="ЗБЕРЕГТИ ВИБІР" Click="Save_Click" Margin="8,0,0,0" Background="#145F43" Height="34" MinHeight="34" MinWidth="150"/>
+                        <Button Content="ЗАКРИТИ" Click="Close_Click" Margin="8,0,0,0" Height="34" MinHeight="34" MinWidth="95"/>
                     </StackPanel>
                 </Grid>
             </Border>
