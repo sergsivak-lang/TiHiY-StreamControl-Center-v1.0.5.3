@@ -14,6 +14,7 @@ public sealed class AppServices : IAsyncDisposable
     public Aida64SensorService SystemMonitor { get; }
     public MusicPlayerService Music => _music ??= CreateMusicPlayer();
     public AimpNowPlayingService Aimp { get; } = new();
+    public AimpOverlayServer AimpOverlay { get; }
     public DonationService Donations { get; }
     public DonatelloService Donatello { get; }
     public UiScaleService UiScale { get; }
@@ -50,6 +51,7 @@ public sealed class AppServices : IAsyncDisposable
         Discord = new DiscordNotificationService(Settings, SettingsService, Credentials, Logger);
         Donatello = new DonatelloService(Settings, SettingsService, Credentials, Logger);
         Notifications = new StreamNotificationBotService(Settings, SettingsService, Credentials, Twitch, YouTube, Discord, Logger);
+        AimpOverlay = new AimpOverlayServer(Aimp);
         Donations.GoalAmount = Settings.Value.DonationGoalAmount;
         Donations.GoalInitialAmount = Math.Max(0, Settings.Value.DonationGoalInitialAmount);
         Donations.GoalCurrency = string.IsNullOrWhiteSpace(Settings.Value.DonationGoalCurrency) ? "UAH" : Settings.Value.DonationGoalCurrency.Trim().ToUpperInvariant();
@@ -87,8 +89,8 @@ public sealed class AppServices : IAsyncDisposable
 
     private MusicPlayerService CreateMusicPlayer()
     {
-        // Legacy compatibility only. The MINI header does not expose this player;
-        // Now Playing uses AIMP. Therefore MediaPlayer is not created during normal MINI startup.
+        // Legacy compatibility only. MINI Now Playing uses AIMP and never creates this
+        // MediaPlayer unless an old hidden module explicitly accesses Music.
         var player = new MusicPlayerService();
         player.PlaybackError += (_, m) => Logger.Error($"Плеєр: {m}");
         player.Restore(Settings.Value.MusicPlaylistPaths);
@@ -98,6 +100,15 @@ public sealed class AppServices : IAsyncDisposable
     public async Task InitializeAsync()
     {
         Chat.Start();
+
+        try
+        {
+            await Aimp.InitializeAsync();
+            await AimpOverlay.StartAsync(Math.Clamp(Settings.Value.OverlayPort + 1, 1025, 65525));
+            Logger.Info($"AIMP Now Playing: http://127.0.0.1:{AimpOverlay.Port}/overlay/now-playing");
+        }
+        catch (Exception ex) { Logger.Error("AIMP Now Playing не запущено", ex); }
+
         try
         {
             await Overlay.StartAsync(Settings.Value.OverlayPort);
@@ -336,9 +347,13 @@ public sealed class AppServices : IAsyncDisposable
             active = track.Active && !string.IsNullOrWhiteSpace(track.Title),
             title = track.Title,
             artist = track.Artist,
+            album = track.Album,
             positionSeconds = track.PositionSeconds,
             durationSeconds = track.DurationSeconds,
-            source = track.Source
+            isPlaying = track.IsPlaying,
+            coverVersion = track.CoverVersion,
+            source = track.Source,
+            integrationMode = track.IntegrationMode
         };
     }
 
@@ -355,6 +370,8 @@ public sealed class AppServices : IAsyncDisposable
         try { await Twitch.DisposeAsync().ConfigureAwait(false); } catch { }
         try { await YouTube.DisposeAsync().ConfigureAwait(false); } catch { }
         try { Discord.Dispose(); } catch { }
+        try { await AimpOverlay.DisposeAsync().ConfigureAwait(false); } catch { }
+        try { await Aimp.DisposeAsync().ConfigureAwait(false); } catch { }
         try { await Overlay.StopAsync().ConfigureAwait(false); } catch { }
         try { await Obs.DisconnectAsync().ConfigureAwait(false); } catch { }
     }
