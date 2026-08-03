@@ -1,0 +1,76 @@
+<services:ModuleWindowBase xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:services="clr-namespace:TiHiY.StreamControlCenter.Services"
+    x:Class="TiHiY.StreamControlCenter.Windows.DiscordServersWindow"
+    Title="Discord сервери та канали"
+    Width="1240" Height="780" MinWidth="880" MinHeight="560"
+    WindowStyle="None" ResizeMode="CanResize" WindowStartupLocation="CenterOwner"
+    Loaded="Window_Loaded">
+    <Border BorderBrush="{DynamicResource Line}" BorderThickness="1" Background="{DynamicResource WindowGradient}">
+        <Grid x:Name="DesignSurface" Margin="10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="58"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="58"/>
+            </Grid.RowDefinitions>
+
+            <Border Background="{DynamicResource Panel2}" BorderBrush="{DynamicResource Amber}" BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <Grid Margin="14,0">
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="DISCORD СЕРВЕРИ ТА КАНАЛИ" FontSize="21" FontWeight="Bold" Foreground="{DynamicResource Amber}"/>
+                        <TextBlock Text="Автоматичний пошук серверів бота • вибір каналів для стрімів і донатів" FontSize="11" Foreground="{DynamicResource Muted}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button Style="{StaticResource WindowButton}" Content="—" Width="40" Padding="0" Click="Minimize_Click"/>
+                        <Button Style="{StaticResource WindowButton}" Content="□" Width="40" Padding="0" Click="Maximize_Click"/>
+                        <Button Style="{StaticResource WindowButton}" Content="×" Width="40" Padding="0" Background="#3B0D13" BorderBrush="{DynamicResource Red}" Click="Close_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="1" Style="{StaticResource PanelBorder}" Margin="0,10,0,10" Padding="10">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Content="ОНОВИТИ СЕРВЕРИ" Click="Refresh_Click" Background="#1453A5"/>
+                    <Button Grid.Column="1" Content="ДОДАТИ БОТА НА СЕРВЕР" Click="InviteBot_Click" Margin="8,0,0,0" Background="#293577"/>
+                    <Button Grid.Column="2" Content="ВІДКРИТИ ВИБРАНИЙ КАНАЛ" Click="OpenSelected_Click" Margin="8,0,0,0"/>
+                    <TextBlock Grid.Column="3" x:Name="StatusText" Text="Готово до пошуку Discord-серверів." Foreground="{DynamicResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="14,0"/>
+                    <CheckBox Grid.Column="4" x:Name="UsableOnlyCheck" Content="Тільки доступні" IsChecked="False" VerticalAlignment="Center" Checked="Filter_Changed" Unchecked="Filter_Changed"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="2" Style="{StaticResource PanelBorder}" Padding="8">
+                <DataGrid x:Name="ChannelGrid"
+                    AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                    HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                    SelectionMode="Single" SelectionUnit="FullRow" IsReadOnly="False"
+                    Background="{DynamicResource Panel}" Foreground="{DynamicResource Text}"
+                    BorderThickness="0" RowHeaderWidth="0">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="СЕРВЕР" Binding="{Binding ServerName}" Width="1.15*" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="КАНАЛ" Binding="{Binding DisplayChannel}" Width="1.4*" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="ПРАВА БОТА" Binding="{Binding PermissionSummary}" Width="210" IsReadOnly="True"/>
+                        <DataGridCheckBoxColumn Header="СТРІМИ" Binding="{Binding StreamSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="85"/>
+                        <DataGridCheckBoxColumn Header="ДОНАТИ" Binding="{Binding MonetizationSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="85"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+
+            <Border Grid.Row="3" Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="5" Padding="9" Margin="0,10,0,0">
+                <Grid>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Галочки автоматично замінюють ручний список Channel ID." Foreground="{DynamicResource Green}" FontWeight="Bold"/>
+                        <TextBlock Text="Для сповіщень потрібні View Channel + Send Messages + Embed Links. @everyone показується окремо." Foreground="{DynamicResource Muted}" Margin="0,3,0,0"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button Content="ТЕСТ СТРІМІВ" Click="TestStreams_Click" Background="#56408A"/>
+                        <Button Content="ТЕСТ ДОНАТІВ" Click="TestDonations_Click" Margin="8,0,0,0" Background="#7A5A10"/>
+                        <Button Content="ЗБЕРЕГТИ ВИБІР" Click="Save_Click" Margin="8,0,0,0" Background="#145F43"/>
+                        <Button Content="ЗАКРИТИ" Click="Close_Click" Margin="8,0,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</services:ModuleWindowBase>
