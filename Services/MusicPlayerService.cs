@@ -37,7 +37,7 @@ public sealed class MusicPlayerService : IDisposable
         _player.MediaOpened += (_, _) => TrackChanged?.Invoke(this, EventArgs.Empty);
         _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _timer.Tick += (_, _) => PositionChanged?.Invoke(this, EventArgs.Empty);
-        _timer.Start();
+        // У MINI таймер позиції не працює постійно у фоні. Він стартує лише під час відтворення.
         Volume = 0.65;
     }
 
@@ -58,6 +58,7 @@ public sealed class MusicPlayerService : IDisposable
         _player.Open(new Uri(Playlist[index].FilePath, UriKind.Absolute));
         _player.Play();
         _isPaused = false;
+        if (!_timer.IsEnabled) _timer.Start();
         TrackChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -73,11 +74,13 @@ public sealed class MusicPlayerService : IDisposable
         {
             _player.Play();
             _isPaused = false;
+            if (!_timer.IsEnabled) _timer.Start();
         }
         else
         {
             _player.Pause();
             _isPaused = true;
+            _timer.Stop();
         }
         TrackChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -96,6 +99,7 @@ public sealed class MusicPlayerService : IDisposable
     {
         _player.Stop();
         _isPaused = true;
+        _timer.Stop();
         TrackChanged?.Invoke(this, EventArgs.Empty);
     }
 
