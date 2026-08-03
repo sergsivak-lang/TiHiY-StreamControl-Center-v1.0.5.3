@@ -5,13 +5,15 @@ namespace TiHiY.StreamControlCenter.Services;
 public sealed class AppServices : IAsyncDisposable
 {
     private int _disposeState;
+    private MusicPlayerService? _music;
     public SettingsService SettingsService { get; } = new();
     public AppSettingsAccessor Settings { get; } = new();
     public AppLogger Logger { get; } = new();
     public CredentialService Credentials { get; } = new();
     public ObsWebSocketService Obs { get; } = new();
     public Aida64SensorService SystemMonitor { get; }
-    public MusicPlayerService Music { get; } = new();
+    public MusicPlayerService Music => _music ??= CreateMusicPlayer();
+    public AimpNowPlayingService Aimp { get; } = new();
     public DonationService Donations { get; }
     public DonatelloService Donatello { get; }
     public UiScaleService UiScale { get; }
@@ -51,13 +53,12 @@ public sealed class AppServices : IAsyncDisposable
         Donations.GoalAmount = Settings.Value.DonationGoalAmount;
         Donations.GoalInitialAmount = Math.Max(0, Settings.Value.DonationGoalInitialAmount);
         Donations.GoalCurrency = string.IsNullOrWhiteSpace(Settings.Value.DonationGoalCurrency) ? "UAH" : Settings.Value.DonationGoalCurrency.Trim().ToUpperInvariant();
-        Chat.SongProvider = () => Music.CurrentTrack?.Display ?? "нічого";
+        Chat.SongProvider = Aimp.CurrentSongText;
         Chat.MessageSender = SendChatAsync;
-        Music.Restore(Settings.Value.MusicPlaylistPaths);
         Overlay = new OverlayServer(
             () => Application.Current.Dispatcher.Invoke(() => (IReadOnlyList<ChatMessage>)Chat.Messages.ToList()),
             () => Application.Current.Dispatcher.Invoke(() => (IReadOnlyList<DonationEvent>)Donations.History.ToList()),
-            () => Application.Current.Dispatcher.Invoke(BuildNowPlayingPayload),
+            BuildNowPlayingPayload,
             () => new
             {
                 twitchViewers = Settings.Value.TwitchViewers,
@@ -70,7 +71,6 @@ public sealed class AppServices : IAsyncDisposable
             () => Settings.Value.OverlayTheme,
             () => Settings.Value);
         Obs.Log += (_, m) => Logger.Info(m);
-        Music.PlaybackError += (_, m) => Logger.Error($"Плеєр: {m}");
         Twitch.MessageReceived += Channel_MessageReceived;
         YouTube.MessageReceived += Channel_MessageReceived;
         Twitch.DonationReceived += Channel_DonationReceived;
@@ -83,6 +83,16 @@ public sealed class AppServices : IAsyncDisposable
         YouTube.StatusChanged += Channel_StatusChanged;
         Twitch.StatsChanged += Channel_StatsChanged;
         YouTube.StatsChanged += Channel_StatsChanged;
+    }
+
+    private MusicPlayerService CreateMusicPlayer()
+    {
+        // Legacy compatibility only. The MINI header does not expose this player;
+        // Now Playing uses AIMP. Therefore MediaPlayer is not created during normal MINI startup.
+        var player = new MusicPlayerService();
+        player.PlaybackError += (_, m) => Logger.Error($"Плеєр: {m}");
+        player.Restore(Settings.Value.MusicPlaylistPaths);
+        return player;
     }
 
     public async Task InitializeAsync()
@@ -243,7 +253,8 @@ public sealed class AppServices : IAsyncDisposable
         Settings.Value.DonationGoalCurrency = Donations.GoalCurrency;
         Settings.Value.ScheduledNotices = Chat.Notices.ToList();
         Settings.Value.BotCommands = Chat.Commands.ToList();
-        Settings.Value.MusicPlaylistPaths = Music.Playlist.Select(x => x.FilePath).ToList();
+        if (_music is not null)
+            Settings.Value.MusicPlaylistPaths = _music.Playlist.Select(x => x.FilePath).ToList();
         SettingsService.Save(Settings.Value);
     }
 
@@ -319,14 +330,15 @@ public sealed class AppServices : IAsyncDisposable
 
     private object BuildNowPlayingPayload()
     {
-        var track = Music.CurrentTrack;
+        var track = Aimp.Read();
         return new
         {
-            active = track is not null && (Music.IsPlaying || Music.Position > TimeSpan.Zero),
-            title = track?.Title ?? string.Empty,
-            artist = track?.Artist ?? string.Empty,
-            positionSeconds = Music.Position.TotalSeconds,
-            durationSeconds = Music.Duration.TotalSeconds
+            active = track.Active && !string.IsNullOrWhiteSpace(track.Title),
+            title = track.Title,
+            artist = track.Artist,
+            positionSeconds = track.PositionSeconds,
+            durationSeconds = track.DurationSeconds,
+            source = track.Source
         };
     }
 
@@ -336,7 +348,7 @@ public sealed class AppServices : IAsyncDisposable
 
         try { Chat.Stop(); } catch { }
         try { Save(); } catch { }
-        try { Music.Dispose(); } catch { }
+        try { _music?.Dispose(); } catch { }
 
         try { await Notifications.DisposeAsync().ConfigureAwait(false); } catch { }
         try { await Donatello.DisposeAsync().ConfigureAwait(false); } catch { }
