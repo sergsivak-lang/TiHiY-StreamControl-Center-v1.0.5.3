@@ -73,7 +73,8 @@ jobs:
               "http://127.0.0.1:17845/overlay/now-playing?theme=TiHiY-DED%20Ukraine",
               "http://127.0.0.1:17845/api/chat",
               "http://127.0.0.1:17845/api/donations",
-              "http://127.0.0.1:17845/api/donation-summary"
+              "http://127.0.0.1:17845/api/donation-summary",
+              "http://127.0.0.1:17845/api/now-playing"
             )
             foreach ($url in $urls) {
               $r = Invoke-WebRequest -UseBasicParsing $url -TimeoutSec 5
@@ -81,6 +82,10 @@ jobs:
               if ([string]::IsNullOrWhiteSpace($r.Content)) { throw "Widget returned empty content: $url" }
               Write-Host "OK $url ($($r.Content.Length) chars)"
             }
+
+            $np = Invoke-RestMethod "http://127.0.0.1:17845/api/now-playing" -TimeoutSec 5
+            if ($np.source -ne "AIMP") { throw "Now Playing source is not AIMP." }
+            Write-Host "OK AIMP now-playing provider: active=$($np.active) source=$($np.source)"
           }
           finally {
             if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
