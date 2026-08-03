@@ -11,42 +11,21 @@ public sealed class AimpNowPlayingService
 {
     private static readonly string[] ProcessPrefixes = { "AIMP" };
     private static readonly string[] Separators = { " — ", " – ", " - " };
+    private readonly object _gate = new();
+    private DateTime _lastReadUtc = DateTime.MinValue;
+    private AimpTrackSnapshot _cached = new(false, string.Empty, string.Empty, 0, 0, "AIMP");
 
     public AimpTrackSnapshot Read()
     {
-        try
+        lock (_gate)
         {
-            foreach (var process in Process.GetProcesses()
-                         .Where(p => ProcessPrefixes.Any(prefix => p.ProcessName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
-                         .OrderByDescending(p => SafeHasMainWindow(p)))
-            {
-                using (process)
-                {
-                    var caption = SafeCaption(process);
-                    if (string.IsNullOrWhiteSpace(caption))
-                    {
-                        // AIMP is running but Windows does not currently expose a usable title.
-                        return new AimpTrackSnapshot(true, string.Empty, string.Empty, 0, 0, "AIMP");
-                    }
+            if (DateTime.UtcNow - _lastReadUtc < TimeSpan.FromMilliseconds(800))
+                return _cached;
 
-                    caption = CleanCaption(caption);
-                    var (artist, title) = SplitArtistAndTitle(caption);
-                    return new AimpTrackSnapshot(
-                        true,
-                        string.IsNullOrWhiteSpace(title) ? caption : title,
-                        artist,
-                        0,
-                        0,
-                        "AIMP");
-                }
-            }
+            _lastReadUtc = DateTime.UtcNow;
+            _cached = ReadCore();
+            return _cached;
         }
-        catch
-        {
-            // Overlay requests must never crash MINI if AIMP closes between process enumeration and read.
-        }
-
-        return new AimpTrackSnapshot(false, string.Empty, string.Empty, 0, 0, "AIMP");
     }
 
     public string CurrentSongText()
@@ -56,6 +35,59 @@ public sealed class AimpNowPlayingService
         if (!string.IsNullOrWhiteSpace(track.Artist) && !string.IsNullOrWhiteSpace(track.Title))
             return $"{track.Artist} — {track.Title}";
         return string.IsNullOrWhiteSpace(track.Title) ? "AIMP" : track.Title;
+    }
+
+    private static AimpTrackSnapshot ReadCore()
+    {
+        Process[] processes;
+        try { processes = Process.GetProcesses(); }
+        catch { return new AimpTrackSnapshot(false, string.Empty, string.Empty, 0, 0, "AIMP"); }
+
+        try
+        {
+            var aimp = processes
+                .Where(p => SafeProcessNameStartsWithAimp(p))
+                .OrderByDescending(SafeHasMainWindow)
+                .FirstOrDefault();
+
+            if (aimp is null)
+                return new AimpTrackSnapshot(false, string.Empty, string.Empty, 0, 0, "AIMP");
+
+            var caption = SafeCaption(aimp);
+            if (string.IsNullOrWhiteSpace(caption))
+                return new AimpTrackSnapshot(true, string.Empty, string.Empty, 0, 0, "AIMP");
+
+            caption = CleanCaption(caption);
+            var (artist, title) = SplitArtistAndTitle(caption);
+            return new AimpTrackSnapshot(
+                true,
+                string.IsNullOrWhiteSpace(title) ? caption : title,
+                artist,
+                0,
+                0,
+                "AIMP");
+        }
+        catch
+        {
+            return new AimpTrackSnapshot(false, string.Empty, string.Empty, 0, 0, "AIMP");
+        }
+        finally
+        {
+            foreach (var process in processes)
+            {
+                try { process.Dispose(); } catch { }
+            }
+        }
+    }
+
+    private static bool SafeProcessNameStartsWithAimp(Process process)
+    {
+        try
+        {
+            var name = process.ProcessName;
+            return ProcessPrefixes.Any(prefix => name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+        }
+        catch { return false; }
     }
 
     private static bool SafeHasMainWindow(Process process)
