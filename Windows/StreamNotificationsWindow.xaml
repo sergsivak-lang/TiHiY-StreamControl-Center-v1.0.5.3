@@ -79,7 +79,7 @@
                                 <Button Content="ЗБЕРЕГТИ" Click="Save_Click" Tag="/TiHiY.StreamControlCenter;component/Assets/Platforms/discord.png" ContentTemplate="{StaticResource BrandButtonContentTemplate}" Background="#293577"/>
                                 <Button Content="СТВОРИТИ БОТА" Click="OpenDiscordPortal_Click" Tag="/TiHiY.StreamControlCenter;component/Assets/Platforms/discord.png" ContentTemplate="{StaticResource BrandButtonContentTemplate}"/>
                                 <Button Content="ДОДАТИ НА СЕРВЕР" Click="OpenDiscordInvite_Click" Tag="/TiHiY.StreamControlCenter;component/Assets/Platforms/discord.png" ContentTemplate="{StaticResource BrandButtonContentTemplate}"/>
-                                <Button Content="ВІДКРИТИ КАНАЛИ" Click="OpenChannels_Click"/>
+                                <Button Content="СЕРВЕРИ DISCORD" Click="OpenChannels_Click" Tag="/TiHiY.StreamControlCenter;component/Assets/Platforms/discord.png" ContentTemplate="{StaticResource BrandButtonContentTemplate}" Background="#234C7A"/>
                                 <Button Content="ЗАБУТИ TOKEN" Click="ForgetToken_Click" Tag="/TiHiY.StreamControlCenter;component/Assets/Platforms/discord.png" ContentTemplate="{StaticResource BrandButtonContentTemplate}" Background="#6E1B24"/>
                             </WrapPanel>
                             <TextBlock Text="Bot Token зберігається у Windows Credential Manager. Канали трансляцій і монетизації працюють незалежно." Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
