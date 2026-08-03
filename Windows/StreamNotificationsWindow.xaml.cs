@@ -19,9 +19,33 @@ public partial class StreamNotificationsWindow : ModuleWindowBase
         _services.Notifications.Log += Notifications_Log;
         _services.Twitch.StatusChanged += Channel_StatusChanged;
         _services.YouTube.StatusChanged += Channel_StatusChanged;
+        Loaded += (_, _) => RetargetDiscordServersButton();
         Closed += Window_Closed;
         RefreshState();
         AddLog("Модуль інтегрованого TiHiY Stream Notify Bot відкрито.");
+    }
+
+    private void RetargetDiscordServersButton()
+    {
+        foreach (var button in FindVisualDescendants<Button>(this))
+        {
+            var text = button.Content?.ToString()?.Trim();
+            if (!string.Equals(text, "ВІДКРИТИ КАНАЛИ", StringComparison.OrdinalIgnoreCase)) continue;
+            button.Content = "СЕРВЕРИ DISCORD";
+            button.ToolTip = "Показати всі Discord-сервери й текстові канали, де встановлений бот";
+            button.MinWidth = Math.Max(button.MinWidth, 150);
+            return;
+        }
+    }
+
+    private static IEnumerable<T> FindVisualDescendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) yield return match;
+            foreach (var nested in FindVisualDescendants<T>(child)) yield return nested;
+        }
     }
 
     private void LoadValues()
@@ -169,8 +193,16 @@ public partial class StreamNotificationsWindow : ModuleWindowBase
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 
-    private void OpenChannels_Click(object sender, RoutedEventArgs e) =>
-        _services.Windows.Show(() => new ChannelConnectionsWindow(), this);
+    private void OpenChannels_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            SaveSettings();
+            _services.Windows.Show(() => new DiscordServersWindow(), this);
+            LastActionText.Text = "Відкрито список Discord-серверів і каналів бота.";
+        }
+        catch (Exception ex) { ShowError("Discord сервери", ex); }
+    }
 
     private void Notifications_StatusChanged(object? sender, EventArgs e) => Dispatcher.BeginInvoke(new Action(RefreshState));
     private void Channel_StatusChanged(object? sender, EventArgs e) => Dispatcher.BeginInvoke(new Action(RefreshState));
