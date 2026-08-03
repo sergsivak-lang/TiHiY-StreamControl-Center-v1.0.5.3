@@ -12,14 +12,14 @@
                 <RowDefinition Height="58"/>
                 <RowDefinition Height="76"/>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="104"/>
+                <RowDefinition Height="108"/>
             </Grid.RowDefinitions>
 
             <Border Background="{DynamicResource Panel2}" BorderBrush="{DynamicResource Amber}" BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid Margin="14,0">
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="DISCORD СЕРВЕРИ ТА КАНАЛИ" FontSize="21" FontWeight="Bold" Foreground="{DynamicResource Amber}"/>
-                        <TextBlock Text="Автоматичний пошук серверів бота • вибір каналів для стрімів і донатів" FontSize="11" Foreground="{DynamicResource Muted}" Margin="0,2,0,0"/>
+                        <TextBlock Text="Канали + окремий текст і теги для кожного Discord-сервера" FontSize="11" Foreground="{DynamicResource Muted}" Margin="0,2,0,0"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                         <Button Style="{StaticResource WindowButton}" Content="—" Width="40" Padding="0" Click="Minimize_Click"/>
@@ -46,7 +46,7 @@
                         <TextBlock Grid.Column="3" x:Name="StatusText" Text="Готово до пошуку Discord-серверів." Foreground="{DynamicResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="14,0"/>
                         <CheckBox Grid.Column="4" x:Name="UsableOnlyCheck" Content="Тільки доступні" IsChecked="False" VerticalAlignment="Center" Checked="Filter_Changed" Unchecked="Filter_Changed"/>
                     </Grid>
-                    <TextBlock Grid.Row="1" Text="Вибери канали галочками. Для кожного сервера можна окремо вказати стріми та донати." Foreground="{DynamicResource Muted}" VerticalAlignment="Bottom" Margin="2,4,0,0"/>
+                    <TextBlock Grid.Row="1" Text="1) Вибери канали галочками.  2) Виділи будь-який канал потрібного сервера.  3) Натисни «ПРОФІЛЬ СЕРВЕРА» для свого тексту й тегів." Foreground="{DynamicResource Muted}" VerticalAlignment="Bottom" Margin="2,4,0,0" TextWrapping="Wrap"/>
                 </Grid>
             </Border>
 
@@ -69,16 +69,17 @@
 
             <Border Grid.Row="3" Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,10,0,0">
                 <Grid>
-                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="42"/></Grid.RowDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="44"/></Grid.RowDefinitions>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Галочки автоматично замінюють ручний список Channel ID." Foreground="{DynamicResource Green}" FontWeight="Bold"/>
+                        <TextBlock Text="Кожен сервер може мати власні @everyone / @here / роль і власні тексти сповіщень." Foreground="{DynamicResource Green}" FontWeight="Bold"/>
                         <TextBlock Text="Для сповіщень потрібні View Channel + Send Messages + Embed Links. @everyone показується окремо." Foreground="{DynamicResource Muted}" Margin="0,3,0,0" TextWrapping="Wrap"/>
                     </StackPanel>
                     <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
-                        <Button Content="ТЕСТ СТРІМІВ" Click="TestStreams_Click" Background="#56408A" Height="34" MinHeight="34" MinWidth="125"/>
-                        <Button Content="ТЕСТ ДОНАТІВ" Click="TestDonations_Click" Margin="8,0,0,0" Background="#7A5A10" Height="34" MinHeight="34" MinWidth="125"/>
-                        <Button Content="ЗБЕРЕГТИ ВИБІР" Click="Save_Click" Margin="8,0,0,0" Background="#145F43" Height="34" MinHeight="34" MinWidth="150"/>
-                        <Button Content="ЗАКРИТИ" Click="Close_Click" Margin="8,0,0,0" Height="34" MinHeight="34" MinWidth="95"/>
+                        <Button Content="ПРОФІЛЬ СЕРВЕРА" Click="Profile_Click" Background="#1453A5" Height="36" MinHeight="36" MinWidth="165"/>
+                        <Button Content="ТЕСТ СТРІМІВ" Click="TestStreams_Click" Margin="8,0,0,0" Background="#56408A" Height="36" MinHeight="36" MinWidth="125"/>
+                        <Button Content="ТЕСТ ДОНАТІВ" Click="TestDonations_Click" Margin="8,0,0,0" Background="#7A5A10" Height="36" MinHeight="36" MinWidth="125"/>
+                        <Button Content="ЗБЕРЕГТИ ВИБІР" Click="Save_Click" Margin="8,0,0,0" Background="#145F43" Height="36" MinHeight="36" MinWidth="150"/>
+                        <Button Content="ЗАКРИТИ" Click="Close_Click" Margin="8,0,0,0" Height="36" MinHeight="36" MinWidth="95"/>
                     </StackPanel>
                 </Grid>
             </Border>
