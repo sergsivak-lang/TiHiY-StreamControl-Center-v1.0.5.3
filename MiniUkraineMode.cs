@@ -68,7 +68,7 @@ internal static class MiniUkraineMode
             Margin = new Thickness(9),
             Background = FindBrush(main, "WindowGradient")
         };
-        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(62) });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(64) });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         Panel.SetZIndex(root, 10000);
         hostParent.Children.Add(root);
@@ -92,8 +92,8 @@ internal static class MiniUkraineMode
         content.Children.Add(chatBlock);
 
         var right = new Grid { Margin = new Thickness(6, 0, 0, 0) };
-        right.RowDefinitions.Add(new RowDefinition { Height = new GridLength(0.88, GridUnitType.Star), MinHeight = 220 });
-        right.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1.12, GridUnitType.Star), MinHeight = 250 });
+        right.RowDefinitions.Add(new RowDefinition { Height = new GridLength(0.9, GridUnitType.Star), MinHeight = 230 });
+        right.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1.1, GridUnitType.Star), MinHeight = 275 });
         Grid.SetColumn(right, 1);
         content.Children.Add(right);
 
@@ -105,6 +105,10 @@ internal static class MiniUkraineMode
         Grid.SetRow(donationsBlock, 1);
         right.Children.Add(donationsBlock);
 
+        FixBottomActions(chatBlock);
+        FixBottomActions(notificationsBlock);
+        FixBottomActions(donationsBlock);
+
         main.Dispatcher.BeginInvoke(
             DispatcherPriority.Render,
             new Action(() =>
@@ -112,6 +116,9 @@ internal static class MiniUkraineMode
                 PrepareBlock(chatBlock);
                 PrepareBlock(notificationsBlock);
                 PrepareBlock(donationsBlock);
+                FixBottomActions(chatBlock);
+                FixBottomActions(notificationsBlock);
+                FixBottomActions(donationsBlock);
             }));
     }
 
@@ -127,7 +134,7 @@ internal static class MiniUkraineMode
         };
 
         var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = 250 });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         border.Child = grid;
 
@@ -137,7 +144,8 @@ internal static class MiniUkraineMode
             Text = "TiHiY  STREAMCONTROL MINI",
             FontSize = 20,
             FontWeight = FontWeights.Black,
-            Foreground = FindBrush(main, "Amber")
+            Foreground = FindBrush(main, "Amber"),
+            TextTrimming = TextTrimming.CharacterEllipsis
         });
         brand.Children.Add(new TextBlock
         {
@@ -145,7 +153,8 @@ internal static class MiniUkraineMode
             FontSize = 10.5,
             FontWeight = FontWeights.SemiBold,
             Foreground = FindBrush(main, "Muted"),
-            Margin = new Thickness(1, 2, 0, 0)
+            Margin = new Thickness(1, 2, 0, 0),
+            TextTrimming = TextTrimming.CharacterEllipsis
         });
         grid.Children.Add(brand);
 
@@ -158,13 +167,13 @@ internal static class MiniUkraineMode
         Grid.SetColumn(actions, 1);
         grid.Children.Add(actions);
 
-        actions.Children.Add(ActionButton(main, "КАНАЛИ", () => App.Services.Windows.Show(() => new ChannelConnectionsWindow(), main)));
-        actions.Children.Add(ActionButton(main, "ВІДЖЕТИ", () => App.Services.Windows.Show(() => new OverlaySettingsWindow(), main)));
-        actions.Children.Add(ActionButton(main, "СПОВІЩЕННЯ", () => App.Services.Windows.Show(() => new StreamNotificationsWindow(), main)));
-        actions.Children.Add(ActionButton(main, "DONATELLO", () => App.Services.Windows.Show(() => new DonatelloWindow(), main)));
-        actions.Children.Add(ActionButton(main, "МУЗИКА", () => App.Services.Windows.Show(() => new MusicWindow(), main)));
-        actions.Children.Add(ActionButton(main, "НАЛАШТУВАННЯ", () => App.Services.Windows.Show(() => new SettingsWindow(), main)));
+        actions.Children.Add(ActionButton(main, "КАНАЛИ", 92, () => App.Services.Windows.Show(() => new ChannelConnectionsWindow(), main)));
+        actions.Children.Add(ActionButton(main, "ДОНАТИ", 92, () => App.Services.Windows.Show(() => new DonatelloWindow(), main)));
+        actions.Children.Add(ActionButton(main, "СПОВІЩЕННЯ", 122, () => App.Services.Windows.Show(() => new StreamNotificationsWindow(), main)));
+        actions.Children.Add(ActionButton(main, "⚙", 42, () => App.Services.Windows.Show(() => new SettingsWindow(), main), "Налаштування"));
+        actions.Children.Add(ActionButton(main, "▶", 42, () => App.Services.Windows.Show(() => new OverlaySettingsWindow(), main), "Віджети / Browser Source"));
 
+        // Єдиний комплект керування вікном. Інших комплектів MINI не створює.
         actions.Children.Add(WindowButton(main, "—", () => main.WindowState = WindowState.Minimized));
         actions.Children.Add(WindowButton(main, "□", () => main.WindowState = main.WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized));
         actions.Children.Add(WindowButton(main, "✕", main.Close));
@@ -183,18 +192,21 @@ internal static class MiniUkraineMode
         return border;
     }
 
-    private static Button ActionButton(MainWindow main, string text, Action action)
+    private static Button ActionButton(MainWindow main, string text, double width, Action action, string? tooltip = null)
     {
         var button = new Button
         {
             Content = text,
-            MinWidth = 76,
-            Height = 34,
-            Margin = new Thickness(3, 0, 0, 0),
+            Width = width,
+            MinWidth = width,
+            Height = 36,
+            MinHeight = 36,
+            Margin = new Thickness(4, 0, 0, 0),
             Padding = new Thickness(8, 0, 8, 0),
-            FontSize = 10.5,
+            FontSize = text.Length <= 2 ? 16 : 10.5,
             FontWeight = FontWeights.Bold,
-            Foreground = FindBrush(main, "Text")
+            Foreground = FindBrush(main, "Text"),
+            ToolTip = tooltip
         };
         button.Click += (_, _) => action();
         return button;
@@ -202,9 +214,7 @@ internal static class MiniUkraineMode
 
     private static Button WindowButton(MainWindow main, string text, Action action)
     {
-        var button = ActionButton(main, text, action);
-        button.MinWidth = 38;
-        button.Width = 38;
+        var button = ActionButton(main, text, 38, action);
         button.Padding = new Thickness(0);
         button.FontSize = 15;
         return button;
@@ -217,6 +227,53 @@ internal static class MiniUkraineMode
         block.Height = double.NaN;
         block.HorizontalAlignment = HorizontalAlignment.Stretch;
         block.VerticalAlignment = VerticalAlignment.Stretch;
+    }
+
+    private static void FixBottomActions(FrameworkElement block)
+    {
+        foreach (var button in FindDescendants<Button>(block))
+        {
+            var label = GetButtonText(button);
+            if (label.Contains("ВІДКРИТИ ДОНАТИ", StringComparison.OrdinalIgnoreCase) ||
+                label.Contains("ВІДКРИТИ ПОВНИЙ ЖУРНАЛ", StringComparison.OrdinalIgnoreCase) ||
+                label.Contains("TWITCH", StringComparison.OrdinalIgnoreCase) ||
+                label.Contains("YOUTUBE", StringComparison.OrdinalIgnoreCase) ||
+                label.Contains("ОБИДВА", StringComparison.OrdinalIgnoreCase))
+            {
+                button.MinHeight = 34;
+                if (double.IsNaN(button.Height) || button.Height < 34) button.Height = 34;
+                button.Margin = new Thickness(Math.Max(3, button.Margin.Left), 3, Math.Max(3, button.Margin.Right), 5);
+
+                if (button.Parent is Grid grid)
+                {
+                    var row = Grid.GetRow(button);
+                    if (row >= 0 && row < grid.RowDefinitions.Count)
+                    {
+                        var current = grid.RowDefinitions[row].Height;
+                        if (current.IsAbsolute && current.Value < 46)
+                            grid.RowDefinitions[row].Height = new GridLength(46);
+                    }
+                }
+            }
+        }
+    }
+
+    private static string GetButtonText(Button button)
+    {
+        if (button.Content is string s) return s;
+        if (button.Content is DependencyObject root)
+            return string.Join(" ", FindDescendants<TextBlock>(root).Select(x => x.Text));
+        return string.Empty;
+    }
+
+    private static IEnumerable<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match) yield return match;
+            foreach (var nested in FindDescendants<T>(child)) yield return nested;
+        }
     }
 
     private static void Detach(FrameworkElement element)
