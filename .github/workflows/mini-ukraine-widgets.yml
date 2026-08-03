@@ -48,7 +48,7 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "MINI screenshot process failed with exit code $($p.ExitCode)." }
           if (-not (Test-Path $shot)) { throw "MINI did not create a screenshot." }
 
-      - name: Smoke test all overlay widgets
+      - name: Smoke test all overlay widgets and full AIMP bridge
         shell: pwsh
         run: |
           $exe = (Resolve-Path "publish-mini/TiHiY.StreamControlMini.exe").Path
@@ -59,10 +59,11 @@ jobs:
               Start-Sleep -Milliseconds 500
               try {
                 $health = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:17845/health" -TimeoutSec 2
-                if ($health.StatusCode -eq 200) { $ready = $true; break }
+                $aimpHealth = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:17846/health" -TimeoutSec 2
+                if ($health.StatusCode -eq 200 -and $aimpHealth.StatusCode -eq 200) { $ready = $true; break }
               } catch { }
             }
-            if (-not $ready) { throw "Overlay Server did not become ready." }
+            if (-not $ready) { throw "Overlay servers did not become ready." }
 
             $urls = @(
               "http://127.0.0.1:17845/overlay/chat?theme=TiHiY-DED%20Ukraine",
@@ -74,18 +75,28 @@ jobs:
               "http://127.0.0.1:17845/api/chat",
               "http://127.0.0.1:17845/api/donations",
               "http://127.0.0.1:17845/api/donation-summary",
-              "http://127.0.0.1:17845/api/now-playing"
+              "http://127.0.0.1:17845/api/now-playing",
+              "http://127.0.0.1:17846/overlay/now-playing",
+              "http://127.0.0.1:17846/api/now-playing",
+              "http://127.0.0.1:17846/api/cover"
             )
             foreach ($url in $urls) {
               $r = Invoke-WebRequest -UseBasicParsing $url -TimeoutSec 5
               if ($r.StatusCode -ne 200) { throw "Widget failed: $url => $($r.StatusCode)" }
-              if ([string]::IsNullOrWhiteSpace($r.Content)) { throw "Widget returned empty content: $url" }
-              Write-Host "OK $url ($($r.Content.Length) chars)"
+              if ($r.RawContentLength -le 0) { throw "Widget returned empty content: $url" }
+              Write-Host "OK $url ($($r.RawContentLength) bytes)"
             }
 
-            $np = Invoke-RestMethod "http://127.0.0.1:17845/api/now-playing" -TimeoutSec 5
-            if ($np.source -ne "AIMP") { throw "Now Playing source is not AIMP." }
-            Write-Host "OK AIMP now-playing provider: active=$($np.active) source=$($np.source)"
+            $np = Invoke-RestMethod "http://127.0.0.1:17846/api/now-playing" -TimeoutSec 5
+            if ($np.source -ne "AIMP") { throw "Full Now Playing source is not AIMP." }
+            if ($null -eq $np.isPlaying) { throw "AIMP payload misses play/pause state." }
+            if ($null -eq $np.coverVersion) { throw "AIMP payload misses cover version." }
+            if ($null -eq $np.durationSeconds) { throw "AIMP payload misses duration." }
+            Write-Host "OK full AIMP provider: active=$($np.active) mode=$($np.integrationMode)"
+
+            $control = Invoke-RestMethod "http://127.0.0.1:17846/api/control?action=toggle" -TimeoutSec 5
+            if ($null -eq $control.ok) { throw "AIMP control endpoint returned invalid payload." }
+            Write-Host "OK AIMP control API present (no AIMP session on CI is expected)."
           }
           finally {
             if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
