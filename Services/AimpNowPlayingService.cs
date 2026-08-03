@@ -1,31 +1,67 @@
 using System.Diagnostics;
+using Windows.Media.Control;
+using Windows.Storage.Streams;
 
 namespace TiHiY.StreamControlCenter.Services;
 
 /// <summary>
-/// Lightweight AIMP integration for MINI.
-/// No polling timer and no audio engine are created: the current track is read only
-/// when the overlay/API asks for /api/now-playing.
+/// Event-driven AIMP integration for MINI via Windows Global Media Sessions.
+/// No polling timer and no audio engine are created. AIMP pushes media/playback/timeline
+/// changes to Windows; MINI only caches the latest state for the overlay.
 /// </summary>
-public sealed class AimpNowPlayingService
+public sealed class AimpNowPlayingService : IAsyncDisposable
 {
-    private static readonly string[] ProcessPrefixes = { "AIMP" };
-    private static readonly string[] Separators = { " — ", " – ", " - " };
     private readonly object _gate = new();
-    private DateTime _lastReadUtc = DateTime.MinValue;
-    private AimpTrackSnapshot _cached = new(false, string.Empty, string.Empty, 0, 0, "AIMP");
+    private readonly SemaphoreSlim _refreshGate = new(1, 1);
+    private GlobalSystemMediaTransportControlsSessionManager? _manager;
+    private GlobalSystemMediaTransportControlsSession? _session;
+    private AimpTrackSnapshot _snapshot = AimpTrackSnapshot.Empty;
+    private AimpCoverPayload _cover = AimpCoverPayload.Empty;
+    private DateTimeOffset _timelineCapturedAt = DateTimeOffset.UtcNow;
+    private DateTimeOffset _lastFallbackScan = DateTimeOffset.MinValue;
+    private bool _disposed;
+
+    public event EventHandler? Changed;
+
+    public async Task InitializeAsync()
+    {
+        if (_disposed || _manager is not null) return;
+        try
+        {
+            _manager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+            _manager.SessionsChanged += Manager_SessionsChanged;
+            _manager.CurrentSessionChanged += Manager_CurrentSessionChanged;
+            await SelectAimpSessionAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+            // Windows media-session integration may be unavailable/disabled.
+            // The synchronous title fallback in Read() remains available.
+        }
+    }
 
     public AimpTrackSnapshot Read()
     {
         lock (_gate)
         {
-            if (DateTime.UtcNow - _lastReadUtc < TimeSpan.FromMilliseconds(800))
-                return _cached;
+            var current = _snapshot;
+            if (current.Active && current.IsPlaying && current.DurationSeconds > 0)
+            {
+                var elapsed = Math.Max(0, (DateTimeOffset.UtcNow - _timelineCapturedAt).TotalSeconds);
+                var position = Math.Clamp(current.PositionSeconds + elapsed, 0, current.DurationSeconds);
+                return current with { PositionSeconds = position };
+            }
 
-            _lastReadUtc = DateTime.UtcNow;
-            _cached = ReadCore();
-            return _cached;
+            if (current.Active)
+                return current;
         }
+
+        return ReadFallbackTitleIfNeeded();
+    }
+
+    public AimpCoverPayload ReadCover()
+    {
+        lock (_gate) return _cover;
     }
 
     public string CurrentSongText()
@@ -37,56 +73,289 @@ public sealed class AimpNowPlayingService
         return string.IsNullOrWhiteSpace(track.Title) ? "AIMP" : track.Title;
     }
 
-    private static AimpTrackSnapshot ReadCore()
+    public async Task<bool> ControlAsync(string action)
+    {
+        GlobalSystemMediaTransportControlsSession? session;
+        AimpTrackSnapshot snapshot;
+        lock (_gate)
+        {
+            session = _session;
+            snapshot = _snapshot;
+        }
+        if (session is null) return false;
+
+        try
+        {
+            return action.Trim().ToLowerInvariant() switch
+            {
+                "play" => await session.TryPlayAsync(),
+                "pause" => await session.TryPauseAsync(),
+                "toggle" => snapshot.IsPlaying ? await session.TryPauseAsync() : await session.TryPlayAsync(),
+                "next" => await session.TrySkipNextAsync(),
+                "previous" or "prev" => await session.TrySkipPreviousAsync(),
+                _ => false
+            };
+        }
+        catch { return false; }
+    }
+
+    private async void Manager_SessionsChanged(GlobalSystemMediaTransportControlsSessionManager sender, SessionsChangedEventArgs args)
+    {
+        try { await SelectAimpSessionAsync().ConfigureAwait(false); } catch { }
+    }
+
+    private async void Manager_CurrentSessionChanged(GlobalSystemMediaTransportControlsSessionManager sender, CurrentSessionChangedEventArgs args)
+    {
+        try { await SelectAimpSessionAsync().ConfigureAwait(false); } catch { }
+    }
+
+    private async Task SelectAimpSessionAsync()
+    {
+        if (_disposed || _manager is null) return;
+        var next = _manager.GetSessions()
+            .FirstOrDefault(IsAimpSession);
+
+        GlobalSystemMediaTransportControlsSession? previous;
+        lock (_gate) previous = _session;
+        if (ReferenceEquals(previous, next))
+        {
+            if (next is not null) await RefreshAsync(includeMedia: true, includeCover: false).ConfigureAwait(false);
+            return;
+        }
+
+        DetachSession(previous);
+        lock (_gate) _session = next;
+
+        if (next is null)
+        {
+            lock (_gate)
+            {
+                _snapshot = AimpTrackSnapshot.Empty;
+                _cover = AimpCoverPayload.Empty;
+                _timelineCapturedAt = DateTimeOffset.UtcNow;
+            }
+            Changed?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        AttachSession(next);
+        await RefreshAsync(includeMedia: true, includeCover: true).ConfigureAwait(false);
+    }
+
+    private static bool IsAimpSession(GlobalSystemMediaTransportControlsSession session)
+    {
+        try
+        {
+            var id = session.SourceAppUserModelId ?? string.Empty;
+            return id.Contains("aimp", StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
+    }
+
+    private void AttachSession(GlobalSystemMediaTransportControlsSession session)
+    {
+        session.MediaPropertiesChanged += Session_MediaPropertiesChanged;
+        session.PlaybackInfoChanged += Session_PlaybackInfoChanged;
+        session.TimelinePropertiesChanged += Session_TimelinePropertiesChanged;
+    }
+
+    private void DetachSession(GlobalSystemMediaTransportControlsSession? session)
+    {
+        if (session is null) return;
+        try { session.MediaPropertiesChanged -= Session_MediaPropertiesChanged; } catch { }
+        try { session.PlaybackInfoChanged -= Session_PlaybackInfoChanged; } catch { }
+        try { session.TimelinePropertiesChanged -= Session_TimelinePropertiesChanged; } catch { }
+    }
+
+    private async void Session_MediaPropertiesChanged(GlobalSystemMediaTransportControlsSession sender, MediaPropertiesChangedEventArgs args)
+    {
+        try { await RefreshAsync(includeMedia: true, includeCover: true).ConfigureAwait(false); } catch { }
+    }
+
+    private async void Session_PlaybackInfoChanged(GlobalSystemMediaTransportControlsSession sender, PlaybackInfoChangedEventArgs args)
+    {
+        try { await RefreshAsync(includeMedia: false, includeCover: false).ConfigureAwait(false); } catch { }
+    }
+
+    private async void Session_TimelinePropertiesChanged(GlobalSystemMediaTransportControlsSession sender, TimelinePropertiesChangedEventArgs args)
+    {
+        try { await RefreshAsync(includeMedia: false, includeCover: false).ConfigureAwait(false); } catch { }
+    }
+
+    private async Task RefreshAsync(bool includeMedia, bool includeCover)
+    {
+        if (_disposed) return;
+        await _refreshGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            GlobalSystemMediaTransportControlsSession? session;
+            AimpTrackSnapshot previous;
+            lock (_gate)
+            {
+                session = _session;
+                previous = _snapshot;
+            }
+            if (session is null) return;
+
+            var playback = session.GetPlaybackInfo();
+            var timeline = session.GetTimelineProperties();
+            var status = playback?.PlaybackStatus ?? GlobalSystemMediaTransportControlsSessionPlaybackStatus.Closed;
+            var isPlaying = status == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+            var active = status is not GlobalSystemMediaTransportControlsSessionPlaybackStatus.Closed;
+
+            var title = previous.Title;
+            var artist = previous.Artist;
+            var album = previous.Album;
+            var coverVersion = previous.CoverVersion;
+
+            GlobalSystemMediaTransportControlsSessionMediaProperties? media = null;
+            if (includeMedia || string.IsNullOrWhiteSpace(title))
+            {
+                try { media = await session.TryGetMediaPropertiesAsync(); } catch { }
+                if (media is not null)
+                {
+                    title = media.Title?.Trim() ?? string.Empty;
+                    artist = media.Artist?.Trim() ?? string.Empty;
+                    album = media.AlbumTitle?.Trim() ?? string.Empty;
+                }
+            }
+
+            if (includeCover && media?.Thumbnail is not null)
+            {
+                var loaded = await LoadCoverAsync(media.Thumbnail).ConfigureAwait(false);
+                if (loaded.Data.Length > 0)
+                {
+                    lock (_gate)
+                    {
+                        var nextVersion = _cover.Version + 1;
+                        _cover = loaded with { Version = nextVersion };
+                        coverVersion = nextVersion;
+                    }
+                }
+                else
+                {
+                    lock (_gate)
+                    {
+                        _cover = AimpCoverPayload.Empty;
+                        coverVersion = 0;
+                    }
+                }
+            }
+            else if (includeCover && media is not null && media.Thumbnail is null)
+            {
+                lock (_gate)
+                {
+                    _cover = AimpCoverPayload.Empty;
+                    coverVersion = 0;
+                }
+            }
+
+            var position = Math.Max(0, timeline?.Position.TotalSeconds ?? 0);
+            var duration = Math.Max(0, timeline?.EndTime.TotalSeconds ?? 0);
+            if (duration <= 0 && timeline is not null)
+                duration = Math.Max(0, (timeline.EndTime - timeline.StartTime).TotalSeconds);
+
+            lock (_gate)
+            {
+                _timelineCapturedAt = DateTimeOffset.UtcNow;
+                _snapshot = new AimpTrackSnapshot(
+                    active,
+                    title,
+                    artist,
+                    album,
+                    position,
+                    duration,
+                    isPlaying,
+                    coverVersion,
+                    "AIMP",
+                    "WindowsMediaSession");
+            }
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+        finally
+        {
+            _refreshGate.Release();
+        }
+    }
+
+    private static async Task<AimpCoverPayload> LoadCoverAsync(IRandomAccessStreamReference reference)
+    {
+        try
+        {
+            using var stream = await reference.OpenReadAsync();
+            if (stream.Size == 0 || stream.Size > 12 * 1024 * 1024) return AimpCoverPayload.Empty;
+            var size = checked((uint)stream.Size);
+            using var reader = new DataReader(stream.GetInputStreamAt(0));
+            var loaded = await reader.LoadAsync(size);
+            if (loaded == 0) return AimpCoverPayload.Empty;
+            var bytes = new byte[loaded];
+            reader.ReadBytes(bytes);
+            var contentType = string.IsNullOrWhiteSpace(stream.ContentType) ? "image/jpeg" : stream.ContentType;
+            return new AimpCoverPayload(bytes, contentType, 0);
+        }
+        catch { return AimpCoverPayload.Empty; }
+    }
+
+    private AimpTrackSnapshot ReadFallbackTitleIfNeeded()
+    {
+        lock (_gate)
+        {
+            if (DateTimeOffset.UtcNow - _lastFallbackScan < TimeSpan.FromSeconds(2))
+                return _snapshot;
+            _lastFallbackScan = DateTimeOffset.UtcNow;
+        }
+
+        var fallback = ReadProcessTitleFallback();
+        lock (_gate)
+        {
+            if (_session is null)
+                _snapshot = fallback;
+            return _snapshot;
+        }
+    }
+
+    private static AimpTrackSnapshot ReadProcessTitleFallback()
     {
         Process[] processes;
         try { processes = Process.GetProcesses(); }
-        catch { return new AimpTrackSnapshot(false, string.Empty, string.Empty, 0, 0, "AIMP"); }
+        catch { return AimpTrackSnapshot.Empty; }
 
         try
         {
             var aimp = processes
-                .Where(p => SafeProcessNameStartsWithAimp(p))
+                .Where(SafeProcessNameStartsWithAimp)
                 .OrderByDescending(SafeHasMainWindow)
                 .FirstOrDefault();
+            if (aimp is null) return AimpTrackSnapshot.Empty;
 
-            if (aimp is null)
-                return new AimpTrackSnapshot(false, string.Empty, string.Empty, 0, 0, "AIMP");
-
-            var caption = SafeCaption(aimp);
+            var caption = CleanCaption(SafeCaption(aimp));
             if (string.IsNullOrWhiteSpace(caption))
-                return new AimpTrackSnapshot(true, string.Empty, string.Empty, 0, 0, "AIMP");
+                return AimpTrackSnapshot.Empty with { Active = true, IntegrationMode = "WindowTitle" };
 
-            caption = CleanCaption(caption);
             var (artist, title) = SplitArtistAndTitle(caption);
             return new AimpTrackSnapshot(
                 true,
                 string.IsNullOrWhiteSpace(title) ? caption : title,
                 artist,
+                string.Empty,
                 0,
                 0,
-                "AIMP");
+                true,
+                0,
+                "AIMP",
+                "WindowTitle");
         }
-        catch
-        {
-            return new AimpTrackSnapshot(false, string.Empty, string.Empty, 0, 0, "AIMP");
-        }
+        catch { return AimpTrackSnapshot.Empty; }
         finally
         {
             foreach (var process in processes)
-            {
                 try { process.Dispose(); } catch { }
-            }
         }
     }
 
     private static bool SafeProcessNameStartsWithAimp(Process process)
     {
-        try
-        {
-            var name = process.ProcessName;
-            return ProcessPrefixes.Any(prefix => name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
-        }
+        try { return process.ProcessName.StartsWith("AIMP", StringComparison.OrdinalIgnoreCase); }
         catch { return false; }
     }
 
@@ -106,28 +375,40 @@ public sealed class AimpNowPlayingService
     {
         var text = value.Trim();
         foreach (var suffix in new[] { " - AIMP", " — AIMP", " – AIMP", " [AIMP]", " | AIMP" })
-        {
             if (text.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
-            {
-                text = text[..^suffix.Length].Trim();
-                break;
-            }
-        }
+                return text[..^suffix.Length].Trim();
         return text;
     }
 
     private static (string Artist, string Title) SplitArtistAndTitle(string caption)
     {
-        foreach (var separator in Separators)
+        foreach (var separator in new[] { " — ", " – ", " - " })
         {
             var index = caption.IndexOf(separator, StringComparison.Ordinal);
             if (index <= 0 || index + separator.Length >= caption.Length) continue;
             var left = caption[..index].Trim();
             var right = caption[(index + separator.Length)..].Trim();
-            if (left.Length > 0 && right.Length > 0)
-                return (left, right);
+            if (left.Length > 0 && right.Length > 0) return (left, right);
         }
         return (string.Empty, caption.Trim());
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        if (_disposed) return ValueTask.CompletedTask;
+        _disposed = true;
+        var manager = _manager;
+        var session = _session;
+        if (manager is not null)
+        {
+            try { manager.SessionsChanged -= Manager_SessionsChanged; } catch { }
+            try { manager.CurrentSessionChanged -= Manager_CurrentSessionChanged; } catch { }
+        }
+        DetachSession(session);
+        _session = null;
+        _manager = null;
+        _refreshGate.Dispose();
+        return ValueTask.CompletedTask;
     }
 }
 
@@ -135,6 +416,19 @@ public sealed record AimpTrackSnapshot(
     bool Active,
     string Title,
     string Artist,
+    string Album,
     double PositionSeconds,
     double DurationSeconds,
-    string Source);
+    bool IsPlaying,
+    int CoverVersion,
+    string Source,
+    string IntegrationMode)
+{
+    public static AimpTrackSnapshot Empty { get; } = new(
+        false, string.Empty, string.Empty, string.Empty, 0, 0, false, 0, "AIMP", "Unavailable");
+}
+
+public sealed record AimpCoverPayload(byte[] Data, string ContentType, int Version)
+{
+    public static AimpCoverPayload Empty { get; } = new(Array.Empty<byte>(), "image/jpeg", 0);
+}
