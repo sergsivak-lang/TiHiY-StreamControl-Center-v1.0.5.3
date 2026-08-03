@@ -17,30 +17,20 @@ internal static class MiniUkraineMode
     [ModuleInitializer]
     internal static void Initialize()
     {
-        EventManager.RegisterClassHandler(
-            typeof(MainWindow),
-            FrameworkElement.LoadedEvent,
-            new RoutedEventHandler(OnMainWindowLoaded));
-
-        EventManager.RegisterClassHandler(
-            typeof(SettingsWindow),
-            FrameworkElement.LoadedEvent,
-            new RoutedEventHandler(OnSettingsWindowLoaded));
+        EventManager.RegisterClassHandler(typeof(MainWindow), FrameworkElement.LoadedEvent, new RoutedEventHandler(OnMainWindowLoaded));
+        EventManager.RegisterClassHandler(typeof(SettingsWindow), FrameworkElement.LoadedEvent, new RoutedEventHandler(OnSettingsWindowLoaded));
     }
 
     private static void OnMainWindowLoaded(object sender, RoutedEventArgs e)
     {
         if (sender is not MainWindow main) return;
-        main.Dispatcher.BeginInvoke(
-            DispatcherPriority.ApplicationIdle,
-            new Action(() => ApplyMainWindow(main)));
+        main.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() => ApplyMainWindow(main)));
     }
 
     private static void ApplyMainWindow(MainWindow main)
     {
         ForceUkraineTheme();
         HookThemeGuard();
-
         if (Equals(main.Tag, "TIHIY_MINI_UA")) return;
         main.Tag = "TIHIY_MINI_UA";
         main.Title = "TiHiY StreamControl MINI — Україна";
@@ -63,11 +53,7 @@ internal static class MiniUkraineMode
         Detach(donationsBlock);
         originalSurface.Visibility = Visibility.Collapsed;
 
-        var root = new Grid
-        {
-            Margin = new Thickness(9),
-            Background = FindBrush(main, "WindowGradient")
-        };
+        var root = new Grid { Margin = new Thickness(9), Background = FindBrush(main, "WindowGradient") };
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(64) });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         Panel.SetZIndex(root, 10000);
@@ -109,17 +95,15 @@ internal static class MiniUkraineMode
         FixBottomActions(notificationsBlock);
         FixBottomActions(donationsBlock);
 
-        main.Dispatcher.BeginInvoke(
-            DispatcherPriority.Render,
-            new Action(() =>
-            {
-                PrepareBlock(chatBlock);
-                PrepareBlock(notificationsBlock);
-                PrepareBlock(donationsBlock);
-                FixBottomActions(chatBlock);
-                FixBottomActions(notificationsBlock);
-                FixBottomActions(donationsBlock);
-            }));
+        main.Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
+        {
+            PrepareBlock(chatBlock);
+            PrepareBlock(notificationsBlock);
+            PrepareBlock(donationsBlock);
+            FixBottomActions(chatBlock);
+            FixBottomActions(notificationsBlock);
+            FixBottomActions(donationsBlock);
+        }));
     }
 
     private static Border BuildHeader(MainWindow main)
@@ -149,7 +133,7 @@ internal static class MiniUkraineMode
         });
         brand.Children.Add(new TextBlock
         {
-            Text = "МУЛЬТИЧАТ  •  ДОНАТИ  •  СПОВІЩЕННЯ  •  УСІ ВІДЖЕТИ",
+            Text = "МУЛЬТИЧАТ  •  ДОНАТИ  •  СПОВІЩЕННЯ  •  ВІДЖЕТИ  •  AIMP",
             FontSize = 10.5,
             FontWeight = FontWeights.SemiBold,
             Foreground = FindBrush(main, "Muted"),
@@ -158,12 +142,7 @@ internal static class MiniUkraineMode
         });
         grid.Children.Add(brand);
 
-        var actions = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Right
-        };
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
         Grid.SetColumn(actions, 1);
         grid.Children.Add(actions);
 
@@ -172,8 +151,6 @@ internal static class MiniUkraineMode
         actions.Children.Add(ActionButton(main, "СПОВІЩЕННЯ", 122, () => App.Services.Windows.Show(() => new StreamNotificationsWindow(), main)));
         actions.Children.Add(ActionButton(main, "⚙", 42, () => App.Services.Windows.Show(() => new SettingsWindow(), main), "Налаштування"));
         actions.Children.Add(ActionButton(main, "▶", 42, () => App.Services.Windows.Show(() => new OverlaySettingsWindow(), main), "Віджети / Browser Source"));
-
-        // Єдиний комплект керування вікном. Інших комплектів MINI не створює.
         actions.Children.Add(WindowButton(main, "—", () => main.WindowState = WindowState.Minimized));
         actions.Children.Add(WindowButton(main, "□", () => main.WindowState = main.WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized));
         actions.Children.Add(WindowButton(main, "✕", main.Close));
@@ -188,7 +165,6 @@ internal static class MiniUkraineMode
             }
             try { main.DragMove(); } catch { }
         };
-
         return border;
     }
 
@@ -243,15 +219,13 @@ internal static class MiniUkraineMode
                 button.MinHeight = 34;
                 if (double.IsNaN(button.Height) || button.Height < 34) button.Height = 34;
                 button.Margin = new Thickness(Math.Max(3, button.Margin.Left), 3, Math.Max(3, button.Margin.Right), 5);
-
                 if (button.Parent is Grid grid)
                 {
                     var row = Grid.GetRow(button);
                     if (row >= 0 && row < grid.RowDefinitions.Count)
                     {
                         var current = grid.RowDefinitions[row].Height;
-                        if (current.IsAbsolute && current.Value < 46)
-                            grid.RowDefinitions[row].Height = new GridLength(46);
+                        if (current.IsAbsolute && current.Value < 46) grid.RowDefinitions[row].Height = new GridLength(46);
                     }
                 }
             }
@@ -261,8 +235,7 @@ internal static class MiniUkraineMode
     private static string GetButtonText(Button button)
     {
         if (button.Content is string s) return s;
-        if (button.Content is DependencyObject root)
-            return string.Join(" ", FindDescendants<TextBlock>(root).Select(x => x.Text));
+        if (button.Content is DependencyObject root) return string.Join(" ", FindDescendants<TextBlock>(root).Select(x => x.Text));
         return string.Empty;
     }
 
@@ -280,20 +253,13 @@ internal static class MiniUkraineMode
     {
         switch (element.Parent)
         {
-            case Panel panel:
-                panel.Children.Remove(element);
-                break;
-            case Decorator decorator when ReferenceEquals(decorator.Child, element):
-                decorator.Child = null;
-                break;
-            case ContentControl content when ReferenceEquals(content.Content, element):
-                content.Content = null;
-                break;
+            case Panel panel: panel.Children.Remove(element); break;
+            case Decorator decorator when ReferenceEquals(decorator.Child, element): decorator.Child = null; break;
+            case ContentControl content when ReferenceEquals(content.Content, element): content.Content = null; break;
         }
     }
 
-    private static Brush FindBrush(FrameworkElement owner, string key) =>
-        owner.TryFindResource(key) as Brush ?? Brushes.Transparent;
+    private static Brush FindBrush(FrameworkElement owner, string key) => owner.TryFindResource(key) as Brush ?? Brushes.Transparent;
 
     private static T? FindAncestor<T>(DependencyObject? source) where T : DependencyObject
     {
@@ -313,8 +279,7 @@ internal static class MiniUkraineMode
         App.Services.Theme.ThemeChanged += (_, _) =>
         {
             if (_forcingTheme) return;
-            if (!string.Equals(App.Services.Theme.CurrentTheme, UkraineTheme, StringComparison.OrdinalIgnoreCase))
-                ForceUkraineTheme();
+            if (!string.Equals(App.Services.Theme.CurrentTheme, UkraineTheme, StringComparison.OrdinalIgnoreCase)) ForceUkraineTheme();
         };
     }
 
@@ -324,15 +289,10 @@ internal static class MiniUkraineMode
         _forcingTheme = true;
         try
         {
-            if (!string.Equals(App.Services.Theme.CurrentTheme, UkraineTheme, StringComparison.OrdinalIgnoreCase))
-                App.Services.Theme.Apply(UkraineTheme, save: true);
-            else
-                App.Services.Theme.Apply(UkraineTheme, save: false);
+            if (!string.Equals(App.Services.Theme.CurrentTheme, UkraineTheme, StringComparison.OrdinalIgnoreCase)) App.Services.Theme.Apply(UkraineTheme, save: true);
+            else App.Services.Theme.Apply(UkraineTheme, save: false);
         }
-        finally
-        {
-            _forcingTheme = false;
-        }
+        finally { _forcingTheme = false; }
     }
 
     private static void OnSettingsWindowLoaded(object sender, RoutedEventArgs e)
@@ -343,7 +303,24 @@ internal static class MiniUkraineMode
             ForceUkraineTheme();
             LockThemeSelector(settings, "ThemeList");
             LockThemeSelector(settings, "ThemeCombo");
+            HideUnusedSettingsTabs(settings);
         }));
+    }
+
+    private static void HideUnusedSettingsTabs(SettingsWindow settings)
+    {
+        if (settings.FindName("SettingsTabs") is not TabControl tabs) return;
+        foreach (var tab in tabs.Items.OfType<TabItem>())
+        {
+            var header = tab.Header as DependencyObject;
+            if (header is null) continue;
+            var text = string.Join(" ", FindDescendants<TextBlock>(header).Select(x => x.Text));
+            if (text.Contains("Музика", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("Music", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(text.Trim(), "OBS WebSocket", StringComparison.OrdinalIgnoreCase) ||
+                text.StartsWith("OBS ", StringComparison.OrdinalIgnoreCase))
+                tab.Visibility = Visibility.Collapsed;
+        }
     }
 
     private static void LockThemeSelector(FrameworkElement settings, string name)
