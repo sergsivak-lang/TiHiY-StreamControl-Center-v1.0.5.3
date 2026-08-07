@@ -5,10 +5,10 @@ using TiHiY.StreamControlCenter.Models;
 namespace TiHiY.StreamControlCenter;
 
 /// <summary>
-/// Mirrors paid subscription/member events into the MINI multichat.
-/// The external id is normalized so YouTube's following raw chat item is naturally
-/// de-duplicated by ChatService. Donatello is mirrored here only when its legacy
-/// "show in chat" switch is off, avoiding a double entry.
+/// Mirrors paid subscription events into the MINI multichat when the source does
+/// not already provide a native chat item. YouTube liveChatMessages already emits
+/// the original member/gifting message; keeping that original item is important
+/// because the rich-content resolver can attach platform emoji and gift visuals.
 /// </summary>
 internal static class SubscriptionChatBridge
 {
@@ -36,16 +36,18 @@ internal static class SubscriptionChatBridge
         if (!donation.Kind.Equals("SUBSCRIPTION", StringComparison.OrdinalIgnoreCase)) return;
 
         var source = donation.Source ?? string.Empty;
-        var isDonatello = source.Contains("DONATELLO", StringComparison.OrdinalIgnoreCase);
 
-        // AppServices already mirrors Donatello into chat when this option is enabled.
+        // YouTubeService itself emits the native live-chat item for new members,
+        // milestones and membership gifting. Do not insert a generic item first,
+        // otherwise ChatService de-duplication would discard the richer native one.
+        if (source.Contains("YOUTUBE", StringComparison.OrdinalIgnoreCase)) return;
+
+        var isDonatello = source.Contains("DONATELLO", StringComparison.OrdinalIgnoreCase);
         if (isDonatello && App.Services.Settings.Value.DonatelloShowInChat) return;
 
-        var platform = source.Contains("YOUTUBE", StringComparison.OrdinalIgnoreCase)
-            ? "YOUTUBE"
-            : source.Contains("TWITCH", StringComparison.OrdinalIgnoreCase)
-                ? "TWITCH"
-                : isDonatello ? "DONATELLO" : "SUBSCRIPTION";
+        var platform = source.Contains("TWITCH", StringComparison.OrdinalIgnoreCase)
+            ? "TWITCH"
+            : isDonatello ? "DONATELLO" : "SUBSCRIPTION";
 
         var text = string.IsNullOrWhiteSpace(donation.Message)
             ? "⭐ Нова платна підписка"
@@ -57,20 +59,8 @@ internal static class SubscriptionChatBridge
             User = string.IsNullOrWhiteSpace(donation.User) ? platform : donation.User,
             Text = text,
             Role = "Subscriber",
-            ExternalId = NormalizeChatId(donation, platform),
+            ExternalId = platform == "DONATELLO" ? "money:" + donation.StableId : "subscription:" + donation.StableId,
             Time = donation.Time
         });
-    }
-
-    private static string NormalizeChatId(DonationEvent donation, string platform)
-    {
-        var id = donation.ExternalId?.Trim() ?? string.Empty;
-        if (platform == "YOUTUBE" && id.StartsWith("youtube:", StringComparison.OrdinalIgnoreCase))
-            return id["youtube:".Length..];
-
-        if (platform == "DONATELLO")
-            return "money:" + donation.StableId;
-
-        return "subscription:" + donation.StableId;
     }
 }
