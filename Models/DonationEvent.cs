@@ -11,6 +11,7 @@ public sealed class DonationEvent
     public string Currency { get; set; } = "UAH";
     public string Message { get; set; } = string.Empty;
     public string Accent { get; set; } = "#FFD329";
+    public string ImageUrl { get; set; } = string.Empty;
     public bool ShowOnOverlay { get; set; } = true;
     public bool IsHistorical { get; set; }
     public bool IsTest { get; set; }
@@ -29,6 +30,7 @@ public sealed class DonationEvent
         : IsReplay ? "↻"
         : Kind.Equals("SUBSCRIPTION", StringComparison.OrdinalIgnoreCase)
             ? "★"
+            : Kind.Equals("GIFT", StringComparison.OrdinalIgnoreCase) ? "🎁"
             : Source.Contains("SUPER", StringComparison.OrdinalIgnoreCase) ? "◆"
             : Source.Contains("BITS", StringComparison.OrdinalIgnoreCase) ? "◆" : "♥";
     public string KindLabel => IsTest
@@ -36,6 +38,7 @@ public sealed class DonationEvent
         : IsReplay ? "ПОВТОР ALERT"
         : Kind.Equals("SUBSCRIPTION", StringComparison.OrdinalIgnoreCase)
             ? "ПІДПИСКА"
+            : Kind.Equals("GIFT", StringComparison.OrdinalIgnoreCase) ? "GIFT"
             : Source.Contains("SUPER CHAT", StringComparison.OrdinalIgnoreCase) ? "SUPER CHAT"
             : Source.Contains("SUPER STICKER", StringComparison.OrdinalIgnoreCase) ? "SUPER STICKER"
             : Source.Contains("BITS", StringComparison.OrdinalIgnoreCase) ? "BITS" : "ДОНАТ";
