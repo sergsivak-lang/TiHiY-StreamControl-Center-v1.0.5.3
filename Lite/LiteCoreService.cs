@@ -24,6 +24,7 @@ public sealed class LiteCoreService : IAsyncDisposable
     public DiscordNotificationService Discord { get; }
     public StreamNotificationBotService NotifyBot { get; }
     public StreamlabsService Streamlabs { get; }
+    public LiteChatBotService ChatBot { get; }
     public LiteStats Stats { get; } = new();
     public ObservableCollection<ChatMessage> Chat { get; } = new();
     public ObservableCollection<LiteEvent> Events { get; } = new();
@@ -36,7 +37,6 @@ public sealed class LiteCoreService : IAsyncDisposable
     public LiteCoreService()
     {
         Settings.Value = SettingsService.Load();
-        // Hard-disable legacy background functionality in the shared settings file.
         Settings.Value.AutoConnectObs = false;
         Settings.Value.Aida64MonitoringEnabled = false;
         Settings.Value.InterfaceAnimationsEnabled = false;
@@ -48,6 +48,11 @@ public sealed class LiteCoreService : IAsyncDisposable
         Discord = new DiscordNotificationService(Settings, SettingsService, Credentials, Logger);
         NotifyBot = new StreamNotificationBotService(Settings, SettingsService, Credentials, Twitch, YouTube, Discord, Logger);
         Streamlabs = new StreamlabsService(Preferences, Credentials, Logger);
+        ChatBot = new LiteChatBotService(Settings, SettingsService, Logger)
+        {
+            Sender = SendChatAsync,
+            SongProvider = CurrentSong
+        };
 
         Twitch.MessageReceived += (_, m) => _ = AddChatAsync(m);
         YouTube.MessageReceived += (_, m) => _ = AddChatAsync(m);
@@ -63,6 +68,7 @@ public sealed class LiteCoreService : IAsyncDisposable
         Donatello.StatusChanged += (_, _) => RaiseStatus();
         Streamlabs.StatusChanged += (_, _) => RaiseStatus();
         NotifyBot.StatusChanged += (_, _) => RaiseStatus();
+        ChatBot.StatusChanged += (_, _) => RaiseStatus();
     }
 
     public async Task InitializeAsync(bool ciMode = false)
@@ -79,6 +85,8 @@ public sealed class LiteCoreService : IAsyncDisposable
             _ = SafeAsync(() => Donatello.StartAsync(), "Donatello автопідключення");
         if (Settings.Value.NotificationBotAutoStart && Settings.Value.DiscordNotificationsEnabled)
             _ = SafeAsync(() => NotifyBot.StartAsync(), "Discord Notify Bot");
+        if (Settings.Value.ChatBotAutoStart)
+            ChatBot.Start();
         if (Preferences.Value.HudShowAimp)
             _ = SafeAsync(() => _aimp.Value.InitializeAsync(), "AIMP metadata");
 
@@ -98,6 +106,7 @@ public sealed class LiteCoreService : IAsyncDisposable
             if (message.Role.Equals("Donor", StringComparison.OrdinalIgnoreCase) || message.Role.Equals("Subscriber", StringComparison.OrdinalIgnoreCase))
                 _recentDonorChat[$"{NormalizePlatform(message.Platform)}:{message.User}".ToLowerInvariant()] = DateTime.UtcNow;
             ChatAdded?.Invoke(this, message);
+            ChatBot.ProcessIncoming(message);
         }));
     }
 
@@ -175,7 +184,7 @@ public sealed class LiteCoreService : IAsyncDisposable
                     {
                         ExternalId = ext,
                         Source = platform + " " + type,
-                        Kind = type is "BITS" or "SUPER CHAT" or "DONATION" ? "DONATION" : "SUBSCRIPTION",
+                        Kind = "DONATION",
                         User = user,
                         Amount = amount,
                         Currency = currency,
@@ -230,15 +239,20 @@ public sealed class LiteCoreService : IAsyncDisposable
     public async Task SendChatAsync(string text, string target)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
+        var normalized = (target ?? string.Empty).Trim().ToUpperInvariant();
+        var both = normalized is "BOTH" or "TWITCH + YOUTUBE" or "TWITCH+YOUTUBE";
+        var twitch = both || normalized == "TWITCH";
+        var youtube = both || normalized == "YOUTUBE";
         var errors = new List<string>();
-        if (target is "TWITCH" or "BOTH")
+        if (twitch)
         {
             try { await Twitch.SendMessageAsync(text).ConfigureAwait(false); } catch (Exception ex) { errors.Add("Twitch: " + ex.Message); }
         }
-        if (target is "YOUTUBE" or "BOTH")
+        if (youtube)
         {
             try { await YouTube.SendMessageAsync(text).ConfigureAwait(false); } catch (Exception ex) { errors.Add("YouTube: " + ex.Message); }
         }
+        if (!twitch && !youtube) throw new InvalidOperationException("Невідомий канал чату: " + target);
         if (errors.Count > 0) throw new InvalidOperationException(string.Join(Environment.NewLine, errors));
     }
 
@@ -314,7 +328,12 @@ public sealed class LiteCoreService : IAsyncDisposable
     private static string FormatAmount(decimal amount, string currency) => amount <= 0 ? string.Empty : $"{amount:0.##} {currency}".Trim();
     private static string? First(JsonElement e, params string[] names)
     {
-        foreach (var n in names) if (e.TryGetProperty(n, out var v)) { var s = v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString(); if (!string.IsNullOrWhiteSpace(s)) return s; }
+        foreach (var n in names)
+            if (e.TryGetProperty(n, out var v))
+            {
+                var s = v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString();
+                if (!string.IsNullOrWhiteSpace(s)) return s;
+            }
         return null;
     }
     private static decimal ReadDecimal(JsonElement e, string name)
@@ -329,6 +348,7 @@ public sealed class LiteCoreService : IAsyncDisposable
         if (Interlocked.Exchange(ref _disposeState, 1) != 0) return;
         Preferences.Save();
         SettingsService.Save(Settings.Value);
+        try { ChatBot.Dispose(); } catch { }
         try { await Streamlabs.DisposeAsync().ConfigureAwait(false); } catch { }
         try { await Donatello.DisposeAsync().ConfigureAwait(false); } catch { }
         try { await NotifyBot.DisposeAsync().ConfigureAwait(false); } catch { }
