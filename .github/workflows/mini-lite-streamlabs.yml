@@ -31,6 +31,13 @@ jobs:
           $p = Start-Process -FilePath $exe -ArgumentList "--ci-screenshot=$shot" -PassThru -Wait
           if ($p.ExitCode -ne 0) { throw "Lite exited with $($p.ExitCode)" }
           if (-not (Test-Path $shot)) { throw "Lite screenshot missing" }
+      - name: Restored modules smoke test
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "publish-lite/TiHiY.StreamControlMini.Lite.exe").Path
+          $p = Start-Process -FilePath $exe -ArgumentList "--ci-modules" -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Restored modules smoke test exited with $($p.ExitCode)" }
+          Write-Host "Discord, Discord profiles, Chat Bot and game overlay modules instantiated successfully."
       - name: Idle memory benchmark
         shell: pwsh
         run: |
