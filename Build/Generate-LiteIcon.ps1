@@ -7,7 +7,7 @@ $png = Join-Path $outDir 'TiHiYMiniLite.png'
 $ico = Join-Path $outDir 'TiHiYMiniLite.ico'
 
 $size = 256
-$bmp = New-Object System.Drawing.Bitmap $size,$size,[System.Drawing.Imaging.PixelFormat]::Format32bppArgb
+$bmp = [System.Drawing.Bitmap]::new($size,$size,[System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
 $g = [System.Drawing.Graphics]::FromImage($bmp)
 $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
 $g.Clear([System.Drawing.Color]::Transparent)
