@@ -22,5 +22,7 @@
   <Style TargetType="TextBox"><Setter Property="Foreground" Value="{StaticResource Text}"/><Setter Property="Background" Value="#061522"/><Setter Property="BorderBrush" Value="{StaticResource Line}"/><Setter Property="CaretBrush" Value="{StaticResource Amber}"/><Setter Property="Padding" Value="8"/></Style>
   <Style TargetType="PasswordBox"><Setter Property="Foreground" Value="{StaticResource Text}"/><Setter Property="Background" Value="#061522"/><Setter Property="BorderBrush" Value="{StaticResource Line}"/><Setter Property="Padding" Value="8"/></Style>
   <Style TargetType="CheckBox"><Setter Property="Foreground" Value="{StaticResource Text}"/><Setter Property="Margin" Value="4"/></Style>
+  <Style x:Key="StatusChip" TargetType="Border"><Setter Property="Background" Value="#0B2438"/><Setter Property="BorderBrush" Value="{StaticResource Line}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="12"/><Setter Property="Padding" Value="9,4"/><Setter Property="Margin" Value="3,0"/></Style>
+  <Style x:Key="MetricCard" TargetType="Border"><Setter Property="Background" Value="#071927"/><Setter Property="BorderBrush" Value="{StaticResource Line}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="6"/><Setter Property="Padding" Value="8"/><Setter Property="Margin" Value="3"/></Style>
  </Application.Resources>
 </Application>
