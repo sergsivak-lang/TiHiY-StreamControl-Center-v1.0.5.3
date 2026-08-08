@@ -14,74 +14,134 @@ public partial class HudWindow : Window
     private const uint WDA_EXCLUDEFROMCAPTURE = 0x11;
 
     private readonly LiteCoreService _core;
-    private readonly LitePreferences _prefs;
+    private IntPtr _hwnd;
+    private bool _clickThrough;
 
     public HudWindow(LiteCoreService core)
     {
         InitializeComponent();
         _core = core;
-        _prefs = core.Preferences.Value;
-        Left = _prefs.HudLeft; Top = _prefs.HudTop; Width = _prefs.HudWidth; Height = _prefs.HudHeight;
-        Opacity = Math.Clamp(_prefs.HudOpacity, 0.2, 1.0);
-        HudRoot.Background = new SolidColorBrush(Color.FromArgb((byte)(Math.Clamp(_prefs.HudBackgroundOpacity,0,1)*255),3,15,27));
+        RestorePlacement();
+        ApplySettings();
         _core.ChatAdded += Core_ChatAdded;
-        _core.EventAdded += Core_EventAdded;
-        _core.Stats.PropertyChanged += (_,_) => Dispatcher.BeginInvoke(new Action(UpdateStats));
-        Loaded += (_,_) =>
-        {
-            UpdateStats();
-            foreach (var m in _core.Chat.TakeLast(Math.Clamp(_prefs.HudMaxMessages,1,30))) AddChat(m);
-        };
-        SourceInitialized += (_,_) => ApplyWindowFlags();
-        Closed += (_,_) =>
-        {
-            _core.ChatAdded -= Core_ChatAdded;
-            _core.EventAdded -= Core_EventAdded;
-            _prefs.HudLeft = Left; _prefs.HudTop = Top; _prefs.HudWidth = Width; _prefs.HudHeight = Height; _core.Preferences.Save();
-        };
+        _core.Stats.PropertyChanged += Stats_PropertyChanged;
+        _core.StatusChanged += Core_StatusChanged;
+        Loaded += Window_Loaded;
+        SourceInitialized += Window_SourceInitialized;
+        Closed += Window_Closed;
+    }
+
+    public void ApplySettings()
+    {
+        var s = _core.Settings.Value;
+        Topmost = true;
+        _clickThrough = s.LocalChatOverlayClickThrough;
+        ControlBar.Visibility = _clickThrough ? Visibility.Collapsed : Visibility.Visible;
+        ModeText.Text = _clickThrough ? "КРІЗЬ КЛІКИ" : "КЕРУВАННЯ";
+        OverlayFrame.Background = new SolidColorBrush(Color.FromArgb((byte)Math.Round(Math.Clamp(s.LocalChatOverlayBackgroundOpacity, 0, .85) * 255), 0, 0, 0));
+        ViewerStatsBar.SetValue(TextElement.FontSizeProperty, Math.Clamp(s.LocalChatOverlayFontSize * .65, 9, 20));
+        ApplyWindowFlags();
+        TrimMessages();
+        RefreshStats();
+    }
+
+    private void Window_Loaded(object sender, RoutedEventArgs e)
+    {
+        foreach (var m in _core.Chat.TakeLast(Math.Max(3, _core.Settings.Value.LocalChatOverlayMaxMessages))) AddChat(m);
+        RefreshStats();
+    }
+
+    private void Window_SourceInitialized(object? sender, EventArgs e)
+    {
+        _hwnd = new WindowInteropHelper(this).Handle;
+        ApplyWindowFlags();
     }
 
     private void Core_ChatAdded(object? sender, ChatMessage e) => Dispatcher.BeginInvoke(new Action(() => AddChat(e)));
-    private void Core_EventAdded(object? sender, LiteEvent e) => Dispatcher.BeginInvoke(new Action(() => ShowEvent(e)));
+    private void Stats_PropertyChanged(object? sender, PropertyChangedEventArgs e) => Dispatcher.BeginInvoke(new Action(RefreshStats));
+    private void Core_StatusChanged(object? sender, EventArgs e) => Dispatcher.BeginInvoke(new Action(RefreshStats));
 
     private void AddChat(ChatMessage m)
     {
-        HudChatStack.Children.Add(LiteChatVisual.BuildHudRow(m, _prefs.HudFontSize));
-        while (HudChatStack.Children.Count > Math.Clamp(_prefs.HudMaxMessages,1,30)) HudChatStack.Children.RemoveAt(0);
-        HudScroll.ScrollToEnd();
+        var row = LiteChatVisual.BuildHudRow(m, Math.Clamp(_core.Settings.Value.LocalChatOverlayFontSize, 11, 42));
+        if (row is Border border) border.Background = Brushes.Transparent;
+        OverlayChatStack.Children.Add(row);
+        TrimMessages();
+        OverlayScroll.ScrollToEnd();
     }
 
-    private void ShowEvent(LiteEvent e)
+    private void TrimMessages()
     {
-        if (!_prefs.HudShowEvents) return;
-        EventBar.Visibility = Visibility.Visible;
-        EventText.Text = $"{e.Platform} • {e.Type} • {e.User}" + (string.IsNullOrWhiteSpace(e.Text) ? string.Empty : $" — {e.Text}");
+        var max = Math.Max(3, _core.Settings.Value.LocalChatOverlayMaxMessages);
+        while (OverlayChatStack.Children.Count > max) OverlayChatStack.Children.RemoveAt(0);
     }
 
-    private void UpdateStats()
+    private void RefreshStats()
     {
-        var visible = _prefs.HudShowStats ? Visibility.Visible : Visibility.Collapsed;
-        TwText.Visibility = visible; YtText.Visibility = visible; TotalText.Visibility = visible; LikesText.Visibility = visible;
-        TwText.Text = _core.Stats.TwitchViewers.ToString();
-        YtText.Text = _core.Stats.YouTubeViewers.ToString();
-        TotalText.Text = _core.Stats.TotalViewers.ToString();
-        LikesText.Text = _core.Stats.YouTubeLikes.ToString();
+        var s = _core.Settings.Value;
+        TwitchViewers.Text = s.TwitchViewers.ToString("N0");
+        YouTubeViewers.Text = s.YouTubeViewers.ToString("N0");
+        YouTubeLikes.Text = s.YouTubeLikes.ToString("N0");
+        TwitchStatus.Text = s.TwitchLive ? "LIVE" : "OFF";
+        YouTubeStatus.Text = s.YouTubeLive ? "LIVE" : "OFF";
+        TwitchStatus.Foreground = s.TwitchLive ? Brushes.LimeGreen : Brushes.Gray;
+        YouTubeStatus.Foreground = s.YouTubeLive ? Brushes.LimeGreen : Brushes.Gray;
+        TwitchLiveDot.Fill = s.TwitchLive ? Brushes.LimeGreen : Brushes.Gray;
+        YouTubeLiveDot.Fill = s.YouTubeLive ? Brushes.LimeGreen : Brushes.Gray;
     }
 
     private void ApplyWindowFlags()
     {
-        var hwnd = new WindowInteropHelper(this).Handle;
-        if (hwnd == IntPtr.Zero) return;
-        var style = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
-        style |= WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
-        if (_prefs.HudClickThrough) style |= WS_EX_TRANSPARENT;
-        SetWindowLongPtr(hwnd, GWL_EXSTYLE, new IntPtr(style));
-        try { SetWindowDisplayAffinity(hwnd, _prefs.HudExcludeFromCapture ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE); } catch { }
+        if (_hwnd == IntPtr.Zero) return;
+        var style = GetWindowLongPtr(_hwnd, GWL_EXSTYLE).ToInt64();
+        style |= WS_EX_TOOLWINDOW;
+        if (_clickThrough) style |= WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
+        else style &= ~(WS_EX_TRANSPARENT | WS_EX_NOACTIVATE);
+        SetWindowLongPtr(_hwnd, GWL_EXSTYLE, new IntPtr(style));
+        try { SetWindowDisplayAffinity(_hwnd, _core.Preferences.Value.HudExcludeFromCapture ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE); } catch { }
     }
 
-    [DllImport("user32.dll", EntryPoint="GetWindowLongPtrW")]
+    private void RestorePlacement()
+    {
+        var s = _core.Settings.Value;
+        if (s.WindowPlacements.TryGetValue("LocalChatOverlay", out var w) && w.Width > 100 && w.Height > 100)
+        {
+            Left = w.Left; Top = w.Top; Width = w.Width; Height = w.Height;
+            return;
+        }
+        var p = _core.Preferences.Value;
+        Left = p.HudLeft; Top = p.HudTop; Width = p.HudWidth; Height = p.HudHeight;
+    }
+
+    private void SavePlacement()
+    {
+        var placement = new WindowPlacement { Left = Left, Top = Top, Width = ActualWidth, Height = ActualHeight };
+        _core.Settings.Value.WindowPlacements["LocalChatOverlay"] = placement;
+        var p = _core.Preferences.Value;
+        p.HudLeft = Left; p.HudTop = Top; p.HudWidth = ActualWidth; p.HudHeight = ActualHeight;
+        _core.SettingsService.Save(_core.Settings.Value);
+        _core.Preferences.Save();
+    }
+
+    private void DragBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_clickThrough || e.LeftButton != MouseButtonState.Pressed) return;
+        try { DragMove(); } catch { }
+    }
+
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void Window_Closed(object? sender, EventArgs e)
+    {
+        _core.ChatAdded -= Core_ChatAdded;
+        _core.Stats.PropertyChanged -= Stats_PropertyChanged;
+        _core.StatusChanged -= Core_StatusChanged;
+        SavePlacement();
+    }
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
     private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
-    [DllImport("user32.dll", EntryPoint="SetWindowLongPtrW")]
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
     private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
