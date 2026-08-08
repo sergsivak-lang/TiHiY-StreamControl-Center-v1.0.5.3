@@ -12,15 +12,13 @@
     <Border Background="Transparent" MouseLeftButtonDown="DragBar_MouseLeftButtonDown"><TextBlock Text="ЧАТ ПОВЕРХ ГРИ • ВИДНО ТІЛЬКИ ВАМ" Foreground="#46D8FF" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/></Border>
     <StackPanel Grid.Column="1" Orientation="Horizontal"><TextBlock x:Name="ModeText" Text="КЕРУВАННЯ" Foreground="{StaticResource Muted}" FontSize="10" VerticalAlignment="Center" Margin="0,0,8,0"/><Button Content="×" Width="30" Height="24" Padding="0" Margin="0" Click="Close_Click"/></StackPanel>
    </Grid>
-   <Border x:Name="ViewerStatsBar" Grid.Row="1" Background="#26030B10" BorderBrush="#355B6B" BorderThickness="0,0,0,1" Padding="5,3" Margin="0,0,0,5">
-    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="1"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-      <TextBlock Text="TWITCH  " Foreground="#A970FF" FontWeight="Bold"/><TextBlock Text="ГЛЯДАЧІ " Foreground="{StaticResource Muted}"/><TextBlock x:Name="TwitchViewers" Text="0" FontWeight="Bold"/><Ellipse x:Name="TwitchLiveDot" Width="7" Height="7" Fill="#75838B" Margin="9,0,4,0"/><TextBlock x:Name="TwitchStatus" Text="OFF" Foreground="{StaticResource Muted}" FontWeight="Bold"/>
-     </StackPanel>
-     <Border Grid.Column="1" Background="#355B6B"/>
-     <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-      <TextBlock Text="YOUTUBE  " Foreground="#FF5B5B" FontWeight="Bold"/><TextBlock Text="ГЛЯДАЧІ " Foreground="{StaticResource Muted}"/><TextBlock x:Name="YouTubeViewers" Text="0" FontWeight="Bold"/><TextBlock Text="   ♥ " Foreground="#FF6B6B" FontWeight="Bold"/><TextBlock x:Name="YouTubeLikes" Text="0" FontWeight="Bold"/><Ellipse x:Name="YouTubeLiveDot" Width="7" Height="7" Fill="#75838B" Margin="9,0,4,0"/><TextBlock x:Name="YouTubeStatus" Text="OFF" Foreground="{StaticResource Muted}" FontWeight="Bold"/>
-     </StackPanel>
+   <Border x:Name="ViewerStatsBar" Grid.Row="1" Background="#26030B10" BorderBrush="#355B6B" BorderThickness="0,0,0,1" Padding="6,4" Margin="0,0,0,5">
+    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0"><Image Source="/Assets/Platforms/twitch.png" Width="18" Height="18" ToolTip="Twitch"/><TextBlock x:Name="TwitchViewers" Text="0" FontWeight="Bold" Margin="5,0,0,0" VerticalAlignment="Center"/><Ellipse x:Name="TwitchLiveDot" Width="7" Height="7" Fill="#75838B" Margin="7,0,0,0"/></StackPanel>
+     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0"><Image Source="/Assets/Platforms/youtube.png" Width="18" Height="18" ToolTip="YouTube"/><TextBlock x:Name="YouTubeViewers" Text="0" FontWeight="Bold" Margin="5,0,0,0" VerticalAlignment="Center"/><Ellipse x:Name="YouTubeLiveDot" Width="7" Height="7" Fill="#75838B" Margin="7,0,0,0"/></StackPanel>
+     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0"><TextBlock Text="👍" Foreground="#FFD329"/><TextBlock x:Name="YouTubeLikes" Text="0" FontWeight="Bold" Margin="4,0,0,0"/></StackPanel>
+     <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="⏱" Foreground="#2BEB82"/><TextBlock x:Name="LiveTimeText" Text="00:00:00" FontWeight="Bold" Foreground="#2BEB82" Margin="4,0,0,0"/></StackPanel>
+     <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Right" Visibility="Collapsed"><TextBlock x:Name="TwitchStatus" Text="OFF"/><TextBlock x:Name="YouTubeStatus" Text="OFF"/></StackPanel>
     </Grid>
    </Border>
    <ScrollViewer Grid.Row="2" x:Name="OverlayScroll" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="OverlayChatStack"/></ScrollViewer>
