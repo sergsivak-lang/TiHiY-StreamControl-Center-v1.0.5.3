@@ -9,6 +9,7 @@ public partial class LiteApp : Application
     private static Mutex? _mutex;
     private static bool _owns;
     public static LiteCoreService Core { get; private set; } = null!;
+    public static LiteLiveClock LiveClock { get; private set; } = null!;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -25,6 +26,7 @@ public partial class LiteApp : Application
         try
         {
             Core = new LiteCoreService();
+            LiveClock = new LiteLiveClock(Core);
             var main = new MainWindow();
             MainWindow = main;
             main.Show();
@@ -108,6 +110,7 @@ public partial class LiteApp : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        try { LiveClock?.Dispose(); } catch { }
         try { if (Core is not null) Task.Run(async () => await Core.DisposeAsync()).Wait(TimeSpan.FromSeconds(4)); } catch { }
         try { if (_owns) _mutex?.ReleaseMutex(); } catch { }
         _mutex?.Dispose();
