@@ -7,7 +7,7 @@ internal static class LiteChatVisual
 {
     public static FrameworkElement BuildHudRow(ChatMessage m, double fontSize)
     {
-        var root = new Border { Padding = new Thickness(5,4), Margin = new Thickness(0,1,0,1), CornerRadius = new CornerRadius(5), Background = new SolidColorBrush(Color.FromArgb(60,3,16,28)) };
+        var root = new Border { Padding = new Thickness(5,4,5,4), Margin = new Thickness(0,1,0,1), CornerRadius = new CornerRadius(5), Background = new SolidColorBrush(Color.FromArgb(60,3,16,28)) };
         var stack = new StackPanel(); root.Child = stack;
         var header = new TextBlock { FontSize = Math.Max(11,fontSize-3) };
         var platform = m.Platform.StartsWith("TW",StringComparison.OrdinalIgnoreCase) ? "TW" : m.Platform.StartsWith("YOU",StringComparison.OrdinalIgnoreCase) ? "YT" : "♥";
