@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Windows.Documents;
 using System.Windows.Interop;
 using TiHiY.StreamControlCenter.Models;
 
