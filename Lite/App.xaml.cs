@@ -16,9 +16,11 @@ public partial class LiteApp : Application
         if (!_owns) { Shutdown(); return; }
         base.OnStartup(e);
 
-        var arg = e.Args.FirstOrDefault(x => x.StartsWith("--ci-screenshot=", StringComparison.OrdinalIgnoreCase));
-        var screenshot = arg is null ? null : arg[(arg.IndexOf('=') + 1)..].Trim('"');
-        var ci = !string.IsNullOrWhiteSpace(screenshot);
+        var screenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--ci-screenshot=", StringComparison.OrdinalIgnoreCase));
+        var screenshot = screenshotArg is null ? null : screenshotArg[(screenshotArg.IndexOf('=') + 1)..].Trim('"');
+        var ciScreenshot = !string.IsNullOrWhiteSpace(screenshot);
+        var ciModules = e.Args.Any(x => x.Equals("--ci-modules", StringComparison.OrdinalIgnoreCase));
+        var ci = ciScreenshot || ciModules;
         try
         {
             Core = new LiteCoreService();
@@ -27,7 +29,16 @@ public partial class LiteApp : Application
             main.Show();
             if (!ci) LiteShortcutService.EnsureDesktopShortcut(Core.Logger);
             await Core.InitializeAsync(ci);
-            if (ci)
+
+            if (ciModules)
+            {
+                await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                SmokeRestoredModules(main);
+                Shutdown(0);
+                return;
+            }
+
+            if (ciScreenshot)
             {
                 main.ApplyCiDemo();
                 main.Width = 1280; main.Height = 780; main.Left = 0; main.Top = 0;
@@ -43,6 +54,38 @@ public partial class LiteApp : Application
             if (!ci) MessageBox.Show(ex.GetBaseException().Message, "TiHiY StreamControl MINI Lite", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
+    }
+
+    private static void SmokeRestoredModules(MainWindow main)
+    {
+        var settings = new SettingsWindow { Owner = main };
+        settings.UpdateLayout();
+        settings.Close();
+
+        var bot = new ChatBotWindow { Owner = main };
+        bot.UpdateLayout();
+        bot.Close();
+
+        var discord = new DiscordBotWindow { Owner = main };
+        discord.UpdateLayout();
+        discord.Close();
+
+        var servers = new DiscordServersWindow { Owner = main };
+        servers.UpdateLayout();
+        servers.Close();
+
+        var profile = new DiscordProfileWindow("ci-server", "CI Server") { Owner = main };
+        profile.UpdateLayout();
+        profile.Close();
+
+        var overlaySettings = new GameOverlaySettingsWindow { Owner = main };
+        overlaySettings.UpdateLayout();
+        overlaySettings.Close();
+
+        var overlay = new HudWindow(Core) { Owner = main };
+        overlay.Show();
+        overlay.UpdateLayout();
+        overlay.Close();
     }
 
     private static void SaveScreenshot(Window window, string path)
