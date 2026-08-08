@@ -5,8 +5,11 @@ internal static class LitePlatformVisual
     public static FrameworkElement BuildIcon(string? platform, double size = 18)
     {
         var p = (platform ?? string.Empty).Trim().ToUpperInvariant();
+
+        if (p.Contains("YOUTUBE"))
+            return BuildYouTubeIcon(size);
+
         var asset = p.Contains("TWITCH") ? "/Assets/Platforms/twitch.png"
-            : p.Contains("YOUTUBE") ? "/Assets/Platforms/youtube.png"
             : p.Contains("DISCORD") ? "/Assets/Platforms/discord.png"
             : p.Contains("DONATELLO") ? "/Assets/Platforms/donatello.png"
             : string.Empty;
@@ -52,6 +55,32 @@ internal static class LitePlatformVisual
         };
     }
 
+    public static FrameworkElement BuildYouTubeIcon(double size = 18)
+    {
+        var viewbox = new Viewbox
+        {
+            Width = size,
+            Height = size,
+            Stretch = Stretch.Uniform,
+            SnapsToDevicePixels = true,
+            ToolTip = "YouTube"
+        };
+        var grid = new Grid { Width = 32, Height = 22 };
+        grid.Children.Add(new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(255, 0, 0)),
+            CornerRadius = new CornerRadius(6)
+        });
+        grid.Children.Add(new System.Windows.Shapes.Path
+        {
+            Data = Geometry.Parse("M 12,5 L 22,11 L 12,17 Z"),
+            Fill = Brushes.White,
+            Stretch = Stretch.None
+        });
+        viewbox.Child = grid;
+        return viewbox;
+    }
+
     public static StackPanel BuildTargetIcons(string? target, double size = 18)
     {
         var panel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
@@ -61,7 +90,7 @@ internal static class LitePlatformVisual
         if (t.Contains("YouTube", StringComparison.OrdinalIgnoreCase))
         {
             if (panel.Children.Count > 0) panel.Children.Add(new Border { Width = 4 });
-            panel.Children.Add(BuildIcon("YOUTUBE", size));
+            panel.Children.Add(BuildYouTubeIcon(size));
         }
         if (panel.Children.Count == 0) panel.Children.Add(BuildIcon(target, size));
         panel.ToolTip = string.IsNullOrWhiteSpace(t) ? "Канал" : t;
