@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -10,6 +11,9 @@ public partial class LiteApp : Application
     private static bool _owns;
     public static LiteCoreService Core { get; private set; } = null!;
     public static LiteLiveClock LiveClock { get; private set; } = null!;
+
+    [DllImport("user32.dll")]
+    private static extern bool SetCursorPos(int x, int y);
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -46,8 +50,13 @@ public partial class LiteApp : Application
             if (ciUiAudit)
             {
                 main.ApplyCiDemo();
+                main.Width = 1280;
+                main.Height = 780;
+                main.Left = 0;
+                main.Top = 0;
                 await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
                 Directory.CreateDirectory(auditFolder!);
+                await CaptureMainHoverAsync(main, Path.Combine(auditFolder!, "main-hover-resume.png"));
                 await ShowAndCaptureAsync(new ChatBotWindow(), Path.Combine(auditFolder!, "chat-bot.png"), 980, 720);
                 await ShowAndCaptureAsync(new DiscordServersWindow(), Path.Combine(auditFolder!, "discord-servers.png"), 1050, 700);
                 await ShowAndCaptureAsync(new SettingsWindow(), Path.Combine(auditFolder!, "settings.png"), 900, 700);
@@ -84,6 +93,34 @@ public partial class LiteApp : Application
             if (!ci) MessageBox.Show(ex.GetBaseException().Message, "TiHiY StreamControl MINI Lite", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
+    }
+
+    private static async Task CaptureMainHoverAsync(MainWindow main, string path)
+    {
+        main.Activate();
+        main.UpdateLayout();
+        await Current.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        var resume = FindVisual<Button>(main, b => string.Equals(b.Content?.ToString(), "RESUME", StringComparison.Ordinal));
+        if (resume is not null)
+        {
+            var p = resume.PointToScreen(new Point(Math.Max(1, resume.ActualWidth / 2), Math.Max(1, resume.ActualHeight / 2)));
+            SetCursorPos((int)Math.Round(p.X), (int)Math.Round(p.Y));
+            await Task.Delay(300);
+            await Current.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        }
+        SaveScreenshot(main, path);
+    }
+
+    private static T? FindVisual<T>(DependencyObject parent, Func<T, bool> predicate) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T match && predicate(match)) return match;
+            var nested = FindVisual(child, predicate);
+            if (nested is not null) return nested;
+        }
+        return null;
     }
 
     private static async Task ShowAndCaptureAsync(Window window, string path, double width, double height)
