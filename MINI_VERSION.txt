@@ -1,0 +1,5 @@
+TiHiY StreamControl MINI
+Base: test_42 / v1.0.5.3 / fab9b8dca55fcef876b920336e430f215a9ae071
+Theme: Україна
+Main blocks: Мультичат, Донати, Сповіщення
+Widgets: chat, alerts, donatello, goal, top-donors, now-playing, local chat overlay

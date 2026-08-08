@@ -269,43 +269,105 @@ public sealed class TwitchService : IAsyncDisposable
             ExternalId = tags.TryGetValue("id", out var id) ? id : string.Empty,
             AuthorId = tags.TryGetValue("user-id", out var userId) ? userId : string.Empty,
             Time = DateTime.Now,
-            Emotes = ParseTwitchEmotes(tags, text)
+            Emotes = ParseTwitchRichMedia(tags, text)
         };
     }
 
-
-    private static List<ChatEmote> ParseTwitchEmotes(IReadOnlyDictionary<string, string> tags, string text)
+    private static List<ChatEmote> ParseTwitchRichMedia(IReadOnlyDictionary<string, string> tags, string text)
     {
         var result = new List<ChatEmote>();
-        if (!tags.TryGetValue("emotes", out var raw) || string.IsNullOrWhiteSpace(raw)) return result;
 
-        foreach (var group in raw.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        if (tags.TryGetValue("emotes", out var rawEmotes) && !string.IsNullOrWhiteSpace(rawEmotes))
         {
-            var separator = group.IndexOf(':');
-            if (separator <= 0 || separator >= group.Length - 1) continue;
-            var emoteId = group[..separator];
-
-            foreach (var range in group[(separator + 1)..].Split(',', StringSplitOptions.RemoveEmptyEntries))
+            foreach (var group in rawEmotes.Split('/', StringSplitOptions.RemoveEmptyEntries))
             {
-                var dash = range.IndexOf('-');
-                if (dash <= 0 || dash >= range.Length - 1) continue;
-                if (!int.TryParse(range[..dash], out var start) || !int.TryParse(range[(dash + 1)..], out var end)) continue;
-                if (start < 0 || end < start || end >= text.Length) continue;
+                var separator = group.IndexOf(':');
+                if (separator <= 0 || separator >= group.Length - 1) continue;
+                var emoteId = group[..separator];
 
+                foreach (var range in group[(separator + 1)..].Split(',', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (!TryParseRange(range, text, out var start, out var end)) continue;
+                    result.Add(new ChatEmote
+                    {
+                        Platform = "TWITCH",
+                        Id = emoteId,
+                        Name = text.Substring(start, end - start + 1),
+                        Start = start,
+                        End = end,
+                        ImageUrl = $"https://static-cdn.jtvnw.net/emoticons/v2/{Uri.EscapeDataString(emoteId)}/static/dark/2.0"
+                    });
+                }
+            }
+        }
+
+        // Current Twitch IRC may also provide chat GIFs independently from classic
+        // emotes. The URL from the gifs tag is authoritative and must not be altered.
+        if (tags.TryGetValue("gifs", out var rawGifs) && !string.IsNullOrWhiteSpace(rawGifs))
+        {
+            foreach (var entry in rawGifs.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = entry.Split('|', 3);
+                if (parts.Length != 3 || string.IsNullOrWhiteSpace(parts[2])) continue;
+                if (!TryParseRange(parts[0], text, out var start, out var end)) continue;
                 result.Add(new ChatEmote
                 {
                     Platform = "TWITCH",
-                    Id = emoteId,
+                    // Leave Id empty so the post-parser does not replace Twitch's
+                    // authoritative GIF URL with the emote CDN URL.
+                    Id = string.Empty,
                     Name = text.Substring(start, end - start + 1),
                     Start = start,
                     End = end,
-                    ImageUrl = $"https://static-cdn.jtvnw.net/emoticons/v2/{Uri.EscapeDataString(emoteId)}/default/dark/2.0"
+                    ImageUrl = parts[2]
                 });
             }
         }
 
         return result.OrderBy(x => x.Start).ThenByDescending(x => x.Length).ToList();
     }
+
+    private static bool TryParseRange(string range, string text, out int startUtf16, out int endUtf16)
+    {
+        startUtf16 = endUtf16 = -1;
+        var dash = range.IndexOf('-');
+        if (dash <= 0 || dash >= range.Length - 1) return false;
+        if (!int.TryParse(range[..dash], out var startCodePoint) || !int.TryParse(range[(dash + 1)..], out var endCodePoint)) return false;
+        if (startCodePoint < 0 || endCodePoint < startCodePoint) return false;
+
+        // Twitch IRC positions are Unicode-code-point indices. .NET strings use
+        // UTF-16 code units, so emoji before an emote can otherwise shift its range.
+        var actionPrefixLength = text.StartsWith("\u0001ACTION ", StringComparison.Ordinal) ? 8 : 0;
+        var body = actionPrefixLength == 0 ? text : text[actionPrefixLength..];
+        if (!TryCodePointToUtf16(body, startCodePoint, out var bodyStart)) return false;
+        if (!TryCodePointEndToUtf16(body, endCodePoint, out var bodyEnd)) return false;
+        startUtf16 = actionPrefixLength + bodyStart;
+        endUtf16 = actionPrefixLength + bodyEnd;
+        return startUtf16 >= 0 && endUtf16 >= startUtf16 && endUtf16 < text.Length;
+    }
+
+    private static bool TryCodePointToUtf16(string text, int codePointIndex, out int utf16Index)
+    {
+        utf16Index = 0;
+        var current = 0;
+        while (utf16Index < text.Length)
+        {
+            if (current == codePointIndex) return true;
+            utf16Index += char.IsHighSurrogate(text[utf16Index]) && utf16Index + 1 < text.Length && char.IsLowSurrogate(text[utf16Index + 1]) ? 2 : 1;
+            current++;
+        }
+        return current == codePointIndex;
+    }
+
+    private static bool TryCodePointEndToUtf16(string text, int codePointIndex, out int utf16End)
+    {
+        utf16End = -1;
+        if (!TryCodePointToUtf16(text, codePointIndex, out var start) || start >= text.Length) return false;
+        var length = char.IsHighSurrogate(text[start]) && start + 1 < text.Length && char.IsLowSurrogate(text[start + 1]) ? 2 : 1;
+        utf16End = start + length - 1;
+        return true;
+    }
+
     private static DonationEvent? ParseDonation(string line)
     {
         if (!line.StartsWith('@')) return null;
@@ -461,4 +523,3 @@ public sealed class TwitchService : IAsyncDisposable
         _http.Dispose();
     }
 }
-

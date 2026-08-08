@@ -68,7 +68,10 @@ public partial class OverlaySettingsWindow : ModuleWindowBase
         DonatelloUrlBox.Text = $"http://127.0.0.1:{port}/overlay/donatello?theme={theme}";
         GoalUrlBox.Text = $"http://127.0.0.1:{port}/overlay/goal";
         TopDonorsUrlBox.Text = $"http://127.0.0.1:{port}/overlay/top-donors";
-        NowPlayingUrlBox.Text = $"http://127.0.0.1:{port}/overlay/now-playing?theme={theme}";
+        var aimpPort = _services.AimpOverlay.IsRunning
+            ? _services.AimpOverlay.Port
+            : Math.Clamp(_services.Settings.Value.OverlayPort + 1, 1025, 65525);
+        NowPlayingUrlBox.Text = $"http://127.0.0.1:{aimpPort}/overlay/now-playing";
     }
 
     private void ThemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (IsLoaded) UpdateUrls(); }
@@ -79,8 +82,9 @@ public partial class OverlaySettingsWindow : ModuleWindowBase
         {
             SaveToSettings();
             await _services.Overlay.RestartAsync(_services.Settings.Value.OverlayPort);
+            await _services.AimpOverlay.RestartAsync(Math.Clamp(_services.Settings.Value.OverlayPort + 1, 1025, 65525));
             UpdateUrls();
-            StatusText.Text = $"Overlay Server перезапущено на порту {_services.Settings.Value.OverlayPort}";
+            StatusText.Text = $"Overlay Server перезапущено. Основний порт {_services.Overlay.Port} • AIMP {_services.AimpOverlay.Port}.";
             _services.Logger.Info(StatusText.Text);
         }
         catch (Exception ex) { ShowError("Overlay Server", ex); }

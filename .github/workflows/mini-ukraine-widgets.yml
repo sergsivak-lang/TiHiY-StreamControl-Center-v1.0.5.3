@@ -1,0 +1,126 @@
+name: MINI Ukraine Widgets Build
+
+# Validation for standalone MINI built from test_42 / v1.0.5.3.
+on:
+  push:
+    branches: [ "mini-ukraine-widgets", "feature/mini-ukraine-widgets" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-mini:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore TiHiY.StreamControlCenter.csproj
+
+      - name: Release build
+        run: dotnet build TiHiY.StreamControlCenter.csproj -c Release --no-restore
+
+      - name: Publish self-contained Windows x64
+        run: dotnet publish TiHiY.StreamControlCenter.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o publish-mini
+
+      - name: Create MINI executable name
+        shell: pwsh
+        run: |
+          Copy-Item "publish-mini/TiHiY.StreamControlCenter.exe" "publish-mini/TiHiY.StreamControlMini.exe" -Force
+          Remove-Item "publish-mini/TiHiY.StreamControlCenter.exe" -Force
+          if (-not (Test-Path "publish-mini/TiHiY.StreamControlMini.exe")) { throw "MINI executable was not created." }
+
+      - name: Smoke test MINI Ukraine main window
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path preview | Out-Null
+          $shot = Join-Path $PWD "preview/TiHiY-StreamControl-MINI-Ukraine.png"
+          $p = Start-Process -FilePath (Resolve-Path "publish-mini/TiHiY.StreamControlMini.exe") -ArgumentList "--ci-screenshot=$shot" -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "MINI screenshot process failed with exit code $($p.ExitCode)." }
+          if (-not (Test-Path $shot)) { throw "MINI did not create a screenshot." }
+
+      - name: Smoke test MINI Settings window
+        shell: pwsh
+        run: |
+          $shot = Join-Path $PWD "preview/TiHiY-StreamControl-MINI-Settings.png"
+          $args = @("--ci-screenshot=$shot", "--ci-open-settings", "--ci-settings-theme-preview")
+          $p = Start-Process -FilePath (Resolve-Path "publish-mini/TiHiY.StreamControlMini.exe") -ArgumentList $args -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "MINI Settings screenshot process failed with exit code $($p.ExitCode)." }
+          if (-not (Test-Path $shot)) { throw "MINI did not create Settings screenshot." }
+
+      - name: Smoke test all overlay widgets and full AIMP bridge
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "publish-mini/TiHiY.StreamControlMini.exe").Path
+          $p = Start-Process -FilePath $exe -PassThru
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 40; $i++) {
+              Start-Sleep -Milliseconds 500
+              try {
+                $health = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:17845/health" -TimeoutSec 2
+                $aimpHealth = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:17846/health" -TimeoutSec 2
+                if ($health.StatusCode -eq 200 -and $aimpHealth.StatusCode -eq 200) { $ready = $true; break }
+              } catch { }
+            }
+            if (-not $ready) { throw "Overlay servers did not become ready." }
+
+            $urls = @(
+              "http://127.0.0.1:17845/overlay/chat?theme=TiHiY-DED%20Ukraine",
+              "http://127.0.0.1:17845/overlay/alerts?theme=TiHiY-DED%20Ukraine",
+              "http://127.0.0.1:17845/overlay/donatello?theme=TiHiY-DED%20Ukraine",
+              "http://127.0.0.1:17845/overlay/goal",
+              "http://127.0.0.1:17845/overlay/top-donors",
+              "http://127.0.0.1:17845/overlay/now-playing?theme=TiHiY-DED%20Ukraine",
+              "http://127.0.0.1:17845/api/chat",
+              "http://127.0.0.1:17845/api/donations",
+              "http://127.0.0.1:17845/api/donation-summary",
+              "http://127.0.0.1:17845/api/now-playing",
+              "http://127.0.0.1:17846/overlay/now-playing",
+              "http://127.0.0.1:17846/api/now-playing",
+              "http://127.0.0.1:17846/api/cover"
+            )
+            foreach ($url in $urls) {
+              $r = Invoke-WebRequest -UseBasicParsing $url -TimeoutSec 5
+              if ($r.StatusCode -ne 200) { throw "Widget failed: $url => $($r.StatusCode)" }
+              if ($r.RawContentLength -le 0) { throw "Widget returned empty content: $url" }
+              Write-Host "OK $url ($($r.RawContentLength) bytes)"
+            }
+
+            $np = Invoke-RestMethod "http://127.0.0.1:17846/api/now-playing" -TimeoutSec 5
+            if ($np.source -ne "AIMP") { throw "Full Now Playing source is not AIMP." }
+            if ($null -eq $np.isPlaying) { throw "AIMP payload misses play/pause state." }
+            if ($null -eq $np.coverVersion) { throw "AIMP payload misses cover version." }
+            if ($null -eq $np.durationSeconds) { throw "AIMP payload misses duration." }
+            Write-Host "OK full AIMP provider: active=$($np.active) mode=$($np.integrationMode)"
+
+            $control = Invoke-RestMethod "http://127.0.0.1:17846/api/control?action=toggle" -TimeoutSec 5
+            if ($null -eq $control.ok) { throw "AIMP control endpoint returned invalid payload." }
+            Write-Host "OK AIMP control API present (no AIMP session on CI is expected)."
+          }
+          finally {
+            if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+          }
+
+      - name: Upload MINI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TiHiY-StreamControl-MINI-Ukraine-preview
+          path: preview/**
+          if-no-files-found: warn
+
+      - name: Upload MINI Windows x64
+        uses: actions/upload-artifact@v4
+        with:
+          name: TiHiY-StreamControl-MINI-Ukraine-Widgets-win-x64
+          path: publish-mini/**

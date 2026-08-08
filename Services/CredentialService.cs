@@ -5,7 +5,8 @@ namespace TiHiY.StreamControlCenter.Services;
 
 public sealed class CredentialService
 {
-    private const string Prefix = "TiHiY.StreamControlCenter.";
+    private const string Prefix = "TiHiY.StreamControlMini.";
+    private const string LegacyPrefix = "TiHiY.StreamControlCenter.";
     private const int CredTypeGeneric = 1;
     private const int CredPersistLocalMachine = 2;
 
@@ -13,9 +14,24 @@ public sealed class CredentialService
     public string LoadPassword() => LoadSecret("OBS");
     public void DeletePassword() => DeleteSecret("OBS");
 
-    public void SaveSecret(string key, string value)
+    public void SaveSecret(string key, string value) => WriteSecret(Prefix + key, value);
+
+    public string LoadSecret(string key)
     {
-        var target = Prefix + key;
+        var current = ReadSecret(Prefix + key);
+        if (!string.IsNullOrWhiteSpace(current)) return current;
+
+        var legacy = ReadSecret(LegacyPrefix + key);
+        if (string.IsNullOrWhiteSpace(legacy)) return string.Empty;
+
+        try { WriteSecret(Prefix + key, legacy); } catch { }
+        return legacy;
+    }
+
+    public void DeleteSecret(string key) => CredDelete(Prefix + key, CredTypeGeneric, 0);
+
+    private static void WriteSecret(string target, string value)
+    {
         var bytes = Encoding.Unicode.GetBytes(value ?? string.Empty);
         var blob = Marshal.AllocCoTaskMem(Math.Max(bytes.Length, 2));
         try
@@ -40,9 +56,8 @@ public sealed class CredentialService
         }
     }
 
-    public string LoadSecret(string key)
+    private static string ReadSecret(string target)
     {
-        var target = Prefix + key;
         if (!CredRead(target, CredTypeGeneric, 0, out var ptr)) return string.Empty;
         try
         {
@@ -55,8 +70,6 @@ public sealed class CredentialService
             CredFree(ptr);
         }
     }
-
-    public void DeleteSecret(string key) => CredDelete(Prefix + key, CredTypeGeneric, 0);
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct NativeCredential

@@ -16,6 +16,7 @@ public sealed class YouTubeService : IAsyncDisposable
     private readonly CredentialService _credentials;
     private readonly AppLogger _logger;
     private readonly HttpClient _http = new();
+    private readonly YouTubeSuperStickerCatalog _superStickers = new();
     private OAuthToken _token = new();
     private CancellationTokenSource? _cts;
     private Task? _pollLoop;
@@ -375,41 +376,137 @@ public sealed class YouTubeService : IAsyncDisposable
         _nextPageToken = json["nextPageToken"]?.GetValue<string>() ?? _nextPageToken;
         _pollIntervalMs = Math.Clamp(json["pollingIntervalMillis"]?.GetValue<int>() ?? 10_000, 10_000, 30_000);
         if (json["items"] is not JsonArray items) return;
+
         foreach (var item in items.OfType<JsonObject>())
         {
             var snippet = item["snippet"] as JsonObject ?? new JsonObject();
             var author = item["authorDetails"] as JsonObject ?? new JsonObject();
             var type = snippet["type"]?.GetValue<string>() ?? string.Empty;
-            var isPaid = type.Contains("superChat", StringComparison.OrdinalIgnoreCase) || type.Contains("superSticker", StringComparison.OrdinalIgnoreCase);
-            var isMembership = type.Contains("newSponsor", StringComparison.OrdinalIgnoreCase)
-                || type.Contains("memberMilestone", StringComparison.OrdinalIgnoreCase)
-                || type.Contains("membershipGifting", StringComparison.OrdinalIgnoreCase)
-                || type.Contains("giftMembershipReceived", StringComparison.OrdinalIgnoreCase);
+            var isSuperSticker = type.Equals("superStickerEvent", StringComparison.OrdinalIgnoreCase);
+            var isPaid = type.Equals("superChatEvent", StringComparison.OrdinalIgnoreCase) || isSuperSticker;
+            var isMembership = type.Equals("newSponsorEvent", StringComparison.OrdinalIgnoreCase)
+                || type.Equals("memberMilestoneChatEvent", StringComparison.OrdinalIgnoreCase)
+                || type.Equals("membershipGiftingEvent", StringComparison.OrdinalIgnoreCase)
+                || type.Equals("giftMembershipReceivedEvent", StringComparison.OrdinalIgnoreCase);
+            var isGift = type.Equals("giftEvent", StringComparison.OrdinalIgnoreCase);
+
+            var user = author["displayName"]?.GetValue<string>() ?? "YouTube";
+            var messageId = item["id"]?.GetValue<string>() ?? string.Empty;
             var text = snippet["displayMessage"]?.GetValue<string>() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(text) && isMembership) text = "Нова платна підписка YouTube";
+            var eventEmotes = new List<ChatEmote>();
+
+            var stickerDetails = snippet["superStickerDetails"] as JsonObject;
+            var stickerMetadata = stickerDetails?["superStickerMetadata"] as JsonObject;
+            var stickerId = stickerMetadata?["stickerId"]?.GetValue<string>() ?? string.Empty;
+            var stickerAlt = stickerMetadata?["altText"]?.GetValue<string>() ?? string.Empty;
+            if (isSuperSticker)
+            {
+                var stickerUrl = await _superStickers.ResolveAsync(stickerId, token).ConfigureAwait(false);
+                var amountDisplay = stickerDetails?["amountDisplayString"]?.GetValue<string>() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(text)) text = string.IsNullOrWhiteSpace(stickerAlt) ? "Super Sticker" : stickerAlt;
+                if (!string.IsNullOrWhiteSpace(amountDisplay) && !text.Contains(amountDisplay, StringComparison.OrdinalIgnoreCase))
+                    text = amountDisplay + " • " + text;
+                if (!string.IsNullOrWhiteSpace(stickerUrl))
+                {
+                    const string marker = ":super-sticker:";
+                    text = marker + " " + text;
+                    eventEmotes.Add(new ChatEmote
+                    {
+                        Platform = "YOUTUBE",
+                        Id = stickerId,
+                        Name = string.IsNullOrWhiteSpace(stickerAlt) ? "Super Sticker" : stickerAlt,
+                        Start = 0,
+                        End = marker.Length - 1,
+                        ImageUrl = stickerUrl
+                    });
+                }
+            }
+
+            var giftMetadata = (snippet["giftEventDetails"] as JsonObject)?["giftMetadata"] as JsonObject;
+            var giftName = giftMetadata?["giftName"]?.GetValue<string>() ?? string.Empty;
+            var giftUrl = giftMetadata?["giftUrl"]?.GetValue<string>() ?? string.Empty;
+            var giftAlt = giftMetadata?["altText"]?.GetValue<string>() ?? string.Empty;
+            var giftCombo = ReadInt(giftMetadata?["comboCount"]);
+            var giftJewels = ReadInt(giftMetadata?["jewelsAmount"]);
+            if (isGift)
+            {
+                if (string.IsNullOrWhiteSpace(text))
+                    text = string.IsNullOrWhiteSpace(giftName) ? (string.IsNullOrWhiteSpace(giftAlt) ? "YouTube Gift" : giftAlt) : giftName;
+                if (giftCombo > 1 && !text.Contains("×" + giftCombo, StringComparison.Ordinal)) text += $" ×{giftCombo}";
+                if (!string.IsNullOrWhiteSpace(giftUrl))
+                {
+                    const string marker = ":youtube-gift:";
+                    text = marker + " " + text;
+                    eventEmotes.Add(new ChatEmote
+                    {
+                        Platform = "YOUTUBE",
+                        Id = "gift:" + giftName,
+                        Name = string.IsNullOrWhiteSpace(giftAlt) ? (string.IsNullOrWhiteSpace(giftName) ? "YouTube Gift" : giftName) : giftAlt,
+                        Start = 0,
+                        End = marker.Length - 1,
+                        ImageUrl = giftUrl
+                    });
+                }
+            }
+
+            if (isMembership && string.IsNullOrWhiteSpace(text))
+            {
+                if (type.Equals("membershipGiftingEvent", StringComparison.OrdinalIgnoreCase))
+                {
+                    var gifting = snippet["membershipGiftingDetails"] as JsonObject;
+                    var count = ReadInt(gifting?["giftMembershipsCount"]);
+                    var level = gifting?["giftMembershipsLevelName"]?.GetValue<string>() ?? "YouTube Member";
+                    text = count > 0 ? $"🎁 Подаровано {count} підписок • {level}" : $"🎁 Подаровані підписки • {level}";
+                }
+                else if (type.Equals("giftMembershipReceivedEvent", StringComparison.OrdinalIgnoreCase))
+                {
+                    var received = snippet["giftMembershipReceivedDetails"] as JsonObject;
+                    var level = received?["memberLevelName"]?.GetValue<string>() ?? "YouTube Member";
+                    text = $"🎁 Отримано подаровану підписку • {level}";
+                }
+                else if (type.Equals("memberMilestoneChatEvent", StringComparison.OrdinalIgnoreCase))
+                {
+                    var milestone = snippet["memberMilestoneChatDetails"] as JsonObject;
+                    var months = ReadInt(milestone?["memberMonth"]);
+                    var level = milestone?["memberLevelName"]?.GetValue<string>() ?? "YouTube Member";
+                    text = months > 0 ? $"⭐ Member {months} міс. • {level}" : $"⭐ Member • {level}";
+                }
+                else
+                {
+                    var sponsor = snippet["newSponsorDetails"] as JsonObject;
+                    var level = sponsor?["memberLevelName"]?.GetValue<string>() ?? "YouTube Member";
+                    text = $"⭐ Нова платна підписка • {level}";
+                }
+            }
+
             if (string.IsNullOrWhiteSpace(text) && isPaid) text = "Платне повідомлення YouTube";
             if (string.IsNullOrWhiteSpace(text)) continue;
+
             var role = author["isChatOwner"]?.GetValue<bool>() == true ? "Owner" :
                        author["isChatModerator"]?.GetValue<bool>() == true ? "Moderator" :
                        author["isChatSponsor"]?.GetValue<bool>() == true ? "Subscriber" : "Viewer";
-            if (isPaid || isMembership) role = "Donor";
-            var messageId = item["id"]?.GetValue<string>() ?? string.Empty;
+            if (isPaid || isMembership || isGift) role = "Donor";
+
+            // giftEvent may reuse the same message ID as comboCount increases.
+            var eventMessageId = isGift && giftCombo > 0 ? $"{messageId}:combo:{giftCombo}" : messageId;
+
             if (isPaid && !string.IsNullOrWhiteSpace(messageId) && _seenDonationIds.Add(messageId))
             {
-                var details = (snippet["superChatDetails"] as JsonObject) ?? (snippet["superStickerDetails"] as JsonObject) ?? new JsonObject();
+                var details = (snippet["superChatDetails"] as JsonObject) ?? stickerDetails ?? new JsonObject();
                 var micros = details["amountMicros"]?.GetValue<string>() ?? "0";
                 decimal.TryParse(micros, out var amountMicros);
                 var currency = details["currency"]?.GetValue<string>() ?? string.Empty;
-                var comment = details["userComment"]?.GetValue<string>() ?? text;
+                var comment = details["userComment"]?.GetValue<string>();
+                if (string.IsNullOrWhiteSpace(comment)) comment = isSuperSticker ? stickerAlt : text;
                 DonationReceived?.Invoke(this, new DonationEvent
                 {
                     ExternalId = "youtube:" + messageId,
-                    Source = type.Contains("Sticker", StringComparison.OrdinalIgnoreCase) ? "YOUTUBE SUPER STICKER" : "YOUTUBE SUPER CHAT",
+                    Source = isSuperSticker ? "YOUTUBE SUPER STICKER" : "YOUTUBE SUPER CHAT",
                     Kind = "DONATION",
-                    User = author["displayName"]?.GetValue<string>() ?? "YouTube",
+                    User = user,
                     Amount = amountMicros / 1_000_000m,
                     Currency = currency,
-                    Message = comment,
+                    Message = comment ?? string.Empty,
                     Accent = "#FF4B4B"
                 });
             }
@@ -417,32 +514,58 @@ public sealed class YouTubeService : IAsyncDisposable
             {
                 var sponsor = snippet["newSponsorDetails"] as JsonObject;
                 var milestone = snippet["memberMilestoneChatDetails"] as JsonObject;
+                var gifting = snippet["membershipGiftingDetails"] as JsonObject;
+                var received = snippet["giftMembershipReceivedDetails"] as JsonObject;
                 var level = sponsor?["memberLevelName"]?.GetValue<string>()
                     ?? milestone?["memberLevelName"]?.GetValue<string>()
+                    ?? gifting?["giftMembershipsLevelName"]?.GetValue<string>()
+                    ?? received?["memberLevelName"]?.GetValue<string>()
                     ?? "YouTube Member";
                 DonationReceived?.Invoke(this, new DonationEvent
                 {
                     ExternalId = "youtube:" + messageId,
-                    Source = "YOUTUBE MEMBER",
+                    Source = type.Equals("membershipGiftingEvent", StringComparison.OrdinalIgnoreCase) ? "YOUTUBE MEMBER GIFT" : "YOUTUBE MEMBER",
                     Kind = "SUBSCRIPTION",
-                    User = author["displayName"]?.GetValue<string>() ?? "YouTube",
-                    Amount = 1,
+                    User = user,
+                    Amount = Math.Max(1, ReadInt(gifting?["giftMembershipsCount"])),
                     Currency = "MEMBER",
-                    Message = level + (string.IsNullOrWhiteSpace(text) ? string.Empty : " • " + text),
+                    Message = level + " • " + text,
                     Accent = "#FF4B4B"
                 });
             }
+            else if (isGift && !string.IsNullOrWhiteSpace(eventMessageId) && _seenDonationIds.Add("gift:" + eventMessageId))
+            {
+                DonationReceived?.Invoke(this, new DonationEvent
+                {
+                    ExternalId = "youtube:gift:" + eventMessageId,
+                    Source = "YOUTUBE GIFT",
+                    Kind = "GIFT",
+                    User = user,
+                    Amount = giftJewels,
+                    Currency = "JEWELS",
+                    Message = (string.IsNullOrWhiteSpace(giftName) ? "YouTube Gift" : giftName) + (giftCombo > 1 ? $" ×{giftCombo}" : string.Empty),
+                    Accent = "#FF4B4B"
+                });
+            }
+
             MessageReceived?.Invoke(this, new ChatMessage
             {
                 Platform = "YOUTUBE",
-                ExternalId = item["id"]?.GetValue<string>() ?? string.Empty,
-                User = author["displayName"]?.GetValue<string>() ?? "YouTube",
+                ExternalId = eventMessageId,
+                User = user,
                 AuthorId = author["channelId"]?.GetValue<string>() ?? string.Empty,
                 Text = text,
                 Role = role,
-                Time = DateTime.Now
+                Time = DateTime.Now,
+                Emotes = eventEmotes
             });
         }
+    }
+
+    private static int ReadInt(JsonNode? node)
+    {
+        try { return node?.GetValue<int>() ?? 0; }
+        catch { return int.TryParse(node?.ToString(), out var value) ? value : 0; }
     }
 
     private async Task<JsonObject> ApiAsync(HttpMethod method, string path, JsonObject? payload, CancellationToken token)

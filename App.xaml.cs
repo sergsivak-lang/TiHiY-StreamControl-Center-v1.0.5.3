@@ -25,13 +25,12 @@ public partial class App : Application
         var ciMode = !string.IsNullOrWhiteSpace(screenshotPath);
         var openSettingsInCi = e.Args.Any(x => string.Equals(x, "--ci-open-settings", StringComparison.OrdinalIgnoreCase));
         var showThemePreviewInCi = e.Args.Any(x => string.Equals(x, "--ci-settings-theme-preview", StringComparison.OrdinalIgnoreCase));
-        var applyUkraineThemeInCi = e.Args.Any(x => string.Equals(x, "--ci-apply-ukraine-theme", StringComparison.OrdinalIgnoreCase));
 
-        _singleInstanceMutex = new Mutex(true, "Local\\TiHiY.StreamControlCenter.SingleInstance", out _ownsMutex);
+        _singleInstanceMutex = new Mutex(true, "Local\\TiHiY.StreamControlMini.SingleInstance", out _ownsMutex);
         if (!_ownsMutex)
         {
             if (!ciMode)
-                MessageBox.Show("TiHiY Stream Control Center вже запущено. Закрийте або відкрийте існуюче вікно програми.", "TiHiY Stream Control Center", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("TiHiY StreamControl MINI вже запущено.", "TiHiY StreamControl MINI", MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown(0);
             return;
         }
@@ -42,8 +41,10 @@ public partial class App : Application
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
         try
         {
-            WriteStartupStage("01 Services construction");
+            WriteStartupStage("01 MINI services construction");
             Services = new AppServices();
+            Services.Theme.Apply("Україна", save: false);
+            Services.Settings.Value.UiTheme = "Україна";
             if (!string.IsNullOrWhiteSpace(requestedLanguage))
                 Services.Language.Apply(requestedLanguage, save: false);
             if (ciMode)
@@ -55,11 +56,11 @@ public partial class App : Application
                 Services.Settings.Value.DonatelloAutoStart = false;
                 Services.Settings.Value.LocalChatOverlayAutoStart = false;
             }
-            WriteStartupStage("02 Services initialized in memory");
+            WriteStartupStage("02 MINI services initialized in memory");
             await Services.InitializeAsync();
-            WriteStartupStage("03 Background services initialized");
+            WriteStartupStage("03 MINI background services initialized");
             var main = new MainWindow();
-            WriteStartupStage("04 MainWindow constructed");
+            WriteStartupStage("04 MINI MainWindow constructed");
             MainWindow = main;
             main.Show();
             UiTextLocalizer.Apply(main, Services.Language.CurrentLanguage);
@@ -67,27 +68,21 @@ public partial class App : Application
             _mainWindowVisualTuner = MainWindowVisualTuner.Attach(main);
             if (!ciMode)
                 ShortcutService.EnsureDesktopShortcut(Services.Logger);
-            WriteStartupStage("05 MainWindow shown");
+            WriteStartupStage("05 MINI MainWindow shown");
 
             if (ciMode)
             {
-                main.Width = 1672;
-                main.Height = 941;
+                main.Width = 1320;
+                main.Height = 820;
                 main.WindowState = WindowState.Normal;
                 main.Left = 0;
                 main.Top = 0;
-
-                if (applyUkraineThemeInCi)
-                {
-                    Services.Theme.Apply("Україна", save: false);
-                    WriteStartupStage("06 Ukraine theme applied in CI");
-                }
+                Services.Theme.Apply("Україна", save: false);
 
                 Window captureWindow = main;
                 TiHiY.StreamControlCenter.Windows.SettingsWindow? settingsWindow = null;
                 if (openSettingsInCi)
                 {
-                    Services.Settings.Value.UiTheme = "Україна";
                     settingsWindow = new TiHiY.StreamControlCenter.Windows.SettingsWindow
                     {
                         Owner = main,
@@ -97,7 +92,7 @@ public partial class App : Application
                     };
                     settingsWindow.Show();
                     captureWindow = settingsWindow;
-                    WriteStartupStage("07 SettingsWindow shown in CI");
+                    WriteStartupStage("06 MINI SettingsWindow shown in CI");
                 }
 
                 await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
@@ -115,12 +110,12 @@ public partial class App : Application
                     throw new InvalidOperationException($"CI shortcut was not created: {shortcutPath}");
 
                 await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-                await Task.Delay(180);
+                await Task.Delay(220);
 
                 main.ApplyCiDemoState();
                 MainWindowVisualTuner.ApplyNow(main);
-                if (settingsWindow is not null)
-                    _ = SettingsWindowVisualTuner.Attach(settingsWindow);
+                await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                await Task.Delay(220);
                 await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
 
                 SaveWindowScreenshot(captureWindow, screenshotPath!);
@@ -130,12 +125,12 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            try { Services?.Logger.Error("Запуск програми", ex); } catch { }
+            try { Services?.Logger.Error("Запуск MINI", ex); } catch { }
             var crashFile = WriteStartupCrashFile(ex);
             if (!ciMode)
                 MessageBox.Show(
                     BuildStartupErrorMessage(ex, crashFile),
-                    "TiHiY Stream Control Center",
+                    "TiHiY StreamControl MINI",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
             else if (!string.IsNullOrWhiteSpace(screenshotPath))
@@ -167,7 +162,7 @@ public partial class App : Application
         var location = ex is XamlParseException xaml
             ? $"\nXAML line: {xaml.LineNumber}, position: {xaml.LinePosition}"
             : string.Empty;
-        return $"Не вдалося запустити програму.\n\n{ex.GetType().Name}: {ex.Message}{location}\n\nRoot cause: {root.GetType().Name}: {root.Message}\n\nЖурнал помилки:\n{crashFile}";
+        return $"Не вдалося запустити TiHiY StreamControl MINI.\n\n{ex.GetType().Name}: {ex.Message}{location}\n\nRoot cause: {root.GetType().Name}: {root.Message}\n\nЖурнал помилки:\n{crashFile}";
     }
 
     private static void WriteStartupStage(string stage)
@@ -176,7 +171,7 @@ public partial class App : Application
         {
             var folder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "TiHiY", "StreamControlCenter", "Logs");
+                "TiHiY", "StreamControlMini", "Logs");
             Directory.CreateDirectory(folder);
             File.AppendAllText(Path.Combine(folder, "startup-stage-latest.txt"),
                 $"{DateTime.Now:O} {stage}{Environment.NewLine}");
@@ -190,7 +185,7 @@ public partial class App : Application
         {
             var folder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "TiHiY", "StreamControlCenter", "Logs");
+                "TiHiY", "StreamControlMini", "Logs");
             Directory.CreateDirectory(folder);
             var file = Path.Combine(folder, "startup-crash-latest.txt");
             File.WriteAllText(file, $"{DateTime.Now:O}{Environment.NewLine}{ex}");
@@ -200,7 +195,7 @@ public partial class App : Application
         {
             try
             {
-                var file = Path.Combine(Path.GetTempPath(), "TiHiY-StreamControlCenter-startup-crash.txt");
+                var file = Path.Combine(Path.GetTempPath(), "TiHiY-StreamControlMini-startup-crash.txt");
                 File.WriteAllText(file, ex.ToString());
                 return file;
             }
@@ -232,12 +227,12 @@ public partial class App : Application
             {
                 var cleanupTask = Task.Run(async () => await Services.DisposeAsync().ConfigureAwait(false));
                 if (!cleanupTask.Wait(TimeSpan.FromSeconds(5)))
-                    Services.Logger.Info("Завершення: фонове очищення перевищило 5 секунд.");
+                    Services.Logger.Info("Завершення MINI: фонове очищення перевищило 5 секунд.");
             }
         }
         catch (Exception ex)
         {
-            try { Services?.Logger.Error("Завершення програми", ex); } catch { }
+            try { Services?.Logger.Error("Завершення MINI", ex); } catch { }
         }
         finally
         {
@@ -249,18 +244,18 @@ public partial class App : Application
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        Services?.Logger.Error("Необроблена помилка інтерфейсу", e.Exception);
+        Services?.Logger.Error("Необроблена помилка MINI", e.Exception);
         e.Handled = true;
         if (!Environment.GetCommandLineArgs().Any(x => x.StartsWith("--ci-screenshot=", StringComparison.OrdinalIgnoreCase)))
-            MessageBox.Show($"Модуль повідомив про помилку, але програма продовжує роботу.\n\n{e.Exception.Message}\n\nПодробиці записані в журнал.", "TiHiY Stream Control Center", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Модуль повідомив про помилку, але MINI продовжує роботу.\n\n{e.Exception.Message}\n\nПодробиці записані в журнал.", "TiHiY StreamControl MINI", MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
     private void OnDomainUnhandledException(object? sender, UnhandledExceptionEventArgs e) =>
-        Services?.Logger.Error("Критична помилка", e.ExceptionObject as Exception);
+        Services?.Logger.Error("Критична помилка MINI", e.ExceptionObject as Exception);
 
     private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
-        Services?.Logger.Error("Помилка фонової операції", e.Exception);
+        Services?.Logger.Error("Помилка фонової операції MINI", e.Exception);
         e.SetObserved();
     }
 }

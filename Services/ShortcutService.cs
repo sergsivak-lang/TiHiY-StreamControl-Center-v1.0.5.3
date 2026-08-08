@@ -4,7 +4,7 @@ namespace TiHiY.StreamControlCenter.Services;
 
 public static class ShortcutService
 {
-    public const string ShortcutFileName = "TiHiY StreamControl Center.lnk";
+    public const string ShortcutFileName = "TiHiY StreamControl MINI.lnk";
 
     public static bool EnsureDesktopShortcut(AppLogger? logger = null)
     {
@@ -48,21 +48,21 @@ public static class ShortcutService
             var shortcutType = shortcut.GetType();
             shortcutType.InvokeMember("TargetPath", System.Reflection.BindingFlags.SetProperty, null, shortcut, [executablePath]);
             shortcutType.InvokeMember("WorkingDirectory", System.Reflection.BindingFlags.SetProperty, null, shortcut, [Path.GetDirectoryName(executablePath) ?? AppContext.BaseDirectory]);
-            shortcutType.InvokeMember("Description", System.Reflection.BindingFlags.SetProperty, null, shortcut, ["TiHiY StreamControl Center"]);
+            shortcutType.InvokeMember("Description", System.Reflection.BindingFlags.SetProperty, null, shortcut, ["TiHiY StreamControl MINI — Україна"]);
             shortcutType.InvokeMember("IconLocation", System.Reflection.BindingFlags.SetProperty, null, shortcut, [$"{executablePath},0"]);
             shortcutType.InvokeMember("WindowStyle", System.Reflection.BindingFlags.SetProperty, null, shortcut, [1]);
             shortcutType.InvokeMember("Save", System.Reflection.BindingFlags.InvokeMethod, null, shortcut, null);
 
             var created = File.Exists(shortcutPath) && new FileInfo(shortcutPath).Length > 0;
             if (created)
-                logger?.Info($"Ярлик програми готовий: {shortcutPath}");
+                logger?.Info($"Ярлик MINI готовий: {shortcutPath}");
             else
-                logger?.Info($"Ярлик програми не підтверджено після збереження: {shortcutPath}");
+                logger?.Info($"Ярлик MINI не підтверджено після збереження: {shortcutPath}");
             return created;
         }
         catch (Exception ex)
         {
-            logger?.Error("Створення ярлика програми", ex);
+            logger?.Error("Створення ярлика MINI", ex);
             return false;
         }
         finally
