@@ -20,7 +20,8 @@ public partial class LiteApp : Application
         var screenshot = screenshotArg is null ? null : screenshotArg[(screenshotArg.IndexOf('=') + 1)..].Trim('"');
         var ciScreenshot = !string.IsNullOrWhiteSpace(screenshot);
         var ciModules = e.Args.Any(x => x.Equals("--ci-modules", StringComparison.OrdinalIgnoreCase));
-        var ci = ciScreenshot || ciModules;
+        var ciOverlayBenchmark = e.Args.Any(x => x.Equals("--ci-overlay-benchmark", StringComparison.OrdinalIgnoreCase));
+        var ci = ciScreenshot || ciModules || ciOverlayBenchmark;
         try
         {
             Core = new LiteCoreService();
@@ -28,7 +29,14 @@ public partial class LiteApp : Application
             MainWindow = main;
             main.Show();
             if (!ci) LiteShortcutService.EnsureDesktopShortcut(Core.Logger);
-            await Core.InitializeAsync(ci);
+            await Core.InitializeAsync(ci && !ciOverlayBenchmark);
+
+            if (ciOverlayBenchmark)
+            {
+                main.ShowOverlay();
+                await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                return;
+            }
 
             if (ciModules)
             {
