@@ -1,21 +1,29 @@
 <Window x:Class="TiHiY.StreamControlCenter.HudWindow"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- WindowStyle="None" AllowsTransparency="True" Background="Transparent" Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize">
- <Border x:Name="HudRoot" CornerRadius="9" BorderBrush="#5943CDFF" BorderThickness="1" Background="#66030F1B" Padding="8">
+ Title="TiHiY Local Chat Overlay" Width="620" Height="420" MinWidth="360" MinHeight="220"
+ WindowStyle="None" ResizeMode="CanResizeWithGrip" AllowsTransparency="True" Background="Transparent"
+ Topmost="True" ShowInTaskbar="False">
+ <Border x:Name="OverlayFrame" Background="#22000000" BorderBrush="#3D8CA0" BorderThickness="1" CornerRadius="8" Padding="8">
   <Grid>
-   <Grid.RowDefinitions><RowDefinition Height="32"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-   <DockPanel Grid.Row="0">
-    <TextBlock Text="TiHiY HUD" FontWeight="Black" Foreground="#FFFFD329" VerticalAlignment="Center"/>
-    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-     <TextBlock Text="TW " Foreground="#FFA970FF"/><TextBlock x:Name="TwText" FontWeight="Bold"/>
-     <TextBlock Text="  YT " Foreground="#FFFF5B5B"/><TextBlock x:Name="YtText" FontWeight="Bold"/>
-     <TextBlock Text="  👁 " Foreground="#FF43CDFF"/><TextBlock x:Name="TotalText" FontWeight="Bold"/>
-     <TextBlock Text="  👍 " Foreground="#FFFFD329"/><TextBlock x:Name="LikesText" FontWeight="Bold"/>
-    </StackPanel>
-   </DockPanel>
-   <Border Grid.Row="1" x:Name="EventBar" Background="#551B3346" CornerRadius="5" Padding="6,4" Margin="0,2,0,5" Visibility="Collapsed"><TextBlock x:Name="EventText" TextWrapping="Wrap" Foreground="#FFFFD329" FontWeight="SemiBold"/></Border>
-   <ScrollViewer Grid.Row="2" x:Name="HudScroll" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="HudChatStack"/></ScrollViewer>
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+   <Grid x:Name="ControlBar" Margin="2,0,2,6">
+    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <Border Background="Transparent" MouseLeftButtonDown="DragBar_MouseLeftButtonDown"><TextBlock Text="ЧАТ ПОВЕРХ ГРИ • ВИДНО ТІЛЬКИ ВАМ" Foreground="#46D8FF" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/></Border>
+    <StackPanel Grid.Column="1" Orientation="Horizontal"><TextBlock x:Name="ModeText" Text="КЕРУВАННЯ" Foreground="{StaticResource Muted}" FontSize="10" VerticalAlignment="Center" Margin="0,0,8,0"/><Button Content="×" Width="30" Height="24" Padding="0" Margin="0" Click="Close_Click"/></StackPanel>
+   </Grid>
+   <Border x:Name="ViewerStatsBar" Grid.Row="1" Background="#26030B10" BorderBrush="#355B6B" BorderThickness="0,0,0,1" Padding="5,3" Margin="0,0,0,5">
+    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="1"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <TextBlock Text="TWITCH  " Foreground="#A970FF" FontWeight="Bold"/><TextBlock Text="ГЛЯДАЧІ " Foreground="{StaticResource Muted}"/><TextBlock x:Name="TwitchViewers" Text="0" FontWeight="Bold"/><Ellipse x:Name="TwitchLiveDot" Width="7" Height="7" Fill="#75838B" Margin="9,0,4,0"/><TextBlock x:Name="TwitchStatus" Text="OFF" Foreground="{StaticResource Muted}" FontWeight="Bold"/>
+     </StackPanel>
+     <Border Grid.Column="1" Background="#355B6B"/>
+     <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <TextBlock Text="YOUTUBE  " Foreground="#FF5B5B" FontWeight="Bold"/><TextBlock Text="ГЛЯДАЧІ " Foreground="{StaticResource Muted}"/><TextBlock x:Name="YouTubeViewers" Text="0" FontWeight="Bold"/><TextBlock Text="   ♥ " Foreground="#FF6B6B" FontWeight="Bold"/><TextBlock x:Name="YouTubeLikes" Text="0" FontWeight="Bold"/><Ellipse x:Name="YouTubeLiveDot" Width="7" Height="7" Fill="#75838B" Margin="9,0,4,0"/><TextBlock x:Name="YouTubeStatus" Text="OFF" Foreground="{StaticResource Muted}" FontWeight="Bold"/>
+     </StackPanel>
+    </Grid>
+   </Border>
+   <ScrollViewer Grid.Row="2" x:Name="OverlayScroll" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="OverlayChatStack"/></ScrollViewer>
   </Grid>
  </Border>
 </Window>
