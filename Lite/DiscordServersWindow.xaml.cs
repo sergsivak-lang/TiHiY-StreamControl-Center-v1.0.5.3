@@ -22,8 +22,47 @@ public partial class DiscordServersWindow : Window
     {
         if (_loadedOnce) return;
         _loadedOnce = true;
+        if (Environment.GetCommandLineArgs().Any(x => x.StartsWith("--ci-ui-audit=", StringComparison.OrdinalIgnoreCase)))
+        {
+            LoadCiDemo();
+            return;
+        }
         await RefreshServersAsync();
     }
+
+    private void LoadCiDemo()
+    {
+        _allRows.Clear();
+        _allRows.AddRange(new[]
+        {
+            Demo("1001", "Cobra Team Six", "2001", "Gateway", "welcome", true, false),
+            Demo("1001", "Cobra Team Six", "2002", "Announcements", "announcements", true, true),
+            Demo("1002", "TiHiY Community", "3001", "Streams", "live-now", true, false),
+            Demo("1003", "Partner Server", "4001", "Support", "donations", false, true)
+        });
+        ApplyFilter();
+        StatusText.Text = "Знайдено серверів: 3 • каналів: 4 • готові: 4.";
+    }
+
+    private static ChannelSelectionRow Demo(string serverId, string server, string channelId, string category, string channel, bool stream, bool donation) => new()
+    {
+        Info = new DiscordServerChannelInfo
+        {
+            ServerId = serverId,
+            ServerName = server,
+            ChannelId = channelId,
+            ChannelName = channel,
+            CategoryName = category,
+            ChannelType = 0,
+            Position = 0,
+            CanView = true,
+            CanSend = true,
+            CanEmbedLinks = true,
+            CanMentionEveryone = true
+        },
+        StreamSelected = stream,
+        MonetizationSelected = donation
+    };
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await RefreshServersAsync();
 
