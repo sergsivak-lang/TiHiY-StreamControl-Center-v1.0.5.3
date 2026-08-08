@@ -48,6 +48,7 @@
 
     <Resource Include="Assets\Platforms\*.png" />
     <Resource Include="Lite\Assets\TiHiYMiniLite.png" Condition="Exists('Lite\Assets\TiHiYMiniLite.png')" />
+    <EmbeddedResource Include="Services\YouTubeGlobalEmojiFallbackCatalog.cs" LogicalName="YouTubeGlobalEmojiFallbackCatalog.cs" />
   </ItemGroup>
 
   <Target Name="GenerateLiteIcon" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
