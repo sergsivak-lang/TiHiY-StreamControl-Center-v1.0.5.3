@@ -1,0 +1,50 @@
+name: MINI Lite Streamlabs Build
+
+on:
+  push:
+    branches: [ "feature/mini-lite-streamlabs-final-build-v1c" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-lite:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Restore Lite only
+        run: dotnet restore TiHiY.StreamControlMini.Lite.csproj
+      - name: Release build Lite only
+        run: dotnet build TiHiY.StreamControlMini.Lite.csproj -c Release --no-restore
+      - name: Publish self-contained win-x64
+        run: dotnet publish TiHiY.StreamControlMini.Lite.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o publish-lite
+      - name: Smoke launch + screenshot
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force preview | Out-Null
+          $exe = (Resolve-Path "publish-lite/TiHiY.StreamControlMini.Lite.exe").Path
+          $shot = Join-Path $PWD "preview/TiHiY-StreamControl-MINI-Lite.png"
+          $p = Start-Process -FilePath $exe -ArgumentList "--ci-screenshot=$shot" -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Lite exited with $($p.ExitCode)" }
+          if (-not (Test-Path $shot)) { throw "Lite screenshot missing" }
+          if (-not (Test-Path "publish-lite/Lite/Assets/TiHiYMiniLite.ico") -and -not (Test-Path "Lite/Assets/TiHiYMiniLite.ico")) { Write-Host "Icon is embedded in exe; source icon generated during build." }
+      - name: Runtime composition report
+        shell: pwsh
+        run: |
+          $forbidden = @('obs-websocket','Aida64','StalkerExact','MusicPlayer')
+          Get-ChildItem publish-lite -Recurse -File | Select-Object Name,Length | Sort-Object Length -Descending | Select-Object -First 20 | Format-Table -AutoSize
+          Write-Host "Lite project compiles only explicit service files; old dashboard/XAML are excluded by csproj."
+      - name: Upload Lite preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: TiHiY-StreamControl-MINI-Lite-preview
+          path: preview/**
+      - name: Upload Lite Windows x64
+        uses: actions/upload-artifact@v4
+        with:
+          name: TiHiY-StreamControl-MINI-Lite-Streamlabs-win-x64
+          path: publish-lite/**
