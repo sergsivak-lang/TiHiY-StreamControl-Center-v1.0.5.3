@@ -38,18 +38,18 @@ jobs:
           $p = Start-Process -FilePath $exe -ArgumentList "--ci-modules" -PassThru -Wait
           if ($p.ExitCode -ne 0) { throw "Restored modules smoke test exited with $($p.ExitCode)" }
           Write-Host "Discord, Discord profiles, Chat Bot and game overlay modules instantiated successfully."
-      - name: Idle memory benchmark
+      - name: Idle memory benchmark with overlay
         shell: pwsh
         run: |
           $exe = (Resolve-Path "publish-lite/TiHiY.StreamControlMini.Lite.exe").Path
-          $p = Start-Process -FilePath $exe -PassThru
+          $p = Start-Process -FilePath $exe -ArgumentList "--ci-overlay-benchmark" -PassThru
           Start-Sleep -Seconds 5
           $proc = Get-Process -Id $p.Id
           $ws = [math]::Round($proc.WorkingSet64 / 1MB, 1)
           $private = [math]::Round($proc.PrivateMemorySize64 / 1MB, 1)
           $cpu = [math]::Round($proc.CPU, 3)
-          "WorkingSetMB=$ws`nPrivateMB=$private`nCpuSecondsAfter5s=$cpu" | Set-Content preview/perf.txt
-          Write-Host "LITE IDLE: WorkingSet=$ws MB Private=$private MB CPU(5s)=$cpu s"
+          "Scenario=Main+ChatBot+GameOverlay`nWorkingSetMB=$ws`nPrivateMB=$private`nCpuSecondsAfter5s=$cpu" | Set-Content preview/perf.txt
+          Write-Host "LITE + OVERLAY: WorkingSet=$ws MB Private=$private MB CPU(5s)=$cpu s"
           Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
       - name: Runtime composition report
         shell: pwsh
