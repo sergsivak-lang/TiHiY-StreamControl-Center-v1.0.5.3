@@ -11,6 +11,7 @@ public sealed class LiteCoreService : IAsyncDisposable
     private readonly Dictionary<string, DateTime> _recentDonorChat = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _messageIds = new(StringComparer.Ordinal);
     private readonly Lazy<AimpNowPlayingService> _aimp = new(() => new AimpNowPlayingService());
+    private AimpStreamOverlayServer? _aimpStreamOverlay;
     private int _disposeState;
 
     public SettingsService SettingsService { get; } = new();
@@ -29,6 +30,8 @@ public sealed class LiteCoreService : IAsyncDisposable
     public ObservableCollection<ChatMessage> Chat { get; } = new();
     public ObservableCollection<LiteEvent> Events { get; } = new();
     public ObservableCollection<DonationEvent> Donations { get; } = new();
+    public AimpNowPlayingService Aimp => _aimp.Value;
+    public AimpStreamOverlayServer? AimpStreamOverlay => _aimpStreamOverlay;
 
     public event EventHandler? StatusChanged;
     public event EventHandler<ChatMessage>? ChatAdded;
@@ -87,10 +90,31 @@ public sealed class LiteCoreService : IAsyncDisposable
             _ = SafeAsync(() => NotifyBot.StartAsync(), "Discord Notify Bot");
         if (Settings.Value.ChatBotAutoStart)
             ChatBot.Start();
-        if (Preferences.Value.HudShowAimp)
+
+        if (Preferences.Value.HudShowAimp || Preferences.Value.AimpStreamOverlayEnabled)
             _ = SafeAsync(() => _aimp.Value.InitializeAsync(), "AIMP metadata");
+        if (Preferences.Value.AimpStreamOverlayEnabled)
+            _ = SafeAsync(EnsureAimpStreamOverlayAsync, "AIMP stream overlay");
 
         UpdateStats();
+    }
+
+    public async Task EnsureAimpStreamOverlayAsync()
+    {
+        if (!Preferences.Value.AimpStreamOverlayEnabled)
+        {
+            if (_aimpStreamOverlay is not null)
+            {
+                await _aimpStreamOverlay.DisposeAsync().ConfigureAwait(false);
+                _aimpStreamOverlay = null;
+            }
+            return;
+        }
+
+        await _aimp.Value.InitializeAsync().ConfigureAwait(false);
+        if (_aimpStreamOverlay is null) _aimpStreamOverlay = new AimpStreamOverlayServer(_aimp.Value);
+        if (!_aimpStreamOverlay.IsRunning)
+            await _aimpStreamOverlay.StartAsync(Preferences.Value.AimpStreamOverlayPort).ConfigureAwait(false);
     }
 
     private async Task AddChatAsync(ChatMessage message)
@@ -274,7 +298,7 @@ public sealed class LiteCoreService : IAsyncDisposable
 
     public string CurrentSong()
     {
-        if (!Preferences.Value.HudShowAimp) return string.Empty;
+        if (!Preferences.Value.HudShowAimp && !Preferences.Value.AimpStreamOverlayEnabled) return string.Empty;
         try { return _aimp.Value.CurrentSongText(); } catch { return string.Empty; }
     }
 
@@ -304,7 +328,8 @@ public sealed class LiteCoreService : IAsyncDisposable
     private static string NormalizeMoneyKind(DonationEvent d) => d.Kind.Equals("SUBSCRIPTION", StringComparison.OrdinalIgnoreCase)
         ? (d.Source.Contains("YOUTUBE", StringComparison.OrdinalIgnoreCase) ? "MEMBER" : "SUB")
         : d.Source.Contains("BITS", StringComparison.OrdinalIgnoreCase) ? "BITS"
-        : d.Source.Contains("SUPER", StringComparison.OrdinalIgnoreCase) ? "SUPER CHAT" : d.Kind.Equals("GIFT", StringComparison.OrdinalIgnoreCase) ? "GIFT" : "DONATION";
+        : d.Source.Contains("SUPER", StringComparison.OrdinalIgnoreCase) ? "SUPER CHAT"
+        : d.Kind.Equals("GIFT", StringComparison.OrdinalIgnoreCase) ? "GIFT" : "DONATION";
 
     private static string NormalizeStreamlabsType(string type) => type.ToLowerInvariant() switch
     {
@@ -320,12 +345,15 @@ public sealed class LiteCoreService : IAsyncDisposable
     };
 
     private static string Fingerprint(string p, string t, string u, decimal amount, string currency) => $"{p}|{t}|{u}|{amount:0.##}|{currency}".ToLowerInvariant();
+
     private static string BuildStreamlabsText(string type, string text, decimal amount, string currency)
     {
         var value = amount > 0 ? FormatAmount(amount, currency) : string.Empty;
         return string.Join(" • ", new[] { value, text }.Where(x => !string.IsNullOrWhiteSpace(x)));
     }
+
     private static string FormatAmount(decimal amount, string currency) => amount <= 0 ? string.Empty : $"{amount:0.##} {currency}".Trim();
+
     private static string? First(JsonElement e, params string[] names)
     {
         foreach (var n in names)
@@ -336,6 +364,7 @@ public sealed class LiteCoreService : IAsyncDisposable
             }
         return null;
     }
+
     private static decimal ReadDecimal(JsonElement e, string name)
     {
         if (!e.TryGetProperty(name, out var v)) return 0;
@@ -349,6 +378,7 @@ public sealed class LiteCoreService : IAsyncDisposable
         Preferences.Save();
         SettingsService.Save(Settings.Value);
         try { ChatBot.Dispose(); } catch { }
+        if (_aimpStreamOverlay is not null) try { await _aimpStreamOverlay.DisposeAsync().ConfigureAwait(false); } catch { }
         try { await Streamlabs.DisposeAsync().ConfigureAwait(false); } catch { }
         try { await Donatello.DisposeAsync().ConfigureAwait(false); } catch { }
         try { await NotifyBot.DisposeAsync().ConfigureAwait(false); } catch { }
