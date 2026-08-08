@@ -8,10 +8,16 @@ public sealed class ChatMessage
         @"(?<url>https?://[^\s]+)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    private string _text = string.Empty;
+
     public DateTime Time { get; set; } = DateTime.Now;
     public string Platform { get; set; } = "LOCAL";
     public string User { get; set; } = "TiHiY-DED";
-    public string Text { get; set; } = string.Empty;
+    public string Text
+    {
+        get => NormalizeStreamlabsEventText(_text);
+        set => _text = value ?? string.Empty;
+    }
     public string DisplayText => CompactUrls(Text);
     public string Role { get; set; } = "Viewer";
     public string ExternalId { get; set; } = string.Empty;
@@ -36,6 +42,25 @@ public sealed class ChatMessage
         : Platform.Equals("YOUTUBE", StringComparison.OrdinalIgnoreCase)
             ? "#FF3B3B"
             : Platform.Equals("DONATELLO", StringComparison.OrdinalIgnoreCase) ? "#FFD329" : "#46D8FF";
+
+    private string NormalizeStreamlabsEventText(string value)
+    {
+        if (string.IsNullOrEmpty(value) ||
+            !ExternalId.StartsWith("event-chat:streamlabs:", StringComparison.OrdinalIgnoreCase))
+            return value;
+
+        var text = value;
+        if (text.StartsWith("⭐ ", StringComparison.Ordinal)) text = text["⭐ ".Length..];
+        else if (text.StartsWith("💛 ", StringComparison.Ordinal)) text = text["💛 ".Length..];
+
+        var separator = text.IndexOf(" • ", StringComparison.Ordinal);
+        if (separator >= 0)
+            return separator + 3 < text.Length ? text[(separator + 3)..] : string.Empty;
+
+        // Some Streamlabs events (for example a plain subscription/follow) have no user message.
+        // In that case keep only the raw event value/type instead of inventing a sentence.
+        return text;
+    }
 
     private static string CompactUrls(string value)
     {
