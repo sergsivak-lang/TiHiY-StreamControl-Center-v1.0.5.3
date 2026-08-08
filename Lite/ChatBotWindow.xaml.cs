@@ -192,13 +192,27 @@ public partial class ChatBotWindow : Window
         StatusText.Text = "Команду видалено";
     }
 
-    private static string ComboText(ComboBox combo) => combo.SelectedItem is ComboBoxItem item ? item.Content?.ToString() ?? string.Empty : combo.Text;
+    private static string ComboText(ComboBox combo)
+    {
+        if (combo.SelectedItem is ComboBoxItem item)
+            return item.Tag?.ToString() ?? item.Content?.ToString() ?? string.Empty;
+        return combo.Text;
+    }
+
     private static void SelectCombo(ComboBox combo, string value)
     {
         foreach (var item in combo.Items.OfType<ComboBoxItem>())
-            if (string.Equals(item.Content?.ToString(), value, StringComparison.OrdinalIgnoreCase)) { combo.SelectedItem = item; return; }
+        {
+            var key = item.Tag?.ToString() ?? item.Content?.ToString() ?? string.Empty;
+            if (string.Equals(key, value, StringComparison.OrdinalIgnoreCase))
+            {
+                combo.SelectedItem = item;
+                return;
+            }
+        }
         combo.SelectedIndex = 2;
     }
+
     private static int ParseInt(string text, int fallback, int min, int max) => int.TryParse(text, out var v) ? Math.Clamp(v, min, max) : fallback;
     private void Title_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) { try { DragMove(); } catch { } }
     private void Close_Click(object sender, RoutedEventArgs e) { SaveGlobalSettings(); Close(); }
