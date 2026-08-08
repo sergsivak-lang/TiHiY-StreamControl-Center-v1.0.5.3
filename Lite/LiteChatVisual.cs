@@ -14,24 +14,39 @@ internal static class LiteChatVisual
             CornerRadius = new CornerRadius(5),
             Background = new SolidColorBrush(Color.FromArgb(60, 3, 16, 28))
         };
-        var stack = new StackPanel();
-        root.Child = stack;
 
-        var header = new DockPanel { LastChildFill = true, Margin = new Thickness(0, 0, 0, 1) };
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        root.Child = grid;
+
         var icon = LitePlatformVisual.BuildIcon(m.Platform, Math.Max(15, fontSize - 2));
-        if (icon is FrameworkElement iconElement) iconElement.Margin = new Thickness(0, 0, 6, 0);
-        DockPanel.SetDock(icon, Dock.Left);
-        header.Children.Add(icon);
-        header.Children.Add(new TextBlock
+        if (icon is FrameworkElement iconElement)
         {
-            Text = m.User,
-            FontSize = Math.Max(11, fontSize - 3),
+            iconElement.Margin = new Thickness(0, 2, 6, 0);
+            iconElement.VerticalAlignment = VerticalAlignment.Top;
+        }
+        Grid.SetColumn(icon, 0);
+        grid.Children.Add(icon);
+
+        var line = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = fontSize,
+            Foreground = Brushes.White,
+            LineHeight = fontSize * 1.35,
+            VerticalAlignment = VerticalAlignment.Top
+        };
+        line.Inlines.Add(new Run((m.User ?? string.Empty) + ": ")
+        {
+            FontSize = Math.Max(11, fontSize - 1),
             Foreground = Parse(m.Foreground, Brushes.DeepSkyBlue),
-            FontWeight = FontWeights.Bold,
-            VerticalAlignment = VerticalAlignment.Center
+            FontWeight = FontWeights.Bold
         });
-        stack.Children.Add(header);
-        stack.Children.Add(BuildText(m, fontSize));
+        AppendMessageInlines(line, m, fontSize);
+        Grid.SetColumn(line, 1);
+        grid.Children.Add(line);
+
         return root;
     }
 
@@ -44,6 +59,12 @@ internal static class LiteChatVisual
             Foreground = Brushes.White,
             LineHeight = fontSize * 1.35
         };
+        AppendMessageInlines(tb, m, fontSize);
+        return tb;
+    }
+
+    private static void AppendMessageInlines(TextBlock tb, ChatMessage m, double fontSize)
+    {
         var text = m.Text ?? string.Empty;
         var emotes = (m.Emotes ?? new List<ChatEmote>())
             .Where(x => x.Start >= 0 && x.End >= x.Start && x.End < text.Length)
@@ -77,7 +98,6 @@ internal static class LiteChatVisual
             pos = e.End + 1;
         }
         if (pos < text.Length) tb.Inlines.Add(new Run(text[pos..]));
-        return tb;
     }
 
     private static Brush Parse(string value, Brush fallback)
