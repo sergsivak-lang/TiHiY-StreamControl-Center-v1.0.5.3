@@ -19,10 +19,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SocketIOClient" Version="4.0.5" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ApplicationDefinition Include="Lite\App.xaml" />
     <Page Include="Lite\MainWindow.xaml" />
     <Page Include="Lite\HudWindow.xaml" />
