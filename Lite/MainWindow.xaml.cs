@@ -19,7 +19,7 @@ public partial class MainWindow : Window
         {
             RefreshStatus();
             foreach (var message in _core.Chat) AddChatRow(message);
-            if (_core.Preferences.Value.HudAutoStart) ShowHud();
+            if (_core.Settings.Value.LocalChatOverlayAutoStart) ShowOverlay();
         };
         Closing += (_, _) => { try { _hud?.Close(); } catch { } };
     }
@@ -130,9 +130,33 @@ public partial class MainWindow : Window
     private async void PauseAlerts_Click(object sender, RoutedEventArgs e) { try { await _core.Streamlabs.PauseAlertsAsync(); } catch (Exception ex) { ShowError(ex); } }
     private async void ResumeAlerts_Click(object sender, RoutedEventArgs e) { try { await _core.Streamlabs.ResumeAlertsAsync(); } catch (Exception ex) { ShowError(ex); } }
 
-    private void Settings_Click(object sender, RoutedEventArgs e) { var w = new SettingsWindow { Owner = this }; w.ShowDialog(); RefreshStatus(); }
-    private void Hud_Click(object sender, RoutedEventArgs e) { if (_hud is { IsVisible: true }) _hud.Close(); else ShowHud(); }
-    private void ShowHud() { _hud = new HudWindow(_core); _hud.Closed += (_,_) => _hud = null; _hud.Show(); }
+    private void Settings_Click(object sender, RoutedEventArgs e) { new SettingsWindow { Owner = this }.ShowDialog(); RefreshStatus(); }
+    private void OverlaySettings_Click(object sender, RoutedEventArgs e) => new GameOverlaySettingsWindow { Owner = this }.ShowDialog();
+    private void ChatBot_Click(object sender, RoutedEventArgs e) => new ChatBotWindow { Owner = this }.ShowDialog();
+    private void Discord_Click(object sender, RoutedEventArgs e) => new DiscordBotWindow { Owner = this }.ShowDialog();
+
+    private void Hud_Click(object sender, RoutedEventArgs e)
+    {
+        if (_hud is { IsVisible: true }) HideOverlay();
+        else ShowOverlay();
+    }
+
+    public void ShowOverlay()
+    {
+        if (_hud is { IsVisible: true }) { _hud.Activate(); return; }
+        _hud = new HudWindow(_core);
+        _hud.Closed += (_,_) => _hud = null;
+        _hud.Show();
+    }
+
+    public void HideOverlay()
+    {
+        try { _hud?.Close(); } catch { }
+        _hud = null;
+    }
+
+    public void ApplyOverlaySettings() => _hud?.ApplySettings();
+
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void Maximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
