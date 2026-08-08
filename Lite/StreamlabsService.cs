@@ -132,8 +132,6 @@ public sealed class StreamlabsService : IAsyncDisposable
 
         try { _socket?.Dispose(); } catch { }
         _socket = new ClientWebSocket();
-        // Transport-level keepalive is deliberately long. Engine.IO v3 heartbeat below
-        // is what keeps the Streamlabs Socket.IO connection alive.
         _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(45);
 
         var uri = new Uri("wss://sockets.streamlabs.com/socket.io/?EIO=3&transport=websocket&token=" + Uri.EscapeDataString(_socketToken));
@@ -198,14 +196,15 @@ public sealed class StreamlabsService : IAsyncDisposable
                 text.Clear();
                 if (string.IsNullOrEmpty(frame)) continue;
 
-                // Engine.IO v3 OPEN packet. Streamlabs currently documents socket.io-client 2.0.3,
-                // which uses EIO=3. In EIO3 the CLIENT sends ping ("2") and the SERVER replies pong ("3").
+                // Streamlabs documents socket.io-client 2.0.3 (Engine.IO v3).
+                // In this Socket.IO generation the default namespace is implicitly connected by the server.
+                // Do NOT send an extra "40" here: doing so duplicates the CONNECT packet and can make
+                // the Streamlabs server close the namespace and trigger an endless reconnect loop.
                 if (frame.StartsWith("0", StringComparison.Ordinal))
                 {
                     var (pingInterval, pingTimeout) = ParseEngineIoHandshake(frame);
                     _logger.Info($"Streamlabs EIO3 handshake: pingInterval={pingInterval.TotalMilliseconds:0}ms, pingTimeout={pingTimeout.TotalMilliseconds:0}ms");
 
-                    await SendSocketTextAsync("40", token).ConfigureAwait(false); // Socket.IO default namespace connect
                     heartbeatTask ??= Task.Run(
                         () => HeartbeatLoopAsync(pingInterval, pingTimeout, heartbeatCts.Token),
                         heartbeatCts.Token);
@@ -219,15 +218,14 @@ public sealed class StreamlabsService : IAsyncDisposable
                     continue;
                 }
 
-                // Defensive compatibility: if the server ever behaves like EIO4 and sends ping,
-                // answer it instead of dropping the connection.
+                // Defensive compatibility if the server sends a ping packet.
                 if (frame.StartsWith("2", StringComparison.Ordinal))
                 {
                     await SendSocketTextAsync("3" + frame[1..], token).ConfigureAwait(false);
                     continue;
                 }
 
-                // Socket.IO namespace CONNECT acknowledgement.
+                // Socket.IO default namespace CONNECT emitted by the server in Socket.IO v2.
                 if (frame.StartsWith("40", StringComparison.Ordinal))
                 {
                     _socketIoReady = true;
