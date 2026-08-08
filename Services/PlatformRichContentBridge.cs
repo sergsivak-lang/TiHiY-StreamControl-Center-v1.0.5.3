@@ -82,10 +82,6 @@ internal static class PlatformRichContentBridge
             {
                 message.Text = result.Text;
                 message.Emotes = result.Emotes;
-
-                // ChatMessage is intentionally lightweight and does not implement
-                // INotifyPropertyChanged. Replacing the same object in the observable
-                // collection raises a Replace event and refreshes every WPF chat view.
                 var messages = App.Services.Chat.Messages;
                 for (var i = messages.Count - 1; i >= 0; i--)
                 {
@@ -127,9 +123,6 @@ internal sealed class YouTubeRichContentResolver
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 TiHiY-StreamControl-MINI/1.0");
         _http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("uk-UA,uk;q=0.9,en;q=0.7");
 
-        // Stable fallback for the most common native YouTube live-chat emoji.
-        // The live-chat catalog refresh below remains the primary source and also
-        // discovers channel/member custom emoji that can change at any time.
         AddFallback(
             ":hand-pink-waving:",
             "KOxdr_z3A5h1Gb7kqnxqOCnbZrBmxI2B_tRQ453BhTWUhYAlpg5ZP8IKEBkcvRoY8grY91Q",
@@ -174,10 +167,7 @@ internal sealed class YouTubeRichContentResolver
             emotes = ResolveKnownShortcuts(text, matches);
         }
 
-        // YouTube paid stickers and newer gift effects can be present in the public
-        // chat renderer even when the Data API only exposes plain displayMessage.
-        // Prefix a synthetic image slot only when we can match the visual safely.
-        if (emotes.Count == 0 && message.Role.Equals("Donor", StringComparison.OrdinalIgnoreCase))
+        if (emotes.Count == 0 && (message.Emotes?.Count ?? 0) == 0 && message.Role.Equals("Donor", StringComparison.OrdinalIgnoreCase))
         {
             var visual = FindVisual(message.User, text);
             if (visual is not null)
@@ -226,7 +216,6 @@ internal sealed class YouTubeRichContentResolver
     {
         if (string.IsNullOrWhiteSpace(_broadcastId)) return;
         if (!force && DateTime.UtcNow - _lastCatalogUtc < TimeSpan.FromMinutes(2)) return;
-
         await _catalogGate.WaitAsync(token).ConfigureAwait(false);
         try
         {
@@ -239,30 +228,21 @@ internal sealed class YouTubeRichContentResolver
             _lastCatalogUtc = DateTime.UtcNow;
         }
         catch (OperationCanceledException) { throw; }
-        catch
-        {
-            // Keep stable built-in fallbacks if YouTube changes the public page shape.
-        }
-        finally
-        {
-            _catalogGate.Release();
-        }
+        catch { }
+        finally { _catalogGate.Release(); }
     }
 
     private void ParsePublicLiveChat(string html)
     {
         var jsonText = ExtractAssignedJson(html, "ytInitialData");
         if (string.IsNullOrWhiteSpace(jsonText)) return;
-
         JsonNode? root;
         try { root = JsonNode.Parse(jsonText); }
         catch { return; }
         if (root is null) return;
-
         var learned = new Dictionary<string, YouTubeEmojiDefinition>(StringComparer.Ordinal);
         var visuals = new List<YouTubeVisualDefinition>();
         Walk(root, learned, visuals);
-
         lock (_emoji)
         {
             foreach (var pair in learned) _emoji[pair.Key] = pair.Value;
@@ -279,13 +259,9 @@ internal sealed class YouTubeRichContentResolver
             {
                 var url = LargestThumbnailUrl(obj["image"]);
                 if (!string.IsNullOrWhiteSpace(url))
-                {
                     foreach (var shortcutNode in shortcuts)
-                    {
-                        if (!TryString(shortcutNode, out var shortcut) || string.IsNullOrWhiteSpace(shortcut)) continue;
-                        learned[shortcut] = new YouTubeEmojiDefinition(emojiId, url);
-                    }
-                }
+                        if (TryString(shortcutNode, out var shortcut) && !string.IsNullOrWhiteSpace(shortcut))
+                            learned[shortcut] = new YouTubeEmojiDefinition(emojiId, url);
             }
 
             if (obj["liveChatPaidStickerRenderer"] is JsonObject sticker)
@@ -309,7 +285,6 @@ internal sealed class YouTubeRichContentResolver
                 if (pair.Value is not null) Walk(pair.Value, learned, visuals);
             return;
         }
-
         if (node is JsonArray array)
             foreach (var child in array)
                 if (child is not null) Walk(child, learned, visuals);
@@ -318,17 +293,14 @@ internal sealed class YouTubeRichContentResolver
     private YouTubeVisualDefinition? FindVisual(string user, string text)
     {
         lock (_emoji)
-        {
             return _recentVisuals.LastOrDefault(v =>
                 (!string.IsNullOrWhiteSpace(v.User) && v.User.Equals(user, StringComparison.OrdinalIgnoreCase)) ||
                 (!string.IsNullOrWhiteSpace(v.Name) && text.Contains(v.Name, StringComparison.OrdinalIgnoreCase)));
-        }
     }
 
     private static string LargestThumbnailUrl(JsonNode? imageNode)
     {
-        if (imageNode is not JsonObject image) return string.Empty;
-        if (image["thumbnails"] is not JsonArray thumbnails) return string.Empty;
+        if (imageNode is not JsonObject image || image["thumbnails"] is not JsonArray thumbnails) return string.Empty;
         var bestUrl = string.Empty;
         var bestWidth = -1;
         foreach (var item in thumbnails.OfType<JsonObject>())
@@ -346,9 +318,9 @@ internal sealed class YouTubeRichContentResolver
         if (node is not JsonObject obj) return string.Empty;
         var simple = SafeString(obj["simpleText"]);
         if (!string.IsNullOrWhiteSpace(simple)) return simple;
-        if (obj["runs"] is JsonArray runs)
-            return string.Concat(runs.OfType<JsonObject>().Select(x => SafeString(x["text"]))).Trim();
-        return string.Empty;
+        return obj["runs"] is JsonArray runs
+            ? string.Concat(runs.OfType<JsonObject>().Select(x => SafeString(x["text"]))).Trim()
+            : string.Empty;
     }
 
     private static string ExtractAssignedJson(string html, string marker)
@@ -417,17 +389,11 @@ internal sealed class YouTubeRichContentResolver
     private sealed record YouTubeEmojiDefinition(string Id, string Url);
     private sealed record YouTubeVisualDefinition(string Id, string User, string Name, string Url);
 
-    private static List<ChatEmote> MergeEmotes(IEnumerable<ChatEmote>? original, IEnumerable<ChatEmote> extra)
-    {
-        return (original ?? Enumerable.Empty<ChatEmote>())
-            .Concat(extra)
+    private static List<ChatEmote> MergeEmotes(IEnumerable<ChatEmote>? original, IEnumerable<ChatEmote> extra) =>
+        (original ?? Enumerable.Empty<ChatEmote>()).Concat(extra)
             .Where(x => x.Start >= 0 && x.End >= x.Start && !string.IsNullOrWhiteSpace(x.ImageUrl))
             .GroupBy(x => $"{x.Start}:{x.End}:{x.ImageUrl}", StringComparer.Ordinal)
-            .Select(g => g.First())
-            .OrderBy(x => x.Start)
-            .ThenByDescending(x => x.Length)
-            .ToList();
-    }
+            .Select(g => g.First()).OrderBy(x => x.Start).ThenByDescending(x => x.Length).ToList();
 
     private static bool SameEmotes(IReadOnlyList<ChatEmote>? left, IReadOnlyList<ChatEmote>? right)
     {
@@ -435,10 +401,7 @@ internal sealed class YouTubeRichContentResolver
         right ??= Array.Empty<ChatEmote>();
         if (left.Count != right.Count) return false;
         for (var i = 0; i < left.Count; i++)
-        {
-            if (left[i].Start != right[i].Start || left[i].End != right[i].End ||
-                !string.Equals(left[i].ImageUrl, right[i].ImageUrl, StringComparison.Ordinal)) return false;
-        }
+            if (left[i].Start != right[i].Start || left[i].End != right[i].End || !string.Equals(left[i].ImageUrl, right[i].ImageUrl, StringComparison.Ordinal)) return false;
         return true;
     }
 }
@@ -504,7 +467,6 @@ internal sealed class TwitchRichContentResolver
     {
         lock (_emoteUrlCache)
             if (_emoteUrlCache.TryGetValue(id, out var cached)) return cached;
-
         var animated = $"https://static-cdn.jtvnw.net/emoticons/v2/{Uri.EscapeDataString(id)}/animated/dark/2.0";
         var fallback = $"https://static-cdn.jtvnw.net/emoticons/v2/{Uri.EscapeDataString(id)}/static/dark/2.0";
         var result = fallback;
@@ -515,7 +477,6 @@ internal sealed class TwitchRichContentResolver
             if (response.IsSuccessStatusCode) result = animated;
         }
         catch { }
-
         lock (_emoteUrlCache) _emoteUrlCache[id] = result;
         return result;
     }
@@ -527,7 +488,6 @@ internal sealed class TwitchRichContentResolver
         try
         {
             if (_cheers.Count > 0 && DateTime.UtcNow - _lastCheerLoadUtc < TimeSpan.FromHours(6)) return;
-
             OAuthToken? tokenData = null;
             try
             {
@@ -537,11 +497,9 @@ internal sealed class TwitchRichContentResolver
             catch { }
             var clientId = App.Services.Settings.Value.TwitchClientId?.Trim() ?? string.Empty;
             if (tokenData is null || string.IsNullOrWhiteSpace(tokenData.AccessToken) || string.IsNullOrWhiteSpace(clientId)) return;
-
             var path = "https://api.twitch.tv/helix/bits/cheermotes";
             var broadcaster = App.Services.Settings.Value.TwitchBroadcasterId?.Trim() ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(broadcaster)) path += "?broadcaster_id=" + Uri.EscapeDataString(broadcaster);
-
             using var request = new HttpRequestMessage(HttpMethod.Get, path);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenData.AccessToken);
             request.Headers.Add("Client-Id", clientId);
@@ -562,11 +520,11 @@ internal sealed class TwitchRichContentResolver
                     var min = SafeInt(tierNode["min_bits"]);
                     var id = SafeString(tierNode["id"]);
                     var images = tierNode["images"] as JsonObject;
-                    var url = SafeString(images?["dark"]?["animated"]?["2"])
-                              ?? SafeString(images?["dark"]?["static"]?["2"]);
-                    if (string.IsNullOrWhiteSpace(url))
-                        url = SafeString(images?["light"]?["animated"]?["2"])
-                              ?? SafeString(images?["light"]?["static"]?["2"]);
+                    var url = FirstNonEmpty(
+                        SafeString(images?["dark"]?["animated"]?["2"]),
+                        SafeString(images?["dark"]?["static"]?["2"]),
+                        SafeString(images?["light"]?["animated"]?["2"]),
+                        SafeString(images?["light"]?["static"]?["2"]));
                     if (!string.IsNullOrWhiteSpace(url)) tiers.Add(new CheerTier(id, min, url));
                 }
                 if (tiers.Count > 0) _cheers[prefix] = tiers;
@@ -577,6 +535,8 @@ internal sealed class TwitchRichContentResolver
         catch { }
         finally { _cheerGate.Release(); }
     }
+
+    private static string FirstNonEmpty(params string[] values) => values.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)) ?? string.Empty;
 
     private static ChatEmote Clone(ChatEmote source) => new()
     {
