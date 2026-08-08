@@ -21,6 +21,8 @@ public sealed class LitePreferences
     public bool HudShowEvents { get; set; } = true;
     public bool HudShowStats { get; set; } = true;
     public bool HudShowAimp { get; set; }
+    public bool AimpStreamOverlayEnabled { get; set; } = true;
+    public int AimpStreamOverlayPort { get; set; } = 17849;
     public bool MinimizeToTray { get; set; } = true;
 }
 
