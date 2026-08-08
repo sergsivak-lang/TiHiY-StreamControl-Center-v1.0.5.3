@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>TiHiY.StreamControlMini.Lite</AssemblyName>
+    <RootNamespace>TiHiY.StreamControlCenter</RootNamespace>
+    <ApplicationIcon>Lite\Assets\TiHiYMiniLite.ico</ApplicationIcon>
+    <Version>2.0.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SocketIOClient" Version="4.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ApplicationDefinition Include="Lite\App.xaml" />
+    <Page Include="Lite\MainWindow.xaml" />
+    <Page Include="Lite\HudWindow.xaml" />
+    <Page Include="Lite\SettingsWindow.xaml" />
+
+    <Compile Include="GlobalUsings.cs" />
+    <Compile Include="Lite\**\*.cs" />
+    <Compile Include="Models\**\*.cs" />
+
+    <Compile Include="Services\AppLogger.cs" />
+    <Compile Include="Services\AppSettingsAccessor.cs" />
+    <Compile Include="Services\SettingsService.cs" />
+    <Compile Include="Services\CredentialService.cs" />
+    <Compile Include="Services\OAuthLoopback.cs" />
+    <Compile Include="Services\TwitchService.cs" />
+    <Compile Include="Services\YouTubeService.cs" />
+    <Compile Include="Services\YouTubeSuperStickerCatalog.cs" Condition="Exists('Services\YouTubeSuperStickerCatalog.cs')" />
+    <Compile Include="Services\DonatelloService.cs" />
+    <Compile Include="Services\DiscordServerProfileService.cs" />
+    <Compile Include="Services\DiscordNotificationService.cs" />
+    <Compile Include="Services\StreamNotificationBotService.cs" />
+    <Compile Include="Services\AimpNowPlayingService.cs" />
+
+    <Resource Include="Assets\Platforms\*.png" />
+    <Resource Include="Lite\Assets\TiHiYMiniLite.png" Condition="Exists('Lite\Assets\TiHiYMiniLite.png')" />
+  </ItemGroup>
+
+  <Target Name="GenerateLiteIcon" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\Build\Generate-LiteIcon.ps1&quot; -ProjectDir &quot;$(MSBuildProjectDirectory)&quot;" />
+  </Target>
+</Project>
