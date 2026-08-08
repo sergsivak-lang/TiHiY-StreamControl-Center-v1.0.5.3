@@ -48,13 +48,11 @@ public partial class LiteApp : Application
                 main.ApplyCiDemo();
                 await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
                 Directory.CreateDirectory(auditFolder!);
-                SaveDetachedScreenshot(new ChatBotWindow(), Path.Combine(auditFolder!, "chat-bot.png"), 980, 720);
-                SaveDetachedScreenshot(new DiscordServersWindow(), Path.Combine(auditFolder!, "discord-servers.png"), 1050, 700);
-                SaveDetachedScreenshot(new SettingsWindow(), Path.Combine(auditFolder!, "settings.png"), 900, 700);
-                SaveDetachedScreenshot(new GameOverlaySettingsWindow(), Path.Combine(auditFolder!, "game-overlay-settings.png"), 780, 690);
-                var overlay = new HudWindow(Core);
-                SaveDetachedScreenshot(overlay, Path.Combine(auditFolder!, "game-overlay.png"), 620, 420);
-                overlay.Close();
+                await ShowAndCaptureAsync(new ChatBotWindow(), Path.Combine(auditFolder!, "chat-bot.png"), 980, 720);
+                await ShowAndCaptureAsync(new DiscordServersWindow(), Path.Combine(auditFolder!, "discord-servers.png"), 1050, 700);
+                await ShowAndCaptureAsync(new SettingsWindow(), Path.Combine(auditFolder!, "settings.png"), 900, 700);
+                await ShowAndCaptureAsync(new GameOverlaySettingsWindow(), Path.Combine(auditFolder!, "game-overlay-settings.png"), 780, 690);
+                await ShowAndCaptureAsync(new HudWindow(Core), Path.Combine(auditFolder!, "game-overlay.png"), 620, 420);
                 Shutdown(0);
                 return;
             }
@@ -70,7 +68,10 @@ public partial class LiteApp : Application
             if (ciScreenshot)
             {
                 main.ApplyCiDemo();
-                main.Width = 1280; main.Height = 780; main.Left = 0; main.Top = 0;
+                main.Width = 1280;
+                main.Height = 780;
+                main.Left = 0;
+                main.Top = 0;
                 await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
                 await Task.Delay(350);
                 SaveScreenshot(main, screenshot!);
@@ -83,6 +84,22 @@ public partial class LiteApp : Application
             if (!ci) MessageBox.Show(ex.GetBaseException().Message, "TiHiY StreamControl MINI Lite", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
+    }
+
+    private static async Task ShowAndCaptureAsync(Window window, string path, double width, double height)
+    {
+        window.Width = width;
+        window.Height = height;
+        window.WindowStartupLocation = WindowStartupLocation.Manual;
+        window.Left = 20;
+        window.Top = 20;
+        window.ShowActivated = false;
+        window.Show();
+        await Current.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        await Task.Delay(180);
+        SaveScreenshot(window, path);
+        window.Close();
+        await Current.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
     }
 
     private static void SmokeRestoredModules(MainWindow main)
@@ -117,31 +134,16 @@ public partial class LiteApp : Application
         overlay.Close();
     }
 
-    private static void SaveDetachedScreenshot(Window window, string path, double width, double height)
+    private static void SaveScreenshot(Window window, string path)
     {
-        window.Width = width;
-        window.Height = height;
-        window.Measure(new Size(width, height));
-        window.Arrange(new Rect(0, 0, width, height));
         window.UpdateLayout();
-        var bmp = new RenderTargetBitmap((int)width, (int)height, 96, 96, PixelFormats.Pbgra32);
+        var bmp = new RenderTargetBitmap(Math.Max(1, (int)window.ActualWidth), Math.Max(1, (int)window.ActualHeight), 96, 96, PixelFormats.Pbgra32);
         bmp.Render(window);
         var enc = new PngBitmapEncoder();
         enc.Frames.Add(BitmapFrame.Create(bmp));
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         using var fs = File.Create(path);
         enc.Save(fs);
-        try { window.Close(); } catch { }
-    }
-
-    private static void SaveScreenshot(Window window, string path)
-    {
-        window.UpdateLayout();
-        var bmp = new RenderTargetBitmap(Math.Max(1,(int)window.ActualWidth), Math.Max(1,(int)window.ActualHeight), 96, 96, PixelFormats.Pbgra32);
-        bmp.Render(window);
-        var enc = new PngBitmapEncoder(); enc.Frames.Add(BitmapFrame.Create(bmp));
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
-        using var fs = File.Create(path); enc.Save(fs);
     }
 
     protected override void OnExit(ExitEventArgs e)
