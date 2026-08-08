@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Windows.Documents;
 using System.Windows.Interop;
+using System.Windows.Threading;
 using TiHiY.StreamControlCenter.Models;
 
 namespace TiHiY.StreamControlCenter;
@@ -15,6 +16,7 @@ public partial class HudWindow : Window
     private const uint WDA_EXCLUDEFROMCAPTURE = 0x11;
 
     private readonly LiteCoreService _core;
+    private readonly DispatcherTimer _liveTimer;
     private IntPtr _hwnd;
     private bool _clickThrough;
 
@@ -22,6 +24,8 @@ public partial class HudWindow : Window
     {
         InitializeComponent();
         _core = core;
+        _liveTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _liveTimer.Tick += (_, _) => RefreshLiveTime();
         RestorePlacement();
         ApplySettings();
         _core.ChatAdded += Core_ChatAdded;
@@ -50,6 +54,8 @@ public partial class HudWindow : Window
     {
         foreach (var m in _core.Chat.TakeLast(Math.Max(3, _core.Settings.Value.LocalChatOverlayMaxMessages))) AddChat(m);
         RefreshStats();
+        RefreshLiveTime();
+        _liveTimer.Start();
     }
 
     private void Window_SourceInitialized(object? sender, EventArgs e)
@@ -89,6 +95,13 @@ public partial class HudWindow : Window
         YouTubeStatus.Foreground = s.YouTubeLive ? Brushes.LimeGreen : Brushes.Gray;
         TwitchLiveDot.Fill = s.TwitchLive ? Brushes.LimeGreen : Brushes.Gray;
         YouTubeLiveDot.Fill = s.YouTubeLive ? Brushes.LimeGreen : Brushes.Gray;
+        RefreshLiveTime();
+    }
+
+    private void RefreshLiveTime()
+    {
+        LiveTimeText.Text = LiteApp.LiveClock.DisplayText;
+        LiveTimeText.Foreground = LiteApp.LiveClock.IsLive ? Brushes.LimeGreen : Brushes.Gray;
     }
 
     private void ApplyWindowFlags()
@@ -107,11 +120,17 @@ public partial class HudWindow : Window
         var s = _core.Settings.Value;
         if (s.WindowPlacements.TryGetValue("LocalChatOverlay", out var w) && w.Width > 100 && w.Height > 100)
         {
-            Left = w.Left; Top = w.Top; Width = w.Width; Height = w.Height;
+            Left = w.Left;
+            Top = w.Top;
+            Width = w.Width;
+            Height = w.Height;
             return;
         }
         var p = _core.Preferences.Value;
-        Left = p.HudLeft; Top = p.HudTop; Width = p.HudWidth; Height = p.HudHeight;
+        Left = p.HudLeft;
+        Top = p.HudTop;
+        Width = p.HudWidth;
+        Height = p.HudHeight;
     }
 
     private void SavePlacement()
@@ -119,7 +138,10 @@ public partial class HudWindow : Window
         var placement = new WindowPlacement { Left = Left, Top = Top, Width = ActualWidth, Height = ActualHeight };
         _core.Settings.Value.WindowPlacements["LocalChatOverlay"] = placement;
         var p = _core.Preferences.Value;
-        p.HudLeft = Left; p.HudTop = Top; p.HudWidth = ActualWidth; p.HudHeight = ActualHeight;
+        p.HudLeft = Left;
+        p.HudTop = Top;
+        p.HudWidth = ActualWidth;
+        p.HudHeight = ActualHeight;
         _core.SettingsService.Save(_core.Settings.Value);
         _core.Preferences.Save();
     }
@@ -134,6 +156,7 @@ public partial class HudWindow : Window
 
     private void Window_Closed(object? sender, EventArgs e)
     {
+        _liveTimer.Stop();
         _core.ChatAdded -= Core_ChatAdded;
         _core.Stats.PropertyChanged -= Stats_PropertyChanged;
         _core.StatusChanged -= Core_StatusChanged;
