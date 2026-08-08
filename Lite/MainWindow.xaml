@@ -1,0 +1,93 @@
+<Window x:Class="TiHiY.StreamControlCenter.MainWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="TiHiY StreamControl MINI Lite" Width="1280" Height="780" MinWidth="960" MinHeight="620"
+ WindowStyle="None" ResizeMode="CanResize" Background="{StaticResource Bg}" Foreground="{StaticResource Text}">
+ <Border BorderBrush="#56CFFF" BorderThickness="1" CornerRadius="8" Background="{StaticResource Bg}">
+  <Grid Margin="8">
+   <Grid.RowDefinitions><RowDefinition Height="66"/><RowDefinition Height="54"/><RowDefinition Height="*"/><RowDefinition Height="42"/></Grid.RowDefinitions>
+
+   <Border Grid.Row="0" Background="#09243C" BorderBrush="{StaticResource Amber}" BorderThickness="0,0,0,1" CornerRadius="7,7,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+    <Grid Margin="14,0,8,0">
+     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+     <StackPanel VerticalAlignment="Center">
+      <StackPanel Orientation="Horizontal"><TextBlock Text="TiHiY" FontSize="24" FontWeight="Black" Foreground="{StaticResource Text}"/><TextBlock Text="  STREAMCONTROL MINI LITE" FontSize="20" FontWeight="Black" Foreground="{StaticResource Amber}" VerticalAlignment="Center"/></StackPanel>
+      <TextBlock Text="МУЛЬТИЧАТ • STREAMLABS EVENTS • СТАТИСТИКА • DISCORD • HUD" FontSize="10.5" Foreground="{StaticResource Muted}" Margin="1,2,0,0"/>
+     </StackPanel>
+     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+      <Button Content="HUD" Width="58" Click="Hud_Click"/>
+      <Button Content="⚙" Width="42" FontSize="16" Click="Settings_Click"/>
+      <Button Content="—" Width="38" Click="Minimize_Click"/>
+      <Button Content="□" Width="38" Click="Maximize_Click"/>
+      <Button Content="×" Width="38" Background="#3C1017" BorderBrush="{StaticResource Red}" Click="Close_Click"/>
+     </StackPanel>
+    </Grid>
+   </Border>
+
+   <Border Grid.Row="1" Background="#071927" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="8,6">
+    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+     <WrapPanel VerticalAlignment="Center">
+      <Border Style="{StaticResource StatusChip}"><TextBlock x:Name="TwitchStatus" Text="TWITCH • —"/></Border>
+      <Border Style="{StaticResource StatusChip}"><TextBlock x:Name="YouTubeStatus" Text="YOUTUBE • —"/></Border>
+      <Border Style="{StaticResource StatusChip}"><TextBlock x:Name="StreamlabsStatus" Text="STREAMLABS • —"/></Border>
+      <Border Style="{StaticResource StatusChip}"><TextBlock x:Name="DonatelloStatus" Text="DONATELLO • —"/></Border>
+      <Border Style="{StaticResource StatusChip}"><TextBlock x:Name="DiscordStatus" Text="DISCORD • —"/></Border>
+     </WrapPanel>
+     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+      <TextBlock Text="TW " Foreground="{StaticResource Purple}" FontWeight="Bold"/><TextBlock Text="{Binding TwitchViewers}" FontWeight="Bold"/>
+      <TextBlock Text="   YT " Foreground="#FF5B5B" FontWeight="Bold"/><TextBlock Text="{Binding YouTubeViewers}" FontWeight="Bold"/>
+      <TextBlock Text="   👁 " Foreground="{StaticResource Cyan}"/><TextBlock Text="{Binding TotalViewers}" FontWeight="Bold"/>
+      <TextBlock Text="   👍 " Foreground="{StaticResource Amber}"/><TextBlock Text="{Binding YouTubeLikes}" FontWeight="Bold"/>
+     </StackPanel>
+    </Grid>
+   </Border>
+
+   <Grid Grid.Row="2" Margin="0,8,0,6">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="1.8*"/><ColumnDefinition Width="0.02*"/><ColumnDefinition Width="1*"/></Grid.ColumnDefinitions>
+    <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="7" Padding="10">
+     <Grid><Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/><RowDefinition Height="52"/></Grid.RowDefinitions>
+      <DockPanel Grid.Row="0"><TextBlock Text="МУЛЬТИЧАТ • TWITCH + YOUTUBE" FontSize="16" FontWeight="Black" Foreground="{StaticResource Amber}" VerticalAlignment="Center"/><TextBlock x:Name="ChatCountText" Text="0" DockPanel.Dock="Right" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/></DockPanel>
+      <ScrollViewer x:Name="ChatScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="ChatStack"/></ScrollViewer>
+      <Grid Grid.Row="2" Margin="0,8,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="92"/><ColumnDefinition Width="92"/><ColumnDefinition Width="92"/></Grid.ColumnDefinitions>
+       <TextBox x:Name="ChatInput" VerticalContentAlignment="Center" FontSize="15" KeyDown="ChatInput_KeyDown"/>
+       <Button Grid.Column="1" Content="TWITCH" Background="#342256" Click="SendTwitch_Click"/>
+       <Button Grid.Column="2" Content="YOUTUBE" Background="#4B1720" Click="SendYouTube_Click"/>
+       <Button Grid.Column="3" Content="ОБИДВА" Background="#123E57" Click="SendBoth_Click"/>
+      </Grid>
+     </Grid>
+    </Border>
+
+    <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center" Background="{StaticResource Line}"/>
+
+    <Grid Grid.Column="2"><Grid.RowDefinitions><RowDefinition Height="1.05*"/><RowDefinition Height="0.95*"/></Grid.RowDefinitions>
+     <Border Grid.Row="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="7" Padding="10" Margin="0,0,0,5">
+      <Grid><Grid.RowDefinitions><RowDefinition Height="40"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+       <TextBlock Text="EVENT FEED" FontSize="16" FontWeight="Black" Foreground="{StaticResource Cyan}" VerticalAlignment="Center"/>
+       <ListBox Grid.Row="1" x:Name="EventsList" ItemsSource="{Binding Events}" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <ListBox.ItemTemplate><DataTemplate><Border BorderBrush="#17384D" BorderThickness="0,0,0,1" Padding="4,7"><StackPanel><DockPanel><TextBlock Text="{Binding DisplayTime}" Foreground="{StaticResource Muted}" FontSize="10" DockPanel.Dock="Right"/><TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="{StaticResource Amber}" TextTrimming="CharacterEllipsis"/></DockPanel><TextBlock Text="{Binding Text}" Foreground="{StaticResource Text}" TextWrapping="Wrap" Margin="0,2,0,0"/></StackPanel></Border></DataTemplate></ListBox.ItemTemplate>
+       </ListBox>
+      </Grid>
+     </Border>
+
+     <Border Grid.Row="1" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="7" Padding="10" Margin="0,5,0,0">
+      <Grid><Grid.RowDefinitions><RowDefinition Height="40"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="44"/></Grid.RowDefinitions>
+       <TextBlock Text="СТАТИСТИКА / ПІДТРИМКА" FontSize="16" FontWeight="Black" Foreground="{StaticResource Amber}"/>
+       <UniformGrid Grid.Row="1" Columns="4" Margin="0,4,0,8">
+        <Border Style="{StaticResource MetricCard}"><StackPanel><TextBlock Text="TW" Foreground="{StaticResource Purple}"/><TextBlock Text="{Binding Stats.TwitchViewers}" FontSize="22" FontWeight="Black"/></StackPanel></Border>
+        <Border Style="{StaticResource MetricCard}"><StackPanel><TextBlock Text="YT" Foreground="#FF5B5B"/><TextBlock Text="{Binding Stats.YouTubeViewers}" FontSize="22" FontWeight="Black"/></StackPanel></Border>
+        <Border Style="{StaticResource MetricCard}"><StackPanel><TextBlock Text="РАЗОМ" Foreground="{StaticResource Cyan}"/><TextBlock Text="{Binding Stats.TotalViewers}" FontSize="22" FontWeight="Black"/></StackPanel></Border>
+        <Border Style="{StaticResource MetricCard}"><StackPanel><TextBlock Text="ЛАЙКИ" Foreground="{StaticResource Amber}"/><TextBlock Text="{Binding Stats.YouTubeLikes}" FontSize="22" FontWeight="Black"/></StackPanel></Border>
+       </UniformGrid>
+       <ListBox Grid.Row="2" ItemsSource="{Binding Donations}" Background="Transparent" BorderThickness="0"><ListBox.ItemTemplate><DataTemplate><DockPanel Margin="2,4"><TextBlock Text="{Binding DisplayAmount}" Foreground="{StaticResource Amber}" FontWeight="Bold" DockPanel.Dock="Right"/><TextBlock><Run Text="{Binding User}" FontWeight="Bold"/><Run Text=" • "/><Run Text="{Binding Source}" Foreground="{StaticResource Muted}"/></TextBlock></DockPanel></DataTemplate></ListBox.ItemTemplate></ListBox>
+       <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="SKIP ALERT" Click="SkipAlert_Click"/><Button Content="PAUSE" Click="PauseAlerts_Click"/><Button Content="RESUME" Click="ResumeAlerts_Click"/></StackPanel>
+      </Grid>
+     </Border>
+    </Grid>
+   </Grid>
+
+   <Border Grid.Row="3" Background="#071927" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0">
+    <DockPanel Margin="4,0"><TextBlock x:Name="FooterStatus" Text="Lite Core: готово" Foreground="{StaticResource Green}" VerticalAlignment="Center"/><TextBlock DockPanel.Dock="Right" Text="NO OBS SERVER • NO AIDA64 • NO INTERNAL PLAYER" Foreground="{StaticResource Muted}" FontSize="10" VerticalAlignment="Center"/></DockPanel>
+   </Border>
+  </Grid>
+ </Border>
+</Window>
