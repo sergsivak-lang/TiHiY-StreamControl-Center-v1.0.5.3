@@ -31,6 +31,17 @@ jobs:
           $p = Start-Process -FilePath $exe -ArgumentList "--ci-screenshot=$shot" -PassThru -Wait
           if ($p.ExitCode -ne 0) { throw "Lite exited with $($p.ExitCode)" }
           if (-not (Test-Path $shot)) { throw "Lite screenshot missing" }
+      - name: Visual audit screenshots
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "publish-lite/TiHiY.StreamControlMini.Lite.exe").Path
+          $folder = Join-Path $PWD "preview/ui-audit"
+          New-Item -ItemType Directory -Force $folder | Out-Null
+          $p = Start-Process -FilePath $exe -ArgumentList "--ci-ui-audit=$folder" -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "UI audit exited with $($p.ExitCode)" }
+          foreach ($file in @('chat-bot.png','discord-servers.png','settings.png','game-overlay-settings.png','game-overlay.png')) {
+            if (-not (Test-Path (Join-Path $folder $file))) { throw "UI audit screenshot missing: $file" }
+          }
       - name: Restored modules smoke test
         shell: pwsh
         run: |
@@ -48,8 +59,8 @@ jobs:
           $ws = [math]::Round($proc.WorkingSet64 / 1MB, 1)
           $private = [math]::Round($proc.PrivateMemorySize64 / 1MB, 1)
           $cpu = [math]::Round($proc.CPU, 3)
-          "Scenario=Main+ChatBot+GameOverlay`nWorkingSetMB=$ws`nPrivateMB=$private`nCpuSecondsAfter5s=$cpu" | Set-Content preview/perf.txt
-          Write-Host "LITE + OVERLAY: WorkingSet=$ws MB Private=$private MB CPU(5s)=$cpu s"
+          "Scenario=Main+ChatBot+GameOverlay+AimpOverlay`nWorkingSetMB=$ws`nPrivateMB=$private`nCpuSecondsAfter5s=$cpu" | Set-Content preview/perf.txt
+          Write-Host "LITE + OVERLAY + AIMP: WorkingSet=$ws MB Private=$private MB CPU(5s)=$cpu s"
           Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
       - name: Runtime composition report
         shell: pwsh
