@@ -31,13 +31,28 @@ jobs:
           $p = Start-Process -FilePath $exe -ArgumentList "--ci-screenshot=$shot" -PassThru -Wait
           if ($p.ExitCode -ne 0) { throw "Lite exited with $($p.ExitCode)" }
           if (-not (Test-Path $shot)) { throw "Lite screenshot missing" }
-          if (-not (Test-Path "publish-lite/Lite/Assets/TiHiYMiniLite.ico") -and -not (Test-Path "Lite/Assets/TiHiYMiniLite.ico")) { Write-Host "Icon is embedded in exe; source icon generated during build." }
+      - name: Idle memory benchmark
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path "publish-lite/TiHiY.StreamControlMini.Lite.exe").Path
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 5
+          $proc = Get-Process -Id $p.Id
+          $ws = [math]::Round($proc.WorkingSet64 / 1MB, 1)
+          $private = [math]::Round($proc.PrivateMemorySize64 / 1MB, 1)
+          $cpu = [math]::Round($proc.CPU, 3)
+          "WorkingSetMB=$ws`nPrivateMB=$private`nCpuSecondsAfter5s=$cpu" | Set-Content preview/perf.txt
+          Write-Host "LITE IDLE: WorkingSet=$ws MB Private=$private MB CPU(5s)=$cpu s"
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
       - name: Runtime composition report
         shell: pwsh
         run: |
-          $forbidden = @('obs-websocket','Aida64','StalkerExact','MusicPlayer')
-          Get-ChildItem publish-lite -Recurse -File | Select-Object Name,Length | Sort-Object Length -Descending | Select-Object -First 20 | Format-Table -AutoSize
-          Write-Host "Lite project compiles only explicit service files; old dashboard/XAML are excluded by csproj."
+          $size = [math]::Round(((Get-ChildItem publish-lite -Recurse -File | Measure-Object Length -Sum).Sum / 1MB),1)
+          "PublishSizeMB=$size" | Add-Content preview/perf.txt
+          Write-Host "Publish size: $size MB"
+          Get-ChildItem publish-lite -Recurse -File | Select-Object Name,Length | Sort-Object Length -Descending | Select-Object -First 15 | Format-Table -AutoSize
+          $names = (Get-ChildItem publish-lite -Recurse -File).Name -join "`n"
+          foreach ($bad in @('SocketIOClient','ObsWebSocket','Aida64','StalkerExact')) { if ($names -match $bad) { throw "Forbidden legacy dependency leaked into Lite publish: $bad" } }
       - name: Upload Lite preview
         uses: actions/upload-artifact@v4
         with:
