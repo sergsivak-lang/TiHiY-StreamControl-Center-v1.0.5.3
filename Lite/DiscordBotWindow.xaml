@@ -1,0 +1,33 @@
+<Window x:Class="TiHiY.StreamControlCenter.DiscordBotWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="TiHiY MINI Lite — Discord Bot" Width="980" Height="760" MinWidth="820" MinHeight="620"
+ WindowStyle="None" ResizeMode="CanResize" Background="{StaticResource Bg}" Foreground="{StaticResource Text}" WindowStartupLocation="CenterOwner">
+ <Border BorderBrush="{StaticResource Cyan}" BorderThickness="1" CornerRadius="8">
+  <Grid Margin="8"><Grid.RowDefinitions><RowDefinition Height="58"/><RowDefinition Height="*"/><RowDefinition Height="50"/></Grid.RowDefinitions>
+   <Border Background="#09243C" BorderBrush="{StaticResource Amber}" BorderThickness="0,0,0,1" MouseLeftButtonDown="Title_MouseLeftButtonDown">
+    <Grid Margin="12,0"><StackPanel Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="DISCORD NOTIFY BOT" FontSize="20" FontWeight="Black" Foreground="{StaticResource Cyan}"/><TextBlock Text="  •  ОСТАННІ НАЛАШТУВАННЯ" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/></StackPanel><Button Content="×" Width="38" HorizontalAlignment="Right" Background="#3C1017" Click="Close_Click"/></Grid>
+   </Border>
+   <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"><StackPanel Margin="16">
+    <TextBlock Text="ОСНОВНІ НАЛАШТУВАННЯ" FontSize="16" FontWeight="Black" Foreground="{StaticResource Amber}"/>
+    <UniformGrid Columns="2" Margin="0,8,0,0"><StackPanel Margin="0,0,6,0"><TextBlock Text="Application ID" Foreground="{StaticResource Muted}"/><TextBox x:Name="ApplicationIdBox"/></StackPanel><StackPanel Margin="6,0,0,0"><TextBlock Text="Bot Token (порожнє = не змінювати)" Foreground="{StaticResource Muted}"/><PasswordBox x:Name="BotTokenBox"/></StackPanel></UniformGrid>
+    <WrapPanel Margin="0,8,0,0"><CheckBox x:Name="EnabledCheck" Content="Discord-сповіщення увімкнені"/><CheckBox x:Name="AutoStartCheck" Content="Автозапуск бота"/><CheckBox x:Name="TwitchCheck" Content="Twitch LIVE"/><CheckBox x:Name="YouTubeCheck" Content="YouTube LIVE"/></WrapPanel>
+    <TextBlock Text="Fallback Channel IDs" Foreground="{StaticResource Muted}" Margin="0,8,0,2"/><TextBox x:Name="ChannelIdsBox" Height="56" AcceptsReturn="True" TextWrapping="Wrap"/>
+    <TextBlock Text="Mention (@everyone / @here / роль)" Foreground="{StaticResource Muted}" Margin="0,8,0,2"/><TextBox x:Name="MentionBox"/>
+    <TextBlock Text="Шаблон повідомлення про стрім" Foreground="{StaticResource Muted}" Margin="0,8,0,2"/><TextBox x:Name="TemplateBox" Height="78" AcceptsReturn="True" TextWrapping="Wrap"/>
+    <Separator Margin="0,14" Background="{StaticResource Line}"/>
+    <TextBlock Text="ДОНАТИ / ПЛАТНІ ПІДПИСКИ" FontSize="16" FontWeight="Black" Foreground="{StaticResource Amber}"/>
+    <CheckBox x:Name="MoneyEnabledCheck" Content="Окремі повідомлення монетизації"/>
+    <TextBlock Text="Channel IDs монетизації" Foreground="{StaticResource Muted}" Margin="0,6,0,2"/><TextBox x:Name="MoneyChannelIdsBox" Height="56" AcceptsReturn="True" TextWrapping="Wrap"/>
+    <TextBlock Text="Mention для монетизації" Foreground="{StaticResource Muted}" Margin="0,6,0,2"/><TextBox x:Name="MoneyMentionBox"/>
+    <WrapPanel Margin="0,6,0,0"><CheckBox x:Name="DonatelloMoneyCheck" Content="Donatello"/><CheckBox x:Name="TwitchMoneyCheck" Content="Twitch"/><CheckBox x:Name="YouTubeMoneyCheck" Content="YouTube"/></WrapPanel>
+    <Separator Margin="0,14" Background="{StaticResource Line}"/>
+    <TextBlock Text="КЕРУВАННЯ" FontSize="16" FontWeight="Black" Foreground="{StaticResource Cyan}"/>
+    <WrapPanel Margin="0,6,0,0"><Button Content="ЗБЕРЕГТИ" Background="#135B43" Click="Save_Click"/><Button Content="ЗАПУСТИТИ" Click="Start_Click"/><Button Content="ЗУПИНИТИ" Click="Stop_Click"/><Button Content="ПЕРЕВІРИТИ ЗАРАЗ" Click="Check_Click"/><Button Content="ТЕСТ СТРІМУ" Click="TestStream_Click"/><Button Content="ТЕСТ ДОНАТУ" Click="TestMoney_Click"/></WrapPanel>
+    <WrapPanel><Button Content="СЕРВЕРИ ТА КАНАЛИ" Background="#1453A5" Click="Servers_Click"/><Button Content="ЗАПРОСИТИ БОТА" Click="Invite_Click"/><Button Content="DISCORD DEVELOPER PORTAL" Click="Portal_Click"/><Button Content="ВИДАЛИТИ TOKEN" Background="#4B1720" Click="Forget_Click"/></WrapPanel>
+    <Border Background="#0B221B" BorderBrush="#2B7E5B" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,12,0,0"><StackPanel><TextBlock x:Name="BotStateText" Text="ЗУПИНЕНО" Foreground="{StaticResource Green}" FontWeight="Bold"/><TextBlock x:Name="ConfigurationStateText" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3,0,0"/></StackPanel></Border>
+   </StackPanel></ScrollViewer>
+   <Border Grid.Row="2" Background="#071927" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0"><DockPanel Margin="8,4"><TextBlock x:Name="StatusText" Text="Готово" Foreground="{StaticResource Green}" VerticalAlignment="Center"/><Button DockPanel.Dock="Right" Content="ЗАКРИТИ" Click="Close_Click"/></DockPanel></Border>
+  </Grid>
+ </Border>
+</Window>
