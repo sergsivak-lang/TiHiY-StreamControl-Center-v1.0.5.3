@@ -25,6 +25,7 @@ public partial class LiteApp : Application
             var main = new MainWindow();
             MainWindow = main;
             main.Show();
+            if (!ci) LiteShortcutService.EnsureDesktopShortcut(Core.Logger);
             await Core.InitializeAsync(ci);
             if (ci)
             {
