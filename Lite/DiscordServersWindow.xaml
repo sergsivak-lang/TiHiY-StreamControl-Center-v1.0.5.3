@@ -1,0 +1,20 @@
+<Window x:Class="TiHiY.StreamControlCenter.DiscordServersWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="TiHiY MINI Lite — Discord сервери" Width="1050" Height="700" MinWidth="860" MinHeight="560"
+ WindowStyle="None" ResizeMode="CanResize" Background="{StaticResource Bg}" Foreground="{StaticResource Text}" WindowStartupLocation="CenterOwner" Loaded="Window_Loaded">
+ <Border BorderBrush="{StaticResource Cyan}" BorderThickness="1" CornerRadius="8"><Grid Margin="8"><Grid.RowDefinitions><RowDefinition Height="58"/><RowDefinition Height="48"/><RowDefinition Height="*"/><RowDefinition Height="50"/></Grid.RowDefinitions>
+  <Border Background="#09243C" BorderBrush="{StaticResource Amber}" BorderThickness="0,0,0,1" MouseLeftButtonDown="Title_MouseLeftButtonDown"><Grid Margin="12,0"><TextBlock Text="DISCORD • СЕРВЕРИ ТА КАНАЛИ" FontSize="20" FontWeight="Black" Foreground="{StaticResource Cyan}" VerticalAlignment="Center"/><Button Content="×" Width="38" HorizontalAlignment="Right" Background="#3C1017" Click="Close_Click"/></Grid></Border>
+  <Border Grid.Row="1" Background="#071927"><DockPanel Margin="8,4"><WrapPanel><Button Content="ОНОВИТИ" Click="Refresh_Click"/><CheckBox x:Name="UsableOnlyCheck" Content="Тільки канали з потрібними правами" IsChecked="True" VerticalAlignment="Center" Checked="Filter_Changed" Unchecked="Filter_Changed"/></WrapPanel><TextBlock DockPanel.Dock="Right" Text="Стрім • Донати" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/></DockPanel></Border>
+  <DataGrid Grid.Row="2" x:Name="ChannelGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" Background="{StaticResource Panel}" Foreground="{StaticResource Text}" BorderBrush="{StaticResource Line}" GridLinesVisibility="Horizontal" HeadersVisibility="Column" SelectionMode="Single" Margin="0,8">
+   <DataGrid.Columns>
+    <DataGridTextColumn Header="Сервер" Binding="{Binding ServerName}" Width="1.2*" IsReadOnly="True"/>
+    <DataGridTextColumn Header="Канал" Binding="{Binding DisplayChannel}" Width="1.4*" IsReadOnly="True"/>
+    <DataGridTextColumn Header="Права" Binding="{Binding PermissionSummary}" Width="1.1*" IsReadOnly="True"/>
+    <DataGridCheckBoxColumn Header="Стрім" Binding="{Binding StreamSelected, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
+    <DataGridCheckBoxColumn Header="Донати" Binding="{Binding MonetizationSelected, UpdateSourceTrigger=PropertyChanged}" Width="80"/>
+   </DataGrid.Columns>
+  </DataGrid>
+  <Border Grid.Row="3" Background="#071927" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0"><Grid Margin="8,4"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock x:Name="StatusText" Text="Готово" Foreground="{StaticResource Green}" VerticalAlignment="Center" TextWrapping="Wrap"/><WrapPanel Grid.Column="1"><Button Content="ПРОФІЛЬ СЕРВЕРА" Click="Profile_Click"/><Button Content="ТЕСТ СТРІМІВ" Click="TestStreams_Click"/><Button Content="ТЕСТ ДОНАТІВ" Click="TestDonations_Click"/><Button Content="ЗБЕРЕГТИ" Background="#135B43" Click="Save_Click"/></WrapPanel></Grid></Border>
+ </Grid></Border>
+</Window>
