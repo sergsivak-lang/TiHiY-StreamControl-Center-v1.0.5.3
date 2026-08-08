@@ -1,0 +1,25 @@
+<Window x:Class="TiHiY.StreamControlCenter.DiscordProfileWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="TiHiY MINI Lite — Discord профіль" Width="900" Height="720" MinWidth="760" MinHeight="620"
+ WindowStyle="None" ResizeMode="CanResize" Background="{StaticResource Bg}" Foreground="{StaticResource Text}" WindowStartupLocation="CenterOwner">
+ <Border BorderBrush="{StaticResource Cyan}" BorderThickness="1" CornerRadius="8"><Grid Margin="8"><Grid.RowDefinitions><RowDefinition Height="62"/><RowDefinition Height="*"/><RowDefinition Height="54"/></Grid.RowDefinitions>
+  <Border Background="#09243C" BorderBrush="{StaticResource Amber}" BorderThickness="0,0,0,1" MouseLeftButtonDown="Title_MouseLeftButtonDown"><Grid Margin="12,0"><StackPanel VerticalAlignment="Center"><TextBlock x:Name="ServerTitleText" Text="DISCORD • ПРОФІЛЬ СЕРВЕРА" FontSize="20" FontWeight="Black" Foreground="{StaticResource Amber}"/><TextBlock x:Name="ServerIdText" Foreground="{StaticResource Muted}" FontSize="11"/></StackPanel><Button Content="×" Width="38" HorizontalAlignment="Right" Background="#3C1017" Click="Close_Click"/></Grid></Border>
+  <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"><StackPanel Margin="16">
+   <CheckBox x:Name="EnabledCheck" Content="Профіль сервера увімкнено" IsChecked="True"/>
+   <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="7" Padding="12" Margin="0,10,0,0"><StackPanel>
+    <TextBlock Text="СПОВІЩЕННЯ ПРО ПОЧАТОК СТРІМУ" FontSize="16" FontWeight="Black" Foreground="{StaticResource Cyan}"/><TextBlock x:Name="StreamChannelsText" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,10"/>
+    <TextBlock Text="Тег / згадування" Foreground="{StaticResource Muted}"/><TextBox x:Name="StreamMentionBox" Margin="0,3,0,8"/>
+    <TextBlock Text="Текст повідомлення" Foreground="{StaticResource Muted}"/><TextBox x:Name="StreamTemplateBox" Height="120" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,3,0,0"/>
+    <TextBlock Text="Поля: {platform}  {title}  {url}  {viewers}  {likes}  {server}" Foreground="{StaticResource Amber}" FontSize="11" Margin="0,4,0,0"/>
+   </StackPanel></Border>
+   <Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="7" Padding="12" Margin="0,10,0,0"><StackPanel>
+    <TextBlock Text="ДОНАТИ ТА ПЛАТНІ ПІДПИСКИ" FontSize="16" FontWeight="Black" Foreground="{StaticResource Amber}"/><TextBlock x:Name="DonationChannelsText" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,10"/>
+    <TextBlock Text="Тег / згадування" Foreground="{StaticResource Muted}"/><TextBox x:Name="DonationMentionBox" Margin="0,3,0,8"/>
+    <TextBlock Text="Текст повідомлення" Foreground="{StaticResource Muted}"/><TextBox x:Name="DonationTemplateBox" Height="120" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Margin="0,3,0,0"/>
+    <TextBlock Text="Поля: {user}  {kind}  {amount}  {currency}  {source}  {message}  {url}  {server}" Foreground="{StaticResource Amber}" FontSize="11" Margin="0,4,0,0"/>
+   </StackPanel></Border>
+  </StackPanel></ScrollViewer>
+  <Border Grid.Row="2" Background="#071927" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0"><Grid Margin="8,4"><TextBlock x:Name="StatusText" Text="Готово" Foreground="{StaticResource Green}" VerticalAlignment="Center"/><WrapPanel HorizontalAlignment="Right"><Button Content="ТЕСТ СТРІМУ" Click="TestStream_Click"/><Button Content="ТЕСТ ДОНАТІВ" Click="TestDonation_Click"/><Button Content="ЗБЕРЕГТИ" Background="#135B43" Click="Save_Click"/><Button Content="ЗАКРИТИ" Click="Close_Click"/></WrapPanel></Grid></Border>
+ </Grid></Border>
+</Window>
