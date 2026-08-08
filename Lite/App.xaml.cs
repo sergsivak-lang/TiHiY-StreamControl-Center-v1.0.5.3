@@ -19,10 +19,13 @@ public partial class LiteApp : Application
 
         var screenshotArg = e.Args.FirstOrDefault(x => x.StartsWith("--ci-screenshot=", StringComparison.OrdinalIgnoreCase));
         var screenshot = screenshotArg is null ? null : screenshotArg[(screenshotArg.IndexOf('=') + 1)..].Trim('"');
+        var auditArg = e.Args.FirstOrDefault(x => x.StartsWith("--ci-ui-audit=", StringComparison.OrdinalIgnoreCase));
+        var auditFolder = auditArg is null ? null : auditArg[(auditArg.IndexOf('=') + 1)..].Trim('"');
         var ciScreenshot = !string.IsNullOrWhiteSpace(screenshot);
+        var ciUiAudit = !string.IsNullOrWhiteSpace(auditFolder);
         var ciModules = e.Args.Any(x => x.Equals("--ci-modules", StringComparison.OrdinalIgnoreCase));
         var ciOverlayBenchmark = e.Args.Any(x => x.Equals("--ci-overlay-benchmark", StringComparison.OrdinalIgnoreCase));
-        var ci = ciScreenshot || ciModules || ciOverlayBenchmark;
+        var ci = ciScreenshot || ciModules || ciOverlayBenchmark || ciUiAudit;
         try
         {
             Core = new LiteCoreService();
@@ -37,6 +40,22 @@ public partial class LiteApp : Application
             {
                 main.ShowOverlay();
                 await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                return;
+            }
+
+            if (ciUiAudit)
+            {
+                main.ApplyCiDemo();
+                await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+                Directory.CreateDirectory(auditFolder!);
+                SaveDetachedScreenshot(new ChatBotWindow(), Path.Combine(auditFolder!, "chat-bot.png"), 980, 720);
+                SaveDetachedScreenshot(new DiscordServersWindow(), Path.Combine(auditFolder!, "discord-servers.png"), 1050, 700);
+                SaveDetachedScreenshot(new SettingsWindow(), Path.Combine(auditFolder!, "settings.png"), 900, 700);
+                SaveDetachedScreenshot(new GameOverlaySettingsWindow(), Path.Combine(auditFolder!, "game-overlay-settings.png"), 780, 690);
+                var overlay = new HudWindow(Core);
+                SaveDetachedScreenshot(overlay, Path.Combine(auditFolder!, "game-overlay.png"), 620, 420);
+                overlay.Close();
+                Shutdown(0);
                 return;
             }
 
@@ -96,6 +115,23 @@ public partial class LiteApp : Application
         overlay.Show();
         overlay.UpdateLayout();
         overlay.Close();
+    }
+
+    private static void SaveDetachedScreenshot(Window window, string path, double width, double height)
+    {
+        window.Width = width;
+        window.Height = height;
+        window.Measure(new Size(width, height));
+        window.Arrange(new Rect(0, 0, width, height));
+        window.UpdateLayout();
+        var bmp = new RenderTargetBitmap((int)width, (int)height, 96, 96, PixelFormats.Pbgra32);
+        bmp.Render(window);
+        var enc = new PngBitmapEncoder();
+        enc.Frames.Add(BitmapFrame.Create(bmp));
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        using var fs = File.Create(path);
+        enc.Save(fs);
+        try { window.Close(); } catch { }
     }
 
     private static void SaveScreenshot(Window window, string path)
