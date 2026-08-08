@@ -91,8 +91,8 @@ public partial class SettingsWindow : Window
     private void OpenDiscordFull_Click(object sender, RoutedEventArgs e) => new DiscordBotWindow { Owner = this }.ShowDialog();
     private void OpenOverlaySettings_Click(object sender, RoutedEventArgs e)
     {
-        var owner = Owner as MainWindow;
-        var w = new GameOverlaySettingsWindow { Owner = owner ?? this };
+        Window moduleOwner = Owner is MainWindow main ? main : this;
+        var w = new GameOverlaySettingsWindow { Owner = moduleOwner };
         w.ShowDialog();
     }
     private void OpenChatBot_Click(object sender, RoutedEventArgs e) => new ChatBotWindow { Owner = this }.ShowDialog();
