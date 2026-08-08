@@ -1,64 +1,16 @@
 <Window x:Class="TiHiY.StreamControlCenter.SettingsWindow"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- Title="TiHiY MINI Lite — Налаштування" Width="900" Height="720" MinWidth="760" MinHeight="600"
+ Title="TiHiY MINI Lite — Налаштування" Width="900" Height="700" MinWidth="760" MinHeight="580"
  WindowStyle="None" ResizeMode="CanResize" Background="{StaticResource Bg}" Foreground="{StaticResource Text}" WindowStartupLocation="CenterOwner">
  <Border BorderBrush="{StaticResource Cyan}" BorderThickness="1" CornerRadius="8">
   <Grid Margin="8"><Grid.RowDefinitions><RowDefinition Height="56"/><RowDefinition Height="*"/><RowDefinition Height="52"/></Grid.RowDefinitions>
-   <Border Background="#09243C" BorderBrush="{StaticResource Amber}" BorderThickness="0,0,0,1" MouseLeftButtonDown="Title_MouseLeftButtonDown">
-    <Grid Margin="12,0"><TextBlock Text="НАЛАШТУВАННЯ • LITE CORE" FontSize="18" FontWeight="Black" Foreground="{StaticResource Amber}" VerticalAlignment="Center"/><Button Content="×" Width="38" HorizontalAlignment="Right" Background="#3C1017" Click="Close_Click"/></Grid>
-   </Border>
-   <TabControl Grid.Row="1" x:Name="Tabs" Background="{StaticResource Bg}" BorderThickness="0" Margin="0,8,0,8">
-    <TabItem Header="STREAMLABS"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="14">
-     <TextBlock Text="STREAMLABS • ПОДІЇ ТА ALERT BOX" FontSize="17" FontWeight="Black" Foreground="{StaticResource Cyan}"/>
-     <TextBlock Text="Один WebSocket для follow/sub/bits/raid/YouTube member/superchat/donation. Viewer count і likes беруться з офіційних Twitch/YouTube API." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,14"/>
-     <TextBlock Text="Client ID"/><TextBox x:Name="SlClientId" Margin="0,4,0,10"/>
-     <TextBlock Text="Client Secret (порожнє = не змінювати)"/><PasswordBox x:Name="SlSecret" Margin="0,4,0,10"/>
-     <TextBlock Text="Redirect URI у Streamlabs app:" Foreground="{StaticResource Muted}"/><TextBox Text="http://127.0.0.1:17848/streamlabs/" IsReadOnly="True" Margin="0,4,0,10"/>
-     <WrapPanel><Button Content="ВІДКРИТИ API SETTINGS" Click="SlDeveloper_Click"/><Button Content="АВТОРИЗУВАТИ" Background="#135B43" Click="SlAuthorize_Click"/><Button Content="ПІДКЛЮЧИТИ" Click="SlConnect_Click"/><Button Content="TEST FOLLOW" Click="SlTest_Click"/><Button Content="ЗАБУТИ TOKEN" Background="#4B1720" Click="SlForget_Click"/></WrapPanel>
-     <CheckBox x:Name="SlAuto" Content="Автопідключення Streamlabs при запуску" Margin="0,10,0,0"/>
-     <TextBlock x:Name="SlStatus" Foreground="{StaticResource Green}" Margin="0,10,0,0"/>
-    </StackPanel></ScrollViewer></TabItem>
-
-    <TabItem Header="TWITCH / YOUTUBE"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="14">
-     <TextBlock Text="TWITCH" FontSize="17" FontWeight="Black" Foreground="{StaticResource Purple}"/>
-     <TextBlock Text="Канал"/><TextBox x:Name="TwChannel" Margin="0,4,0,8"/>
-     <TextBlock Text="Client ID"/><TextBox x:Name="TwClientId" Margin="0,4,0,8"/>
-     <TextBlock Text="Client Secret (порожнє = не змінювати)"/><PasswordBox x:Name="TwSecret" Margin="0,4,0,8"/>
-     <WrapPanel><Button Content="АВТОРИЗУВАТИ TWITCH" Background="#35215A" Click="TwAuthorize_Click"/><CheckBox x:Name="TwAuto" Content="Автопідключення" VerticalAlignment="Center"/></WrapPanel>
-     <Separator Margin="0,16" Background="{StaticResource Line}"/>
-     <TextBlock Text="YOUTUBE" FontSize="17" FontWeight="Black" Foreground="#FF5B5B"/>
-     <TextBlock Text="Client ID (Desktop OAuth)"/><TextBox x:Name="YtClientId" Margin="0,4,0,8"/>
-     <TextBlock Text="Client Secret (порожнє = не змінювати)"/><PasswordBox x:Name="YtSecret" Margin="0,4,0,8"/>
-     <WrapPanel><Button Content="АВТОРИЗУВАТИ YOUTUBE" Background="#4B1720" Click="YtAuthorize_Click"/><CheckBox x:Name="YtAuto" Content="Автопідключення" VerticalAlignment="Center"/></WrapPanel>
-    </StackPanel></ScrollViewer></TabItem>
-
-    <TabItem Header="ДОНАТИ / DISCORD"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="14">
-     <TextBlock Text="DONATELLO" FontSize="17" FontWeight="Black" Foreground="{StaticResource Amber}"/>
-     <TextBlock Text="API Token (порожнє = не змінювати)"/><PasswordBox x:Name="DonatelloToken" Margin="0,4,0,8"/>
-     <WrapPanel><Button Content="ЗБЕРЕГТИ TOKEN" Click="SaveDonatello_Click"/><Button Content="ПЕРЕВІРИТИ / ЗАПУСТИТИ" Click="StartDonatello_Click"/><CheckBox x:Name="DonatelloEnabled" Content="Увімкнено" VerticalAlignment="Center"/></WrapPanel>
-     <Separator Margin="0,16" Background="{StaticResource Line}"/>
-     <TextBlock Text="DISCORD NOTIFY BOT" FontSize="17" FontWeight="Black" Foreground="{StaticResource Cyan}"/>
-     <TextBlock Text="Application ID"/><TextBox x:Name="DiscordAppId" Margin="0,4,0,8"/>
-     <TextBlock Text="Bot Token (порожнє = не змінювати)"/><PasswordBox x:Name="DiscordToken" Margin="0,4,0,8"/>
-     <TextBlock Text="Fallback Channel IDs (через кому / новий рядок)"/><TextBox x:Name="DiscordChannels" Height="60" AcceptsReturn="True" TextWrapping="Wrap" Margin="0,4,0,8"/>
-     <WrapPanel><Button Content="ЗБЕРЕГТИ BOT" Click="SaveDiscord_Click"/><Button Content="ЗАПУСТИТИ BOT" Click="StartDiscord_Click"/><Button Content="ТЕСТ" Click="TestDiscord_Click"/><Button Content="ПРОФІЛІ СЕРВЕРІВ" Click="DiscordProfiles_Click"/></WrapPanel>
-     <CheckBox x:Name="DiscordEnabled" Content="Сповіщення про старт трансляцій"/>
-     <CheckBox x:Name="DiscordMoney" Content="Донати / платні підписки / gifts"/>
-     <TextBlock Text="Існуючі персональні профілі серверів з різними тегами/шаблонами збережені й продовжують використовуватись." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
-    </StackPanel></ScrollViewer></TabItem>
-
-    <TabItem Header="HUD"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="14">
-     <TextBlock Text="OVERLAY ПОВЕРХ ГРИ" FontSize="17" FontWeight="Black" Foreground="{StaticResource Amber}"/>
-     <TextBlock Text="HUD бачиш ти. За можливості Windows виключає його з capture; він не використовує Browser Source або локальний web server." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,12"/>
-     <CheckBox x:Name="HudAuto" Content="Автоматично показувати HUD"/><CheckBox x:Name="HudClick" Content="Click-through"/><CheckBox x:Name="HudCapture" Content="Виключати з захоплення (WDA_EXCLUDEFROMCAPTURE)"/><CheckBox x:Name="HudEvents" Content="Показувати події"/><CheckBox x:Name="HudStats" Content="Показувати viewers / likes"/><CheckBox x:Name="HudAimp" Content="Показувати / використовувати AIMP metadata (вмикає AIMP integration)"/>
-     <UniformGrid Columns="2" Margin="0,12,0,0">
-      <StackPanel Margin="4"><TextBlock Text="Прозорість HUD (0.2–1.0)"/><TextBox x:Name="HudOpacity"/></StackPanel>
-      <StackPanel Margin="4"><TextBlock Text="Прозорість фону (0–1)"/><TextBox x:Name="HudBg"/></StackPanel>
-      <StackPanel Margin="4"><TextBlock Text="Розмір шрифту"/><TextBox x:Name="HudFont"/></StackPanel>
-      <StackPanel Margin="4"><TextBlock Text="Кількість повідомлень"/><TextBox x:Name="HudCount"/></StackPanel>
-     </UniformGrid>
-    </StackPanel></ScrollViewer></TabItem>
+   <Border Background="#09243C" BorderBrush="{StaticResource Amber}" BorderThickness="0,0,0,1" MouseLeftButtonDown="Title_MouseLeftButtonDown"><Grid Margin="12,0"><TextBlock Text="НАЛАШТУВАННЯ • LITE CORE" FontSize="18" FontWeight="Black" Foreground="{StaticResource Amber}" VerticalAlignment="Center"/><Button Content="×" Width="38" HorizontalAlignment="Right" Background="#3C1017" Click="Close_Click"/></Grid></Border>
+   <TabControl Grid.Row="1" Background="{StaticResource Bg}" BorderThickness="0" Margin="0,8">
+    <TabItem Header="STREAMLABS"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="14"><TextBlock Text="STREAMLABS • ПОДІЇ ТА ALERT BOX" FontSize="17" FontWeight="Black" Foreground="{StaticResource Cyan}"/><TextBlock Text="Real-time events через один WebSocket. Viewer count і YouTube likes беруться з офіційних Twitch/YouTube API." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,14"/><TextBlock Text="Client ID"/><TextBox x:Name="SlClientId" Margin="0,4,0,10"/><TextBlock Text="Client Secret (порожнє = не змінювати)"/><PasswordBox x:Name="SlSecret" Margin="0,4,0,10"/><TextBlock Text="Redirect URI:" Foreground="{StaticResource Muted}"/><TextBox Text="http://127.0.0.1:17848/streamlabs/" IsReadOnly="True" Margin="0,4,0,10"/><WrapPanel><Button Content="ВІДКРИТИ API SETTINGS" Click="SlDeveloper_Click"/><Button Content="АВТОРИЗУВАТИ" Background="#135B43" Click="SlAuthorize_Click"/><Button Content="ПІДКЛЮЧИТИ" Click="SlConnect_Click"/><Button Content="TEST FOLLOW" Click="SlTest_Click"/><Button Content="ЗАБУТИ TOKEN" Background="#4B1720" Click="SlForget_Click"/></WrapPanel><CheckBox x:Name="SlAuto" Content="Автопідключення Streamlabs при запуску" Margin="0,10,0,0"/><TextBlock x:Name="SlStatus" Foreground="{StaticResource Green}" Margin="0,10,0,0"/></StackPanel></ScrollViewer></TabItem>
+    <TabItem Header="TWITCH / YOUTUBE"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="14"><TextBlock Text="TWITCH" FontSize="17" FontWeight="Black" Foreground="{StaticResource Purple}"/><TextBlock Text="Канал"/><TextBox x:Name="TwChannel" Margin="0,4,0,8"/><TextBlock Text="Client ID"/><TextBox x:Name="TwClientId" Margin="0,4,0,8"/><TextBlock Text="Client Secret (порожнє = не змінювати)"/><PasswordBox x:Name="TwSecret" Margin="0,4,0,8"/><WrapPanel><Button Content="АВТОРИЗУВАТИ TWITCH" Background="#35215A" Click="TwAuthorize_Click"/><CheckBox x:Name="TwAuto" Content="Автопідключення" VerticalAlignment="Center"/></WrapPanel><Separator Margin="0,16" Background="{StaticResource Line}"/><TextBlock Text="YOUTUBE" FontSize="17" FontWeight="Black" Foreground="#FF5B5B"/><TextBlock Text="Client ID (Desktop OAuth)"/><TextBox x:Name="YtClientId" Margin="0,4,0,8"/><TextBlock Text="Client Secret (порожнє = не змінювати)"/><PasswordBox x:Name="YtSecret" Margin="0,4,0,8"/><WrapPanel><Button Content="АВТОРИЗУВАТИ YOUTUBE" Background="#4B1720" Click="YtAuthorize_Click"/><CheckBox x:Name="YtAuto" Content="Автопідключення" VerticalAlignment="Center"/></WrapPanel></StackPanel></ScrollViewer></TabItem>
+    <TabItem Header="DONATELLO"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="14"><TextBlock Text="DONATELLO" FontSize="17" FontWeight="Black" Foreground="{StaticResource Amber}"/><TextBlock Text="API Token (порожнє = не змінювати)"/><PasswordBox x:Name="DonatelloToken" Margin="0,4,0,8"/><WrapPanel><Button Content="ЗБЕРЕГТИ TOKEN" Click="SaveDonatello_Click"/><Button Content="ПЕРЕВІРИТИ / ЗАПУСТИТИ" Click="StartDonatello_Click"/><CheckBox x:Name="DonatelloEnabled" Content="Увімкнено" VerticalAlignment="Center"/></WrapPanel><TextBlock Text="Donatello працює окремо від Streamlabs і використовується для українських донатів та підписок." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,10,0,0"/></StackPanel></ScrollViewer></TabItem>
+    <TabItem Header="МОДУЛІ"><StackPanel Margin="18"><TextBlock Text="ПОВНІ МОДУЛІ" FontSize="18" FontWeight="Black" Foreground="{StaticResource Amber}"/><TextBlock Text="Тут немає спрощених дублікатів. Відкриваються повні збережені модулі." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,4,0,16"/><Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="7" Padding="12" Margin="0,0,0,10"><DockPanel><StackPanel><TextBlock Text="DISCORD NOTIFY BOT" FontWeight="Black" Foreground="{StaticResource Cyan}"/><TextBlock Text="Сервери, канали, персональні теги і шаблони, монетизація, тести." Foreground="{StaticResource Muted}"/></StackPanel><Button DockPanel.Dock="Right" Content="ВІДКРИТИ DISCORD" Background="#1453A5" Click="OpenDiscordFull_Click"/></DockPanel></Border><Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="7" Padding="12" Margin="0,0,0,10"><DockPanel><StackPanel><TextBlock Text="OVERLAY ПОВЕРХ ГРИ" FontWeight="Black" Foreground="{StaticResource Amber}"/><TextBlock Text="Попередній локальний overlay та його налаштування." Foreground="{StaticResource Muted}"/></StackPanel><Button DockPanel.Dock="Right" Content="ВІДКРИТИ OVERLAY" Background="#17613E" Click="OpenOverlaySettings_Click"/></DockPanel></Border><Border Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="7" Padding="12"><DockPanel><StackPanel><TextBlock Text="CHAT BOT" FontWeight="Black" Foreground="{StaticResource Green}"/><TextBlock Text="Команди бота, cooldown, антиспам і автосповіщення." Foreground="{StaticResource Muted}"/></StackPanel><Button DockPanel.Dock="Right" Content="ВІДКРИТИ CHAT BOT" Click="OpenChatBot_Click"/></DockPanel></Border></StackPanel></TabItem>
    </TabControl>
    <Border Grid.Row="2" Background="#071927" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0"><DockPanel Margin="8,4"><TextBlock x:Name="StatusText" Text="Готово" Foreground="{StaticResource Green}" VerticalAlignment="Center"/><StackPanel DockPanel.Dock="Right" Orientation="Horizontal"><Button Content="ЗБЕРЕГТИ" Background="#135B43" Click="Save_Click"/><Button Content="ЗАКРИТИ" Click="Close_Click"/></StackPanel></DockPanel></Border>
   </Grid>
