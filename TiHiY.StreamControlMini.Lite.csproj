@@ -10,9 +10,9 @@
     <AssemblyName>TiHiY.StreamControlMini.Lite</AssemblyName>
     <RootNamespace>TiHiY.StreamControlCenter</RootNamespace>
     <ApplicationIcon>Lite\Assets\TiHiYMiniLite.ico</ApplicationIcon>
-    <Version>2.0.1.0</Version>
-    <AssemblyVersion>2.0.1.0</AssemblyVersion>
-    <FileVersion>2.0.1.0</FileVersion>
+    <Version>2.0.2.0</Version>
+    <AssemblyVersion>2.0.2.0</AssemblyVersion>
+    <FileVersion>2.0.2.0</FileVersion>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <EnableDefaultPageItems>false</EnableDefaultPageItems>
     <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
