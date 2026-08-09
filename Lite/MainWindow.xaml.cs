@@ -90,7 +90,7 @@ public partial class MainWindow : Window
         {
             TextWrapping = TextWrapping.Wrap,
             FontSize = _core.Settings.Value.MainChatFontSize,
-            Foreground = (Brush)FindResource("Text"),
+            Foreground = BrushFrom(_core.Settings.Value.MainChatTextColor, (Brush)FindResource("Text")),
             Margin = new Thickness(0, 2, 0, 0)
         };
         var text = m.Text ?? string.Empty;
