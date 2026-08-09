@@ -1,8 +1,8 @@
-name: MINI Lite Streamlabs Build
+name: MINI Lite Discord Forum Build 2.0.2
 
 on:
   push:
-    branches: [ "feature/mini-lite-streamlabs-final-build-v1c" ]
+    branches: [ "feature/mini-lite-discord-forum-v2.0.2" ]
   workflow_dispatch:
 
 permissions:
@@ -74,10 +74,10 @@ jobs:
       - name: Upload Lite preview
         uses: actions/upload-artifact@v4
         with:
-          name: TiHiY-StreamControl-MINI-Lite-preview
+          name: TiHiY-StreamControl-MINI-Lite-2.0.2-preview
           path: preview/**
       - name: Upload Lite Windows x64
         uses: actions/upload-artifact@v4
         with:
-          name: TiHiY-StreamControl-MINI-Lite-Streamlabs-win-x64
+          name: TiHiY-StreamControl-MINI-LITE-DISCORD-FORUM-v2.0.2-win-x64
           path: publish-lite/**
