@@ -69,7 +69,11 @@ public sealed class DiscordNotificationService : IDisposable
             string.Empty,
             "TiHiY Stream Notify Bot • канал трансляцій",
             _settings.Value.DiscordMention);
-        await SendPayloadToChannelsAsync(payload, _settings.Value.DiscordChannelIds, token).ConfigureAwait(false);
+        await SendPayloadToChannelsAsync(
+            payload,
+            _settings.Value.DiscordChannelIds,
+            token,
+            BuildLiveForumContext(info, test: true)).ConfigureAwait(false);
     }
 
     public async Task TestProfileStreamsAsync(string serverId, CancellationToken token = default)
@@ -127,7 +131,11 @@ public sealed class DiscordNotificationService : IDisposable
                 _settings.Value.DiscordMessageTemplate,
                 string.Empty,
                 false);
-            await SendPayloadToChannelsAsync(payload, _settings.Value.DiscordChannelIds, token).ConfigureAwait(false);
+            await SendPayloadToChannelsAsync(
+                payload,
+                _settings.Value.DiscordChannelIds,
+                token,
+                BuildLiveForumContext(info, test: false)).ConfigureAwait(false);
         }
 
         if (info.Platform.Equals("YouTube", StringComparison.OrdinalIgnoreCase))
@@ -160,19 +168,31 @@ public sealed class DiscordNotificationService : IDisposable
             string.Empty,
             string.Empty,
             force);
-        await SendPayloadToChannelsAsync(payload, settings.DiscordMonetizationChannelIds, token).ConfigureAwait(false);
+        await SendPayloadToChannelsAsync(
+            payload,
+            settings.DiscordMonetizationChannelIds,
+            token,
+            BuildMonetizationForumContext(donation, force)).ConfigureAwait(false);
     }
 
     private async Task SendLiveToProfileAsync(DiscordServerProfile profile, StreamLiveInfo info, CancellationToken token, bool test = false)
     {
         var payload = BuildLivePayload(info, profile.StreamMention, profile.StreamTemplate, profile.ServerName, test);
-        await SendPayloadToChannelsAsync(payload, string.Join(Environment.NewLine, profile.StreamChannelIds), token).ConfigureAwait(false);
+        await SendPayloadToChannelsAsync(
+            payload,
+            string.Join(Environment.NewLine, profile.StreamChannelIds),
+            token,
+            BuildLiveForumContext(info, test)).ConfigureAwait(false);
     }
 
     private async Task SendMonetizationToProfileAsync(DiscordServerProfile profile, DonationEvent donation, CancellationToken token, bool test = false)
     {
         var payload = BuildMonetizationPayload(donation, profile.MonetizationMention, profile.MonetizationTemplate, profile.ServerName, test);
-        await SendPayloadToChannelsAsync(payload, string.Join(Environment.NewLine, profile.MonetizationChannelIds), token).ConfigureAwait(false);
+        await SendPayloadToChannelsAsync(
+            payload,
+            string.Join(Environment.NewLine, profile.MonetizationChannelIds),
+            token,
+            BuildMonetizationForumContext(donation, test)).ConfigureAwait(false);
     }
 
     private JsonObject BuildLivePayload(StreamLiveInfo info, string mention, string template, string serverName, bool test)
@@ -298,25 +318,39 @@ public sealed class DiscordNotificationService : IDisposable
         };
     }
 
-    private async Task SendPayloadToChannelsAsync(JsonObject payload, string channelIdText, CancellationToken token)
+    private async Task SendPayloadToChannelsAsync(
+        JsonObject payload,
+        string channelIdText,
+        CancellationToken token,
+        ForumPostContext? forumContext = null)
     {
         var botToken = LoadBotToken();
         if (string.IsNullOrWhiteSpace(botToken)) throw new InvalidOperationException("Токен Discord-бота не збережено.");
         var channelIds = ParseChannelIds(channelIdText);
-        if (channelIds.Count == 0) throw new InvalidOperationException("Не вказано ID потрібних текстових каналів Discord.");
+        if (channelIds.Count == 0) throw new InvalidOperationException("Не вказано ID потрібних Discord-каналів.");
 
         var errors = new List<string>();
         foreach (var channelId in channelIds)
         {
             try
             {
-                using var request = new HttpRequestMessage(HttpMethod.Post, $"https://discord.com/api/v10/channels/{Uri.EscapeDataString(channelId)}/messages");
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bot", botToken);
-                request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
-                using var response = await _http.SendAsync(request, token).ConfigureAwait(false);
-                var body = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
-                if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"{(int)response.StatusCode} {TrimBody(body)}");
-                _logger.Info($"Discord: повідомлення надіслано в канал {channelId}");
+                var channel = await GetChannelAsync(botToken, channelId, token).ConfigureAwait(false);
+                var channelType = channel["type"]?.GetValue<int>() ?? -1;
+
+                if (channelType is 15 or 16)
+                {
+                    await SendForumPostAsync(botToken, channelId, channel, payload, forumContext, token).ConfigureAwait(false);
+                    _logger.Info($"Discord: Forum/Media пост створено в каналі {channelId}");
+                }
+                else if (channelType is 0 or 5)
+                {
+                    await SendRegularMessageAsync(botToken, channelId, payload, token).ConfigureAwait(false);
+                    _logger.Info($"Discord: повідомлення надіслано в канал {channelId}");
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Непідтримуваний тип Discord-каналу: {channelType}");
+                }
             }
             catch (Exception ex)
             {
@@ -329,6 +363,175 @@ public sealed class DiscordNotificationService : IDisposable
             throw new InvalidOperationException("Не всі Discord-канали прийняли повідомлення:\n" + string.Join("\n", errors));
     }
 
+    private async Task<JsonObject> GetChannelAsync(string botToken, string channelId, CancellationToken token)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get,
+            $"https://discord.com/api/v10/channels/{Uri.EscapeDataString(channelId)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bot", botToken);
+
+        using var response = await _http.SendAsync(request, token).ConfigureAwait(false);
+        var body = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException($"Discord channel info: {(int)response.StatusCode} {TrimBody(body)}");
+
+        return JsonNode.Parse(body) as JsonObject
+            ?? throw new InvalidOperationException("Discord повернув некоректні дані каналу.");
+    }
+
+    private async Task SendRegularMessageAsync(string botToken, string channelId, JsonObject payload, CancellationToken token)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            $"https://discord.com/api/v10/channels/{Uri.EscapeDataString(channelId)}/messages");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bot", botToken);
+        request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
+
+        using var response = await _http.SendAsync(request, token).ConfigureAwait(false);
+        var body = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException($"{(int)response.StatusCode} {TrimBody(body)}");
+    }
+
+    private async Task SendForumPostAsync(
+        string botToken,
+        string channelId,
+        JsonObject channel,
+        JsonObject payload,
+        ForumPostContext? context,
+        CancellationToken token)
+    {
+        var postName = SanitizeThreadName(context?.PostName ?? ExtractPayloadTitle(payload));
+        var appliedTagIds = ResolveForumTagIds(channel, context?.TagNames ?? Array.Empty<string>());
+
+        var message = JsonNode.Parse(payload.ToJsonString()) as JsonObject
+            ?? throw new InvalidOperationException("Не вдалося сформувати Discord Forum message.");
+
+        var threadPayload = new JsonObject
+        {
+            ["name"] = postName,
+            ["auto_archive_duration"] = 1440,
+            ["message"] = message
+        };
+
+        if (appliedTagIds.Count > 0)
+        {
+            var tags = new JsonArray();
+            foreach (var tagId in appliedTagIds) tags.Add(tagId);
+            threadPayload["applied_tags"] = tags;
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            $"https://discord.com/api/v10/channels/{Uri.EscapeDataString(channelId)}/threads");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bot", botToken);
+        request.Content = new StringContent(threadPayload.ToJsonString(), Encoding.UTF8, "application/json");
+
+        using var response = await _http.SendAsync(request, token).ConfigureAwait(false);
+        var body = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException($"Forum/Media {(int)response.StatusCode} {TrimBody(body)}");
+    }
+
+    private static List<string> ResolveForumTagIds(JsonObject channel, IReadOnlyList<string> desiredNames)
+    {
+        var result = new List<string>();
+        var available = (channel["available_tags"] as JsonArray)?.OfType<JsonObject>().ToList()
+            ?? new List<JsonObject>();
+
+        foreach (var desired in desiredNames)
+        {
+            var wanted = NormalizeTag(desired);
+            if (string.IsNullOrWhiteSpace(wanted)) continue;
+
+            var match = available.FirstOrDefault(tag =>
+                string.Equals(NormalizeTag(tag["name"]?.GetValue<string>() ?? string.Empty), wanted, StringComparison.OrdinalIgnoreCase));
+            var id = match?["id"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(id) && !result.Contains(id, StringComparer.Ordinal))
+                result.Add(id);
+            if (result.Count >= 5) break;
+        }
+
+        // Discord channels may require at least one tag. If the configured names do not
+        // exist, safely fall back to the first non-moderated tag so the post still works.
+        var flags = channel["flags"]?.GetValue<int?>() ?? 0;
+        const int RequireTag = 1 << 4;
+        if (result.Count == 0 && (flags & RequireTag) != 0)
+        {
+            var fallback = available.FirstOrDefault(tag => tag["moderated"]?.GetValue<bool?>() != true)
+                ?? available.FirstOrDefault();
+            var fallbackId = fallback?["id"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(fallbackId)) result.Add(fallbackId);
+        }
+
+        return result;
+    }
+
+    private static ForumPostContext BuildLiveForumContext(StreamLiveInfo info, bool test)
+    {
+        var platform = string.IsNullOrWhiteSpace(info.Platform) ? "LIVE" : info.Platform.Trim();
+        var sourceTitle = string.IsNullOrWhiteSpace(info.Title) ? "TiHiY-DED LIVE" : info.Title.Trim();
+        var postName = test
+            ? $"✅ TEST • {platform} • {sourceTitle}"
+            : $"🔴 {platform} • {sourceTitle}";
+
+        var tags = new List<string> { "🔴 LIVE", "LIVE", platform };
+        var gameTag = DetectGameTag(sourceTitle);
+        if (!string.IsNullOrWhiteSpace(gameTag)) tags.Add(gameTag);
+
+        return new ForumPostContext(postName, tags);
+    }
+
+    private static ForumPostContext BuildMonetizationForumContext(DonationEvent donation, bool test)
+    {
+        var kind = donation.Kind.Equals("SUBSCRIPTION", StringComparison.OrdinalIgnoreCase) ? "SUBSCRIPTION" : "DONATION";
+        var postName = test
+            ? "✅ TEST • Discord monetization"
+            : $"💛 {kind} • {donation.User}";
+        return new ForumPostContext(postName, Array.Empty<string>());
+    }
+
+    private static string DetectGameTag(string title)
+    {
+        var value = (title ?? string.Empty).ToLowerInvariant();
+        if (value.Contains("star citizen") || value.Contains("стар сітізен") || value.Contains("стар ситизен")) return "Star Citizen";
+        if (value.Contains("dayz") || value.Contains("day z")) return "DayZ";
+        if (value.Contains("arma") || value.Contains("reforger") || value.Contains("арма")) return "Arma Reforger";
+        if (value.Contains("stalker") || value.Contains("s.t.a.l.k.e.r") || value.Contains("сталкер")) return "S.T.A.L.K.E.R.";
+        if (value.Contains("pubg")) return "PUBG";
+        if (value.Contains("ets2") || value.Contains("euro truck") || value.Contains("american truck") ||
+            value.Contains("roadcraft") || value.Contains("road craft") || value.Contains("mudrunner") ||
+            value.Contains("snowrunner") || value.Contains("автосим")) return "Автосимулятори";
+        return string.Empty;
+    }
+
+    private static string ExtractPayloadTitle(JsonObject payload)
+    {
+        if (payload["embeds"] is JsonArray embeds && embeds.FirstOrDefault() is JsonObject embed)
+        {
+            var title = embed["title"]?.GetValue<string>();
+            if (!string.IsNullOrWhiteSpace(title)) return title;
+        }
+        return "TiHiY-DED Discord post";
+    }
+
+    private static string SanitizeThreadName(string value)
+    {
+        var cleaned = string.Join(" ", (value ?? string.Empty)
+            .Replace("\r", " ")
+            .Replace("\n", " ")
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        if (string.IsNullOrWhiteSpace(cleaned)) cleaned = "TiHiY-DED LIVE";
+        return cleaned.Length <= 100 ? cleaned : cleaned[..100].TrimEnd();
+    }
+
+    private static string NormalizeTag(string value)
+    {
+        var chars = (value ?? string.Empty)
+            .ToLowerInvariant()
+            .Where(ch => char.IsLetterOrDigit(ch) || char.IsWhiteSpace(ch))
+            .ToArray();
+        return string.Join(" ", new string(chars)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    }
+
     private static List<string> ParseChannelIds(string text) => text
         .Split(new[] { ',', ';', '\r', '\n', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
         .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -339,6 +542,8 @@ public sealed class DiscordNotificationService : IDisposable
         var value = body.Replace("\r", " ").Replace("\n", " ").Trim();
         return value.Length <= 300 ? value : value[..300] + "…";
     }
+
+    private sealed record ForumPostContext(string PostName, IReadOnlyList<string> TagNames);
 
     public void Dispose() => _http.Dispose();
 }
