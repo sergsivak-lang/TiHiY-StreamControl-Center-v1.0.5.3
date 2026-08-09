@@ -5,7 +5,7 @@ namespace TiHiY.StreamControlCenter;
 
 internal static class LiteChatVisual
 {
-    public static FrameworkElement BuildHudRow(ChatMessage m, double fontSize)
+    public static FrameworkElement BuildHudRow(ChatMessage m, double fontSize, string textColor, string userFallbackColor)
     {
         var root = new Border
         {
@@ -33,14 +33,14 @@ internal static class LiteChatVisual
         {
             TextWrapping = TextWrapping.Wrap,
             FontSize = fontSize,
-            Foreground = Brushes.White,
+            Foreground = Parse(textColor, Brushes.White),
             LineHeight = fontSize * 1.35,
             VerticalAlignment = VerticalAlignment.Top
         };
         line.Inlines.Add(new Run((m.User ?? string.Empty) + ": ")
         {
             FontSize = Math.Max(11, fontSize - 1),
-            Foreground = Parse(m.Foreground, Brushes.DeepSkyBlue),
+            Foreground = Parse(m.Foreground, Parse(userFallbackColor, Brushes.DeepSkyBlue)),
             FontWeight = FontWeights.Bold
         });
         AppendMessageInlines(line, m, fontSize);
@@ -50,13 +50,13 @@ internal static class LiteChatVisual
         return root;
     }
 
-    public static TextBlock BuildText(ChatMessage m, double fontSize)
+    public static TextBlock BuildText(ChatMessage m, double fontSize, string textColor)
     {
         var tb = new TextBlock
         {
             TextWrapping = TextWrapping.Wrap,
             FontSize = fontSize,
-            Foreground = Brushes.White,
+            Foreground = Parse(textColor, Brushes.White),
             LineHeight = fontSize * 1.35
         };
         AppendMessageInlines(tb, m, fontSize);
