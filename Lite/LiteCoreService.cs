@@ -9,10 +9,19 @@ public sealed class LiteCoreService : IAsyncDisposable
 {
     private readonly Dictionary<string, DateTime> _recent = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, DateTime> _recentDonorChat = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (int Count, DateTime At)> _recentOutgoing = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _messageIds = new(StringComparer.Ordinal);
+    private readonly object _chatGate = new();
     private readonly Lazy<AimpNowPlayingService> _aimp = new(() => new AimpNowPlayingService());
     private AimpStreamOverlayServer? _aimpStreamOverlay;
     private int _disposeState;
+
+    private static readonly string[] TwitchFallbackPalette =
+    {
+        "#FF0000", "#0000FF", "#008000", "#B22222", "#FF7F50", "#9ACD32",
+        "#FF4500", "#2E8B57", "#DAA520", "#D2691E", "#5F9EA0", "#1E90FF",
+        "#FF69B4", "#8A2BE2", "#00FF7F"
+    };
 
     public SettingsService SettingsService { get; } = new();
     public AppSettingsAccessor Settings { get; } = new();
@@ -119,19 +128,27 @@ public sealed class LiteCoreService : IAsyncDisposable
 
     private async Task AddChatAsync(ChatMessage message)
     {
-        if (!string.IsNullOrWhiteSpace(message.ExternalId) && !_messageIds.Add(message.ExternalId)) return;
+        if (ConsumeOutgoingEcho(message)) return;
+        lock (_chatGate)
+        {
+            if (!string.IsNullOrWhiteSpace(message.ExternalId) && !_messageIds.Add(message.ExternalId)) return;
+        }
+
+        ApplyPlatformNicknameColor(message);
         try { await LiteEmojiResolver.EnrichAsync(message, YouTube.ActiveBroadcastId).ConfigureAwait(false); }
         catch (Exception ex) { Logger.Error("Emoji resolver", ex); }
 
-        Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-        {
-            Chat.Add(message);
-            while (Chat.Count > 220) Chat.RemoveAt(0);
-            if (message.Role.Equals("Donor", StringComparison.OrdinalIgnoreCase) || message.Role.Equals("Subscriber", StringComparison.OrdinalIgnoreCase))
-                _recentDonorChat[$"{NormalizePlatform(message.Platform)}:{message.User}".ToLowerInvariant()] = DateTime.UtcNow;
-            ChatAdded?.Invoke(this, message);
-            ChatBot.ProcessIncoming(message);
-        }));
+        Application.Current.Dispatcher.BeginInvoke(new Action(() => AppendChat(message, true)));
+    }
+
+    private void AppendChat(ChatMessage message, bool processBot)
+    {
+        Chat.Add(message);
+        while (Chat.Count > 220) Chat.RemoveAt(0);
+        if (message.Role.Equals("Donor", StringComparison.OrdinalIgnoreCase) || message.Role.Equals("Subscriber", StringComparison.OrdinalIgnoreCase))
+            _recentDonorChat[$"{NormalizePlatform(message.Platform)}:{message.User}".ToLowerInvariant()] = DateTime.UtcNow;
+        ChatAdded?.Invoke(this, message);
+        if (processBot) ChatBot.ProcessIncoming(message);
     }
 
     private void HandleMoney(DonationEvent donation)
@@ -227,8 +244,12 @@ public sealed class LiteCoreService : IAsyncDisposable
         var donorKey = $"{platform}:{user}".ToLowerInvariant();
         if (_recentDonorChat.TryGetValue(donorKey, out var at) && DateTime.UtcNow - at < TimeSpan.FromSeconds(15)) return;
         _recentDonorChat[donorKey] = DateTime.UtcNow;
-        var prefix = kind.Contains("SUB", StringComparison.OrdinalIgnoreCase) || kind.Contains("MEMBER", StringComparison.OrdinalIgnoreCase) ? "⭐" : "💛";
-        var value = string.IsNullOrWhiteSpace(amount) ? kind : amount;
+
+        var isStreamlabs = id.StartsWith("streamlabs:", StringComparison.OrdinalIgnoreCase);
+        var text = isStreamlabs
+            ? (string.IsNullOrWhiteSpace(message) ? kind : message)
+            : BuildMoneyChatText(kind, amount, message);
+
         var chat = new ChatMessage
         {
             Platform = platform,
@@ -236,12 +257,17 @@ public sealed class LiteCoreService : IAsyncDisposable
             User = user,
             Role = "Donor",
             Time = DateTime.Now,
-            Text = $"{prefix} {value}" + (string.IsNullOrWhiteSpace(message) ? string.Empty : " • " + message),
-            Foreground = "#FFD329"
+            Text = text,
+            Foreground = platform.Equals("YOUTUBE", StringComparison.OrdinalIgnoreCase) ? "#2BA640" : "#FFD329"
         };
-        Chat.Add(chat);
-        while (Chat.Count > 220) Chat.RemoveAt(0);
-        ChatAdded?.Invoke(this, chat);
+        AppendChat(chat, false);
+    }
+
+    private static string BuildMoneyChatText(string kind, string amount, string message)
+    {
+        var prefix = kind.Contains("SUB", StringComparison.OrdinalIgnoreCase) || kind.Contains("MEMBER", StringComparison.OrdinalIgnoreCase) ? "⭐" : "💛";
+        var value = string.IsNullOrWhiteSpace(amount) ? kind : amount;
+        return $"{prefix} {value}" + (string.IsNullOrWhiteSpace(message) ? string.Empty : " • " + message);
     }
 
     private void AddEvent(LiteEvent e)
@@ -263,21 +289,172 @@ public sealed class LiteCoreService : IAsyncDisposable
     public async Task SendChatAsync(string text, string target)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
+        text = text.Trim();
         var normalized = (target ?? string.Empty).Trim().ToUpperInvariant();
         var both = normalized is "BOTH" or "TWITCH + YOUTUBE" or "TWITCH+YOUTUBE";
         var twitch = both || normalized == "TWITCH";
         var youtube = both || normalized == "YOUTUBE";
         var errors = new List<string>();
+
         if (twitch)
         {
-            try { await Twitch.SendMessageAsync(text).ConfigureAwait(false); } catch (Exception ex) { errors.Add("Twitch: " + ex.Message); }
+            RegisterOutgoing("TWITCH", text);
+            try
+            {
+                await Twitch.SendMessageAsync(text).ConfigureAwait(false);
+                await AddOutgoingEchoAsync("TWITCH", text).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                RemoveOutgoing("TWITCH", text);
+                errors.Add("Twitch: " + ex.Message);
+            }
         }
         if (youtube)
         {
-            try { await YouTube.SendMessageAsync(text).ConfigureAwait(false); } catch (Exception ex) { errors.Add("YouTube: " + ex.Message); }
+            RegisterOutgoing("YOUTUBE", text);
+            try
+            {
+                await YouTube.SendMessageAsync(text).ConfigureAwait(false);
+                await AddOutgoingEchoAsync("YOUTUBE", text).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                RemoveOutgoing("YOUTUBE", text);
+                errors.Add("YouTube: " + ex.Message);
+            }
         }
         if (!twitch && !youtube) throw new InvalidOperationException("Невідомий канал чату: " + target);
         if (errors.Count > 0) throw new InvalidOperationException(string.Join(Environment.NewLine, errors));
+    }
+
+    private async Task AddOutgoingEchoAsync(string platform, string text)
+    {
+        var message = new ChatMessage
+        {
+            Platform = platform,
+            ExternalId = $"local:{platform.ToLowerInvariant()}:{Guid.NewGuid():N}",
+            User = OwnDisplayName(platform),
+            Text = text,
+            Role = "Owner",
+            Time = DateTime.Now,
+            Foreground = PlatformNicknameColor(platform, "Owner", OwnDisplayName(platform))
+        };
+        try { await LiteEmojiResolver.EnrichAsync(message, YouTube.ActiveBroadcastId).ConfigureAwait(false); }
+        catch (Exception ex) { Logger.Error("Emoji resolver outgoing", ex); }
+        Application.Current.Dispatcher.BeginInvoke(new Action(() => AppendChat(message, false)));
+    }
+
+    private void RegisterOutgoing(string platform, string text)
+    {
+        var key = OutgoingKey(platform, text);
+        lock (_chatGate)
+        {
+            CleanupOutgoingLocked();
+            if (_recentOutgoing.TryGetValue(key, out var existing))
+                _recentOutgoing[key] = (existing.Count + 1, DateTime.UtcNow);
+            else
+                _recentOutgoing[key] = (1, DateTime.UtcNow);
+        }
+    }
+
+    private void RemoveOutgoing(string platform, string text)
+    {
+        var key = OutgoingKey(platform, text);
+        lock (_chatGate)
+        {
+            if (!_recentOutgoing.TryGetValue(key, out var existing)) return;
+            if (existing.Count <= 1) _recentOutgoing.Remove(key);
+            else _recentOutgoing[key] = (existing.Count - 1, existing.At);
+        }
+    }
+
+    private bool ConsumeOutgoingEcho(ChatMessage message)
+    {
+        if (!IsOwnChatUser(message)) return false;
+        var key = OutgoingKey(message.Platform, message.Text);
+        lock (_chatGate)
+        {
+            CleanupOutgoingLocked();
+            if (!_recentOutgoing.TryGetValue(key, out var existing)) return false;
+            if (existing.Count <= 1) _recentOutgoing.Remove(key);
+            else _recentOutgoing[key] = (existing.Count - 1, existing.At);
+            return true;
+        }
+    }
+
+    private void CleanupOutgoingLocked()
+    {
+        var now = DateTime.UtcNow;
+        foreach (var key in _recentOutgoing.Where(x => now - x.Value.At > TimeSpan.FromSeconds(60)).Select(x => x.Key).ToList())
+            _recentOutgoing.Remove(key);
+    }
+
+    private bool IsOwnChatUser(ChatMessage message)
+    {
+        static string Clean(string value) => (value ?? string.Empty).Trim().TrimStart('@');
+        if (message.Platform.Equals("TWITCH", StringComparison.OrdinalIgnoreCase))
+        {
+            var expected = string.IsNullOrWhiteSpace(Settings.Value.TwitchUserLogin) ? Settings.Value.TwitchChannelName : Settings.Value.TwitchUserLogin;
+            return Clean(message.User).Equals(Clean(expected), StringComparison.OrdinalIgnoreCase);
+        }
+        if (message.Platform.Equals("YOUTUBE", StringComparison.OrdinalIgnoreCase))
+            return Clean(message.User).Equals(Clean(Settings.Value.YouTubeChannelName), StringComparison.OrdinalIgnoreCase);
+        return false;
+    }
+
+    private string OwnDisplayName(string platform)
+    {
+        if (platform.Equals("TWITCH", StringComparison.OrdinalIgnoreCase))
+            return string.IsNullOrWhiteSpace(Settings.Value.TwitchUserLogin) ? Settings.Value.TwitchChannelName : Settings.Value.TwitchUserLogin;
+        if (platform.Equals("YOUTUBE", StringComparison.OrdinalIgnoreCase))
+        {
+            var value = Settings.Value.YouTubeChannelName.Trim();
+            return value.StartsWith('@') ? value : "@" + value;
+        }
+        return "TiHiY-DED";
+    }
+
+    private static string OutgoingKey(string platform, string text) => $"{platform.Trim().ToUpperInvariant()}|{text.Trim()}";
+
+    private void ApplyPlatformNicknameColor(ChatMessage message)
+    {
+        if (!string.IsNullOrWhiteSpace(message.Foreground) &&
+            !message.Foreground.Equals("#EDF7FF", StringComparison.OrdinalIgnoreCase) &&
+            !message.Foreground.Equals("#F2FAFF", StringComparison.OrdinalIgnoreCase)) return;
+        message.Foreground = PlatformNicknameColor(message.Platform, message.Role, message.User);
+    }
+
+    private static string PlatformNicknameColor(string platform, string role, string user)
+    {
+        if (platform.Equals("YOUTUBE", StringComparison.OrdinalIgnoreCase))
+        {
+            if (role.Equals("Owner", StringComparison.OrdinalIgnoreCase)) return "#FFD600";
+            if (role.Equals("Moderator", StringComparison.OrdinalIgnoreCase)) return "#5E84F1";
+            if (role.Equals("Subscriber", StringComparison.OrdinalIgnoreCase)) return "#2BA640";
+            if (role.Equals("Donor", StringComparison.OrdinalIgnoreCase)) return "#00C8FF";
+            return "#B8C7D9";
+        }
+        if (platform.Equals("TWITCH", StringComparison.OrdinalIgnoreCase))
+        {
+            if (role.Equals("Owner", StringComparison.OrdinalIgnoreCase)) return "#FFD329";
+            if (role.Equals("Moderator", StringComparison.OrdinalIgnoreCase)) return "#00AD03";
+            if (role.Equals("VIP", StringComparison.OrdinalIgnoreCase)) return "#E91916";
+            if (role.Equals("Subscriber", StringComparison.OrdinalIgnoreCase)) return "#A970FF";
+            return TwitchFallbackPalette[StableHash(user) % TwitchFallbackPalette.Length];
+        }
+        if (platform.Equals("DONATELLO", StringComparison.OrdinalIgnoreCase)) return "#FFD329";
+        return "#55C8FF";
+    }
+
+    private static int StableHash(string value)
+    {
+        unchecked
+        {
+            var hash = 17;
+            foreach (var c in value ?? string.Empty) hash = hash * 31 + char.ToUpperInvariant(c);
+            return hash == int.MinValue ? 0 : Math.Abs(hash);
+        }
     }
 
     public Task ModerateAsync(ChatMessage m, bool ban, int timeoutSeconds = 600)
