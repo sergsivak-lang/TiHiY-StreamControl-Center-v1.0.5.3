@@ -46,16 +46,24 @@ public partial class HudWindow : Window
         OverlayFrame.Background = new SolidColorBrush(Color.FromArgb((byte)Math.Round(Math.Clamp(s.LocalChatOverlayBackgroundOpacity, 0, .85) * 255), 0, 0, 0));
         ViewerStatsBar.SetValue(TextElement.FontSizeProperty, Math.Clamp(s.LocalChatOverlayFontSize * .65, 9, 20));
         ApplyWindowFlags();
-        TrimMessages();
+        if (IsLoaded) RebuildMessages();
+        else TrimMessages();
         RefreshStats();
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
-        foreach (var m in _core.Chat.TakeLast(Math.Max(3, _core.Settings.Value.LocalChatOverlayMaxMessages))) AddChat(m);
+        RebuildMessages();
         RefreshStats();
         RefreshLiveTime();
         _liveTimer.Start();
+    }
+
+    private void RebuildMessages()
+    {
+        OverlayChatStack.Children.Clear();
+        foreach (var m in _core.Chat.TakeLast(Math.Max(3, _core.Settings.Value.LocalChatOverlayMaxMessages))) AddChat(m, false);
+        OverlayScroll.ScrollToEnd();
     }
 
     private void Window_SourceInitialized(object? sender, EventArgs e)
@@ -68,13 +76,18 @@ public partial class HudWindow : Window
     private void Stats_PropertyChanged(object? sender, PropertyChangedEventArgs e) => Dispatcher.BeginInvoke(new Action(RefreshStats));
     private void Core_StatusChanged(object? sender, EventArgs e) => Dispatcher.BeginInvoke(new Action(RefreshStats));
 
-    private void AddChat(ChatMessage m)
+    private void AddChat(ChatMessage m, bool scroll = true)
     {
-        var row = LiteChatVisual.BuildHudRow(m, Math.Clamp(_core.Settings.Value.LocalChatOverlayFontSize, 11, 42));
+        var s = _core.Settings.Value;
+        var row = LiteChatVisual.BuildHudRow(
+            m,
+            Math.Clamp(s.LocalChatOverlayFontSize, 11, 42),
+            s.LocalChatOverlayTextColor,
+            s.LocalChatOverlayUserColor);
         if (row is Border border) border.Background = Brushes.Transparent;
         OverlayChatStack.Children.Add(row);
         TrimMessages();
-        OverlayScroll.ScrollToEnd();
+        if (scroll) OverlayScroll.ScrollToEnd();
     }
 
     private void TrimMessages()
