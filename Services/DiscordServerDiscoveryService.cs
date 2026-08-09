@@ -12,6 +12,8 @@ public static class DiscordServerDiscoveryService
     private const ulong SendMessages = 1UL << 11;
     private const ulong EmbedLinks = 1UL << 14;
     private const ulong MentionEveryone = 1UL << 17;
+    private const ulong CreatePublicThreads = 1UL << 35;
+    private const ulong SendMessagesInThreads = 1UL << 38;
 
     public static async Task<IReadOnlyList<DiscordServerChannelInfo>> DiscoverAsync(
         string botToken,
@@ -140,10 +142,12 @@ public static class DiscordServerDiscoveryService
         foreach (var channel in channels)
         {
             var type = channel["type"]?.GetValue<int>() ?? -1;
-            if (type is not (0 or 5)) continue;
+            if (type is not (0 or 5 or 15 or 16)) continue;
+
             var permissions = ApplyOverwrites(basePermissions, channel["permission_overwrites"] as JsonArray, guildId, botUserId, memberRoleIds);
             var parentId = channel["parent_id"]?.GetValue<string>();
             categories.TryGetValue(parentId ?? string.Empty, out var categoryName);
+            var forumLike = type is 15 or 16;
 
             yield return new DiscordServerChannelInfo
             {
@@ -156,6 +160,8 @@ public static class DiscordServerDiscoveryService
                 Position = channel["position"]?.GetValue<int>() ?? 0,
                 CanView = Has(permissions, ViewChannel),
                 CanSend = Has(permissions, SendMessages),
+                CanCreatePosts = forumLike && (Has(permissions, SendMessages) || Has(permissions, CreatePublicThreads)),
+                CanSendInThreads = forumLike && Has(permissions, SendMessagesInThreads),
                 CanEmbedLinks = Has(permissions, EmbedLinks),
                 CanMentionEveryone = Has(permissions, MentionEveryone)
             };
